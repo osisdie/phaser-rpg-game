@@ -2,7 +2,7 @@
 
 > 一款以 Phaser 3 打造的 2D 像素風 JRPG，全程式生成美術、回合制戰鬥、12 大區域冒險。
 
-[![CI](https://github.com/<owner>/phaser-rpg-game/actions/workflows/ci.yml/badge.svg)](https://github.com/<owner>/phaser-rpg-game/actions/workflows/ci.yml)
+[![CI](https://github.com/osisdie/phaser-rpg-game/actions/workflows/ci.yml/badge.svg)](https://github.com/osisdie/phaser-rpg-game/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
@@ -51,7 +51,7 @@
 ### Installation
 
 ```bash
-git clone https://github.com/<owner>/phaser-rpg-game.git
+git clone https://github.com/osisdie/phaser-rpg-game.git
 cd phaser-rpg-game
 pnpm install
 ```
