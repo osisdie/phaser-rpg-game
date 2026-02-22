@@ -1,0 +1,45 @@
+# Pre-commit hooks for AI RPG Game (Phaser + TypeScript + Vite)
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # =============================================================================
+  # 通用檢查
+  # =============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=2000']
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-case-conflict
+      - id: check-symlinks
+
+  # =============================================================================
+  # Conventional Commits 驗證
+  # =============================================================================
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+
+  # =============================================================================
+  # 前端 TypeScript (pnpm + tsc，與 CI 一致)
+  # =============================================================================
+  - repo: local
+    hooks:
+      - id: frontend-tsc
+        name: TypeScript check
+        entry: bash -c 'pnpm exec tsc --noEmit'
+        language: system
+        files: ^src/.*\.(ts|tsx)$
+        pass_filenames: false

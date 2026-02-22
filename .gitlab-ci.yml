@@ -1,0 +1,42 @@
+stages:
+  - lint
+  - build
+
+# ─── Stage 1: Lint (TypeScript) ─────────────
+
+lint:
+  stage: lint
+  image: node:20-alpine
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@9 --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm exec tsc --noEmit
+  cache:
+    key: pnpm-$CI_COMMIT_REF_SLUG
+    paths:
+      - .pnpm-store/
+    policy: pull-push
+
+# ─── Stage 2: Build (Vite) ─────────────
+
+build:
+  stage: build
+  image: node:20-alpine
+  needs: [lint]
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@9 --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm run build
+  cache:
+    key: pnpm-$CI_COMMIT_REF_SLUG
+    paths:
+      - .pnpm-store/
+    policy: pull
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 7 days
