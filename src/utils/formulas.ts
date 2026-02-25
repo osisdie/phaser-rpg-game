@@ -6,15 +6,17 @@ export function calculateDamage(attackerAtk: number, defenderDef: number): numbe
   return Math.max(1, Math.floor(raw));
 }
 
-/** 技能傷害: power × ATK / 100 × (1 + random(0, 0.15)) - DEF × 0.3 */
-export function calculateSkillDamage(power: number, attackerAtk: number, defenderDef: number): number {
-  const raw = (power * attackerAtk / 100) * (1 + Math.random() * 0.15) - defenderDef * 0.3;
+/** 技能傷害: power × levelScale × ATK / 100 × (1 + random(0, 0.15)) - DEF × 0.3 */
+export function calculateSkillDamage(power: number, attackerAtk: number, defenderDef: number, attackerLevel = 1): number {
+  const levelScale = 1 + (attackerLevel - 1) * 0.015; // Lv1=1.0, Lv50=1.735, Lv70=2.035
+  const raw = (power * levelScale * attackerAtk / 100) * (1 + Math.random() * 0.15) - defenderDef * 0.3;
   return Math.max(1, Math.floor(raw));
 }
 
-/** 回復量: power × (1 + random(0, 0.1)) */
-export function calculateHeal(power: number): number {
-  return Math.floor(power * (1 + Math.random() * 0.1));
+/** 回復量: power × (1 + level × 0.02) × (1 + random(0, 0.1)) */
+export function calculateHeal(power: number, healerLevel = 1): number {
+  const levelScale = 1 + (healerLevel - 1) * 0.02; // Lv1=1.0, Lv50=1.98, Lv70=2.38
+  return Math.floor(power * levelScale * (1 + Math.random() * 0.1));
 }
 
 /** 經驗值需求: level^2.5 × 10 */

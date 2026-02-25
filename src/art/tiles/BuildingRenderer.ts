@@ -7,13 +7,7 @@ import { ArtRegistry } from '../index';
 export class BuildingRenderer {
 
   static generateAll(scene: Phaser.Scene): void {
-    // Generic buildings
-    this.generateBuilding(scene, 'bld_tudor', MEDIEVAL.woodMedium, MEDIEVAL.parchment, MEDIEVAL.roofMedium);
-    this.generateBuilding(scene, 'bld_shop', MEDIEVAL.woodLight, MEDIEVAL.parchmentLight, MEDIEVAL.roofDark);
-    this.generateBuilding(scene, 'bld_castle', MEDIEVAL.stoneMedium, MEDIEVAL.stoneLight, MEDIEVAL.stoneDark);
-    this.generateBuilding(scene, 'bld_inn', MEDIEVAL.woodDark, MEDIEVAL.parchmentDark, MEDIEVAL.roofLight);
-
-    // Decorations
+    // Decorations (shared across all regions)
     this.generateTree(scene, 'deco_tree_green', '#3a7a2a', '#2a5a1a', '#5a3a1a');
     this.generateTree(scene, 'deco_tree_dark', '#1a5a1a', '#0a3a0a', '#4a3a2a');
     this.generateTree(scene, 'deco_tree_autumn', '#aa6622', '#884411', '#5a3a1a');
@@ -25,8 +19,13 @@ export class BuildingRenderer {
 
     this.generateFlowerPatch(scene, 'deco_flowers', '#3a7a2a');
     this.generateWell(scene, 'deco_well');
+    this.generateStump(scene, 'deco_stump');
+    this.generateLargeRock(scene, 'deco_large_rock', '#888888', '#555555');
+    this.generateBush(scene, 'deco_bush_green', '#3a7a2a');
+    this.generateBush(scene, 'deco_bush_dark', '#1a5a1a');
+    this.generateWaterTile(scene, 'deco_water', '#336688');
 
-    // Region-specific decorations
+    // Region-specific buildings (4 variants each) + trees
     const regions = [
       'region_hero', 'region_elf', 'region_treant', 'region_beast',
       'region_merfolk', 'region_giant', 'region_dwarf', 'region_undead',
@@ -35,76 +34,297 @@ export class BuildingRenderer {
     for (const rid of regions) {
       const pal = getRegionPalette(rid);
       this.generateTree(scene, `deco_tree_${rid}`, pal.tree[1], darken(pal.tree[1], 0.2), pal.tree[0]);
-      this.generateBuilding(scene, `bld_region_${rid}`, pal.wall[1], pal.wall[2], darken(pal.wall[0], 0.1));
+      this.generateBush(scene, `deco_bush_${rid}`, pal.tree[1]);
+
+      // Castle per region (5×5 tile for town center, 3×3 for world map)
+      this.generateCastle(scene, `bld_castle_${rid}`, pal.wall[1], darken(pal.wall[0], 0.1), pal.accent, 5);
+      this.generateCastle(scene, `bld_castle_sm_${rid}`, pal.wall[1], darken(pal.wall[0], 0.1), pal.accent, 3);
+
+      // Town entrance gate (3×2 tile archway with kingdom banner)
+      this.generateGate(scene, `bld_gate_${rid}`, pal.wall[1], darken(pal.wall[0], 0.1), pal.accent);
+
+      // 4 building variants per region — different roof styles, details, accents
+      this.generateBuilding(scene, `bld_region_${rid}_0`, pal.wall[1], pal.wall[2], darken(pal.wall[0], 0.1), pal.accent, 'peaked');
+      this.generateBuilding(scene, `bld_region_${rid}_1`, darken(pal.wall[1], 0.1), pal.wall[2], pal.wall[0], pal.accent, 'flat');
+      this.generateBuilding(scene, `bld_region_${rid}_2`, lighten(pal.wall[1], 0.1), lighten(pal.wall[2], 0.05), darken(pal.wall[0], 0.15), pal.accent, 'gabled');
+      this.generateBuilding(scene, `bld_region_${rid}_3`, pal.wall[0], pal.wall[1], darken(pal.wall[0], 0.2), pal.accent, 'tower');
+
+      // Keep legacy key pointing to variant 0
+      if (!scene.textures.exists(`bld_region_${rid}`)) {
+        this.generateBuilding(scene, `bld_region_${rid}`, pal.wall[1], pal.wall[2], darken(pal.wall[0], 0.1), pal.accent, 'peaked');
+      }
+
+      // Typed buildings — inn, shop, church with distinguishing signs
+      this.generateBuilding(scene, `bld_inn_${rid}`, pal.wall[1], pal.wall[2], darken(pal.wall[0], 0.1), pal.accent, 'peaked', 'inn');
+      this.generateBuilding(scene, `bld_shop_${rid}`, lighten(pal.wall[1], 0.1), lighten(pal.wall[2], 0.05), darken(pal.wall[0], 0.15), pal.accent, 'gabled', 'shop');
+      this.generateBuilding(scene, `bld_church_${rid}`, pal.wall[0], pal.wall[1], darken(pal.wall[0], 0.2), pal.accent, 'tower', 'church');
     }
+
+    // Water feature decorations
+    this.generatePond(scene, 'deco_pond');
+    this.generateHotSpring(scene, 'deco_hotspring');
+    this.generateWaterfall(scene, 'deco_waterfall');
+
+    // Generic fallback buildings (only used if no region is specified)
+    this.generateBuilding(scene, 'bld_tudor', MEDIEVAL.woodMedium, MEDIEVAL.parchment, MEDIEVAL.roofMedium, MEDIEVAL.gold, 'peaked');
+    this.generateBuilding(scene, 'bld_shop', MEDIEVAL.woodLight, MEDIEVAL.parchmentLight, MEDIEVAL.roofDark, MEDIEVAL.gold, 'flat');
+    this.generateBuilding(scene, 'bld_castle', MEDIEVAL.stoneMedium, MEDIEVAL.stoneLight, MEDIEVAL.stoneDark, MEDIEVAL.gold, 'tower');
+    this.generateBuilding(scene, 'bld_inn', MEDIEVAL.woodDark, MEDIEVAL.parchmentDark, MEDIEVAL.roofLight, MEDIEVAL.gold, 'gabled');
   }
 
-  /** Generate a 2×2 tile (64×64) Tudor-style building */
-  private static generateBuilding(scene: Phaser.Scene, key: string, frameColor: string, wallColor: string, roofColor: string): void {
+  /** Generate a 2×2 tile (64×64) building with transparent background, kingdom colors, and asymmetric design */
+  private static generateBuilding(
+    scene: Phaser.Scene, key: string,
+    frameColor: string, wallColor: string, roofColor: string,
+    accentColor: string, roofStyle: 'peaked' | 'flat' | 'gabled' | 'tower',
+    signType?: 'inn' | 'shop' | 'church',
+  ): void {
     if (scene.textures.exists(key)) return;
     const W = TILE_SIZE * 2;
     const H = TILE_SIZE * 2;
     const { canvas, ctx } = ArtRegistry.createCanvas(W, H);
 
-    // Roof (top third, triangular)
-    const roofH = Math.floor(H * 0.35);
-    ctx.fillStyle = roofColor;
-    for (let y = 0; y < roofH; y++) {
-      const t = y / roofH;
-      const indent = Math.floor((1 - t) * W * 0.4);
-      ctx.fillStyle = varyColor(roofColor, 5);
-      ctx.fillRect(indent, y, W - indent * 2, 1);
-    }
-    // Roof edge
-    ctx.fillStyle = darken(roofColor, 0.2);
-    ctx.fillRect(0, roofH - 1, W, 2);
+    const margin = 8;
+    // Asymmetry seed based on roof style — different variants look different
+    const asymDir = roofStyle === 'peaked' || roofStyle === 'tower' ? -1 : 1; // door offset direction
+    const doorOffX = asymDir * 5;
 
-    // Wall (below roof)
-    for (let y = roofH; y < H - 2; y++) {
-      for (let x = 2; x < W - 2; x++) {
+    // ── Ground shadow (semi-transparent oval) ──
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+    fillOval(ctx, margin - 2, H - 7, W - margin * 2 + 4, 9);
+
+    // ── Chimney (only peaked/gabled, on one side) ──
+    if (roofStyle === 'peaked' || roofStyle === 'gabled') {
+      const chimX = roofStyle === 'peaked' ? W - margin - 6 : margin + 2;
+      ctx.fillStyle = darken(wallColor, 0.2);
+      ctx.fillRect(chimX, 2, 5, 14);
+      ctx.fillStyle = darken(wallColor, 0.3);
+      ctx.fillRect(chimX - 1, 2, 7, 2); // chimney cap
+      // Smoke wisps
+      ctx.fillStyle = 'rgba(180,180,180,0.3)';
+      ctx.fillRect(chimX + 1, 0, 2, 2);
+    }
+
+    // ── Roof ──
+    const roofH = roofStyle === 'tower' ? Math.floor(H * 0.25) : Math.floor(H * 0.33);
+    const roofBase = roofStyle === 'flat' ? 3 : 0;
+
+    if (roofStyle === 'peaked') {
+      for (let y = roofBase; y < roofH; y++) {
+        const rt = y / roofH;
+        const indent = margin + Math.floor((1 - rt) * (W / 2 - margin) * 0.65);
+        ctx.fillStyle = varyColor(roofColor, 5);
+        ctx.fillRect(indent, y, Math.max(1, W - indent * 2), 1);
+      }
+    } else if (roofStyle === 'flat') {
+      for (let y = roofBase; y < roofH; y++) {
+        ctx.fillStyle = varyColor(roofColor, 5);
+        ctx.fillRect(margin - 2, y, W - (margin - 2) * 2, 1);
+      }
+      ctx.fillStyle = darken(roofColor, 0.15);
+      for (let x = margin - 2; x < W - margin + 2; x += 4) {
+        ctx.fillRect(x, roofBase, 2, 4);
+      }
+    } else if (roofStyle === 'gabled') {
+      for (let y = 0; y < roofH; y++) {
+        const rt = y / roofH;
+        const indent = margin + Math.floor((1 - rt) * (W / 2 - margin) * 0.85);
+        ctx.fillStyle = varyColor(roofColor, 5);
+        ctx.fillRect(indent, y, Math.max(1, W - indent * 2), 1);
+      }
+      ctx.fillStyle = lighten(roofColor, 0.15);
+      ctx.fillRect(W / 2 - 1, 0, 2, 4);
+    } else {
+      for (let y = 0; y < roofH; y++) {
+        const rt = y / roofH;
+        const indent = margin + 2 + Math.floor((1 - rt) * (W / 2 - margin - 4) * 0.5);
+        ctx.fillStyle = varyColor(roofColor, 5);
+        ctx.fillRect(indent, y, Math.max(1, W - indent * 2), 1);
+      }
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(W / 2 - 1, 0, 2, 3);
+    }
+
+    // Roof edge
+    ctx.fillStyle = darken(roofColor, 0.25);
+    ctx.fillRect(margin - 1, roofH - 1, W - (margin - 1) * 2, 2);
+
+    // ── Walls with subtle color variation ──
+    const wallTop = roofH;
+    const wallBot = H - 5;
+    for (let y = wallTop; y < wallBot; y++) {
+      for (let x = margin; x < W - margin; x++) {
+        const edgeDist = Math.min(x - margin, W - margin - 1 - x, y - wallTop);
+        if (edgeDist === 0 && (x + y) % 2 === 0) continue;
         ctx.fillStyle = varyColor(wallColor, 4);
         ctx.fillRect(x, y, 1, 1);
       }
     }
+    // Wall shading
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(margin, wallTop, 4, wallBot - wallTop);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(W - margin - 4, wallTop, 4, wallBot - wallTop);
 
-    // Timber frame (Tudor cross-beams)
+    // ── Timber frame ──
     ctx.fillStyle = frameColor;
-    // Vertical beams
-    ctx.fillRect(2, roofH, 3, H - roofH);
-    ctx.fillRect(W - 5, roofH, 3, H - roofH);
-    ctx.fillRect(W / 2 - 1, roofH, 3, H - roofH);
-    // Horizontal beam
-    ctx.fillRect(2, roofH + Math.floor((H - roofH) * 0.5), W - 4, 3);
-    // Diagonal beams (X pattern)
-    for (let i = 0; i < 10; i++) {
-      const t = i / 10;
-      ctx.fillRect(Math.round(5 + t * (W / 2 - 7)), Math.round(roofH + 3 + t * ((H - roofH) * 0.45)), 2, 2);
-      ctx.fillRect(Math.round(W / 2 - 2 - t * (W / 2 - 7)), Math.round(roofH + 3 + t * ((H - roofH) * 0.45)), 2, 2);
+    ctx.fillRect(margin, wallTop, 2, wallBot - wallTop);
+    ctx.fillRect(W - margin - 2, wallTop, 2, wallBot - wallTop);
+    const beamY = wallTop + Math.floor((wallBot - wallTop) * 0.45);
+    ctx.fillRect(margin, beamY, W - margin * 2, 2);
+
+    // ── Windows — asymmetric placement with colorful shutters ──
+    const winY = wallTop + 6;
+    // Left window (all styles)
+    const lwx = margin + 6;
+    ctx.fillStyle = '#223355';
+    ctx.fillRect(lwx, winY, 4, 5);
+    ctx.fillStyle = darken(frameColor, 0.1);
+    ctx.fillRect(lwx - 1, winY - 1, 6, 1);
+    ctx.fillRect(lwx - 1, winY + 5, 6, 1);
+    // Left window shutters (accent color)
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(lwx - 3, winY, 2, 5);
+    ctx.fillRect(lwx + 5, winY, 2, 5);
+    // Window cross
+    ctx.fillStyle = darken(frameColor, 0.1);
+    ctx.fillRect(lwx + 1, winY, 1, 5);
+
+    // Right window — offset differently per style for asymmetry
+    if (roofStyle !== 'tower') {
+      const rwx = W - margin - 11;
+      ctx.fillStyle = '#223355';
+      ctx.fillRect(rwx, winY, 4, 5);
+      ctx.fillStyle = darken(frameColor, 0.1);
+      ctx.fillRect(rwx - 1, winY - 1, 6, 1);
+      ctx.fillRect(rwx - 1, winY + 5, 6, 1);
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(rwx - 3, winY, 2, 5);
+      ctx.fillRect(rwx + 5, winY, 2, 5);
+      ctx.fillStyle = darken(frameColor, 0.1);
+      ctx.fillRect(rwx + 1, winY, 1, 5);
+    } else {
+      // Tower: single tall arched window
+      const twx = W / 2 - 2;
+      ctx.fillStyle = '#223355';
+      ctx.fillRect(twx, winY, 4, 9);
+      ctx.fillStyle = darken(frameColor, 0.1);
+      ctx.fillRect(twx - 1, winY - 1, 6, 1);
     }
 
-    // Window
-    ctx.fillStyle = '#334466';
-    ctx.fillRect(W / 2 - 5, roofH + 8, 4, 6);
-    ctx.fillRect(W / 2 + 2, roofH + 8, 4, 6);
-    // Window frame
-    ctx.fillStyle = darken(frameColor, 0.1);
-    ctx.fillRect(W / 2 - 6, roofH + 7, 13, 1);
-    ctx.fillRect(W / 2 - 6, roofH + 15, 13, 1);
+    // Window reflections
+    ctx.fillStyle = 'rgba(150,180,220,0.35)';
+    ctx.fillRect(lwx, winY + 1, 1, 1);
 
-    // Door
-    const doorX = W / 2 - 4;
-    const doorY = H - 16;
-    ctx.fillStyle = darken(frameColor, 0.15);
-    ctx.fillRect(doorX, doorY, 9, 14);
-    ctx.fillStyle = frameColor;
-    ctx.fillRect(doorX + 1, doorY + 1, 7, 12);
-    // Door handle
+    // ── Door — offset for asymmetry ──
+    const doorX = W / 2 - 4 + doorOffX;
+    const doorY = wallBot - 15;
+    // Colored door using accent
+    ctx.fillStyle = darken(accentColor, 0.3);
+    ctx.fillRect(doorX - 1, doorY - 1, 10, 16); // frame
+    ctx.fillStyle = darken(accentColor, 0.1);
+    ctx.fillRect(doorX, doorY, 8, 14);
+    ctx.fillStyle = darken(accentColor, 0.2);
+    ctx.fillRect(doorX + 3, doorY, 1, 14); // plank
     ctx.fillStyle = MEDIEVAL.gold;
-    ctx.fillRect(doorX + 6, doorY + 7, 1, 1);
+    ctx.fillRect(doorX + 6, doorY + 7, 1, 2); // handle
+    // Door arch for tower/gabled
+    if (roofStyle === 'tower' || roofStyle === 'gabled') {
+      ctx.fillStyle = darken(frameColor, 0.15);
+      ctx.fillRect(doorX, doorY - 2, 8, 2);
+    }
 
-    // Foundation
-    ctx.fillStyle = MEDIEVAL.stoneDark;
-    ctx.fillRect(0, H - 2, W, 2);
+    // ── Flower box under left window ──
+    if (roofStyle === 'peaked' || roofStyle === 'flat') {
+      ctx.fillStyle = darken(frameColor, 0.1);
+      ctx.fillRect(lwx - 2, winY + 6, 9, 2);
+      // Flowers using accent color
+      ctx.fillStyle = lighten(accentColor, 0.2);
+      ctx.fillRect(lwx - 1, winY + 4, 2, 2);
+      ctx.fillRect(lwx + 2, winY + 3, 2, 3);
+      ctx.fillRect(lwx + 5, winY + 4, 2, 2);
+    }
+
+    // ── Hanging sign (shop-style, flat roof only) ──
+    if (roofStyle === 'flat') {
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(W / 2 - 6, roofH + 1, 12, 4);
+      ctx.fillStyle = darken(accentColor, 0.3);
+      ctx.fillRect(W / 2 - 1, roofH - 1, 2, 3);
+    }
+
+    // ── Banner/flag (tower only, skip for church cross) ──
+    if (roofStyle === 'tower' && signType !== 'church') {
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(W / 2 + 1, 0, 6, 4);
+      ctx.fillRect(W / 2 + 1, 4, 5, 1);
+      ctx.fillStyle = lighten(accentColor, 0.2);
+      ctx.fillRect(W / 2 + 2, 1, 2, 2);
+    }
+
+    // ── Colored roof trim ──
+    if (roofStyle === 'peaked' || roofStyle === 'gabled') {
+      ctx.fillStyle = accentColor;
+      for (let x = margin + 2; x < W - margin - 2; x += 3) {
+        ctx.fillRect(x, roofH, 2, 2);
+      }
+    }
+
+    // ── Lantern on one side ──
+    if (roofStyle === 'gabled') {
+      const lx = W - margin - 3;
+      const ly = beamY - 4;
+      ctx.fillStyle = MEDIEVAL.ironDark;
+      ctx.fillRect(lx, ly, 1, 4);
+      ctx.fillStyle = '#ffcc44';
+      ctx.fillRect(lx - 1, ly + 1, 3, 2);
+    }
+
+    // ── Foundation ──
+    ctx.fillStyle = darken(wallColor, 0.25);
+    ctx.fillRect(margin, wallBot, W - margin * 2, 3);
+    ctx.fillStyle = darken(wallColor, 0.15);
+    ctx.fillRect(margin - 1, wallBot + 1, 1, 2);
+    ctx.fillRect(W - margin, wallBot + 1, 1, 2);
+
+    // ── Building type signs ──
+    if (signType === 'inn') {
+      // Hanging sign with mug icon
+      const sX = doorX + 12;
+      ctx.fillStyle = MEDIEVAL.ironMedium;
+      ctx.fillRect(sX, beamY, 1, 6);
+      ctx.fillStyle = MEDIEVAL.woodLight;
+      ctx.fillRect(sX - 4, beamY + 6, 9, 6);
+      ctx.fillStyle = MEDIEVAL.woodDark;
+      ctx.fillRect(sX - 4, beamY + 6, 9, 1);
+      ctx.fillStyle = '#ffcc44';
+      ctx.fillRect(sX - 2, beamY + 8, 3, 3);
+      ctx.fillRect(sX + 1, beamY + 9, 1, 1);
+      // Warm door glow
+      ctx.fillStyle = 'rgba(255,180,80,0.2)';
+      ctx.fillRect(doorX - 1, wallBot - 2, 10, 3);
+    } else if (signType === 'shop') {
+      // Hanging sign with sword icon
+      const sX = W - margin - 4;
+      ctx.fillStyle = MEDIEVAL.ironMedium;
+      ctx.fillRect(sX, beamY, 1, 6);
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(sX - 5, beamY + 6, 8, 5);
+      ctx.fillStyle = darken(accentColor, 0.3);
+      ctx.fillRect(sX - 5, beamY + 6, 8, 1);
+      ctx.fillStyle = '#ccccdd';
+      ctx.fillRect(sX - 2, beamY + 7, 1, 3);
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(sX - 3, beamY + 7, 3, 1);
+    } else if (signType === 'church') {
+      // Cross on top of tower
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(W / 2 - 1, 0, 3, 8);
+      ctx.fillRect(W / 2 - 3, 2, 7, 3);
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(W / 2, 0, 1, 8);
+      ctx.fillRect(W / 2 - 3, 3, 7, 1);
+    }
 
     ArtRegistry.registerTexture(scene, key, canvas);
   }
@@ -190,6 +410,327 @@ export class BuildingRenderer {
     ArtRegistry.registerTexture(scene, key, canvas);
   }
 
+  /** Generate a bush decoration */
+  private static generateBush(scene: Phaser.Scene, key: string, leafColor: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    ctx.fillStyle = darken(leafColor, 0.15);
+    fillOval(ctx, S * 0.1, S * 0.35, S * 0.8, S * 0.45);
+    ctx.fillStyle = leafColor;
+    fillOval(ctx, S * 0.15, S * 0.3, S * 0.65, S * 0.38);
+    ctx.fillStyle = lighten(leafColor, 0.15);
+    fillOval(ctx, S * 0.25, S * 0.28, S * 0.35, S * 0.2);
+    // Berry dots
+    ctx.fillStyle = '#cc3344';
+    ctx.fillRect(Math.round(S * 0.3), Math.round(S * 0.45), 2, 2);
+    ctx.fillRect(Math.round(S * 0.55), Math.round(S * 0.42), 2, 2);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a large rock (1.5× normal) */
+  private static generateLargeRock(scene: Phaser.Scene, key: string, baseColor: string, darkColor: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    // Multiple overlapping shapes for a natural boulder
+    ctx.fillStyle = darkColor;
+    fillOval(ctx, S * 0.05, S * 0.2, S * 0.9, S * 0.65);
+    ctx.fillStyle = baseColor;
+    fillOval(ctx, S * 0.1, S * 0.15, S * 0.75, S * 0.55);
+    fillOval(ctx, S * 0.2, S * 0.1, S * 0.5, S * 0.4);
+    // Crack detail
+    ctx.fillStyle = darken(baseColor, 0.2);
+    ctx.fillRect(Math.round(S * 0.4), Math.round(S * 0.3), 1, Math.round(S * 0.25));
+    // Highlight
+    ctx.fillStyle = lighten(baseColor, 0.25);
+    ctx.fillRect(Math.round(S * 0.25), Math.round(S * 0.18), 4, 3);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a water tile for rivers/ponds */
+  private static generateWaterTile(scene: Phaser.Scene, key: string, waterColor: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    // Base water
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        const wave = Math.sin(x * 0.4 + y * 0.2) * 8;
+        ctx.fillStyle = varyColor(waterColor, 4 + Math.round(wave));
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // Foam highlights
+    ctx.fillStyle = 'rgba(200,230,255,0.25)';
+    ctx.fillRect(Math.round(S * 0.2), Math.round(S * 0.3), 4, 1);
+    ctx.fillRect(Math.round(S * 0.6), Math.round(S * 0.6), 3, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a dead stump for dark regions */
+  private static generateStump(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    // Dead trunk
+    ctx.fillStyle = '#4a3a2a';
+    ctx.fillRect(S / 2 - 3, S * 0.3, 6, S * 0.55);
+    ctx.fillStyle = '#3a2a1a';
+    ctx.fillRect(S / 2 - 4, S * 0.3, 8, 3); // top
+    // Dead branches
+    ctx.fillStyle = '#3a2a1a';
+    ctx.fillRect(S / 2 + 3, S * 0.35, 6, 2);
+    ctx.fillRect(S / 2 - 7, S * 0.4, 5, 2);
+    ctx.fillRect(S / 2 + 5, S * 0.28, 2, 4);
+    // Hollow
+    ctx.fillStyle = '#1a0a00';
+    ctx.fillRect(S / 2 - 1, S * 0.5, 3, 4);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a castle (scalable: tiles=3 for 96px, tiles=5 for 160px) */
+  static generateCastle(scene: Phaser.Scene, key: string, wallColor: string, roofColor: string, accentColor: string, tiles: number = 3): void {
+    if (scene.textures.exists(key)) return;
+    const W = TILE_SIZE * tiles;
+    const H = TILE_SIZE * tiles;
+    const { canvas, ctx } = ArtRegistry.createCanvas(W, H);
+    const s = tiles / 3; // scale factor relative to original 3-tile size
+
+    const m = Math.round(6 * s);
+    const r = (v: number) => Math.round(v * s); // scale helper
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    fillOval(ctx, m, H - r(8), W - m * 2, r(12));
+
+    // ── Main castle body ──
+    const bodyTop = Math.round(H * 0.3);
+    const bodyBot = H - r(6);
+    for (let y = bodyTop; y < bodyBot; y++) {
+      for (let x = m + r(10); x < W - m - r(10); x++) {
+        ctx.fillStyle = varyColor(wallColor, 3);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // ── Left tower ──
+    const towerW = r(18);
+    const towerTop = Math.round(H * 0.15);
+    for (let y = towerTop; y < bodyBot; y++) {
+      for (let x = m; x < m + towerW; x++) {
+        ctx.fillStyle = varyColor(wallColor, 3);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    for (let y = 0; y < towerTop; y++) {
+      const rt = y / towerTop;
+      const indent = m + Math.floor((1 - rt) * towerW * 0.4);
+      ctx.fillStyle = varyColor(roofColor, 4);
+      ctx.fillRect(indent, y, Math.max(1, m + towerW - indent - Math.floor((1 - rt) * towerW * 0.4)), 1);
+    }
+
+    // ── Right tower ──
+    for (let y = towerTop; y < bodyBot; y++) {
+      for (let x = W - m - towerW; x < W - m; x++) {
+        ctx.fillStyle = varyColor(wallColor, 3);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    for (let y = 0; y < towerTop; y++) {
+      const rt = y / towerTop;
+      const indent = Math.floor((1 - rt) * towerW * 0.4);
+      ctx.fillStyle = varyColor(roofColor, 4);
+      ctx.fillRect(W - m - towerW + indent, y, Math.max(1, towerW - indent * 2), 1);
+    }
+
+    // ── Extra flanking towers (only for larger castles) ──
+    if (tiles >= 5) {
+      const fTowerW = r(12);
+      const fTowerTop = Math.round(H * 0.22);
+      // Far-left flanking tower
+      for (let y = fTowerTop; y < bodyBot; y++) {
+        for (let x = m + towerW + r(2); x < m + towerW + r(2) + fTowerW; x++) {
+          ctx.fillStyle = varyColor(darken(wallColor, 0.05), 3);
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      // Far-right flanking tower
+      for (let y = fTowerTop; y < bodyBot; y++) {
+        for (let x = W - m - towerW - r(2) - fTowerW; x < W - m - towerW - r(2); x++) {
+          ctx.fillStyle = varyColor(darken(wallColor, 0.05), 3);
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      // Flanking tower roofs
+      ctx.fillStyle = darken(roofColor, 0.1);
+      ctx.fillRect(m + towerW + r(2), fTowerTop - r(3), fTowerW, r(3));
+      ctx.fillRect(W - m - towerW - r(2) - fTowerW, fTowerTop - r(3), fTowerW, r(3));
+      // Flanking battlements
+      ctx.fillStyle = lighten(wallColor, 0.1);
+      for (let x = m + towerW + r(2); x < m + towerW + r(2) + fTowerW; x += r(5)) {
+        ctx.fillRect(x, fTowerTop - r(5), r(3), r(2));
+      }
+      for (let x = W - m - towerW - r(2) - fTowerW; x < W - m - towerW - r(2); x += r(5)) {
+        ctx.fillRect(x, fTowerTop - r(5), r(3), r(2));
+      }
+    }
+
+    // ── Center tower (tallest) ──
+    const cTowerW = r(22);
+    const cTowerTop = Math.round(H * 0.08);
+    const cTowerLeft = W / 2 - cTowerW / 2;
+    for (let y = cTowerTop; y < bodyTop; y++) {
+      for (let x = Math.round(cTowerLeft); x < Math.round(cTowerLeft + cTowerW); x++) {
+        ctx.fillStyle = varyColor(lighten(wallColor, 0.05), 3);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    for (let y = 0; y < cTowerTop; y++) {
+      const rt = y / cTowerTop;
+      const w = Math.max(1, Math.round(cTowerW * rt * 0.5));
+      ctx.fillStyle = varyColor(roofColor, 4);
+      ctx.fillRect(Math.round(W / 2 - w / 2), y, w, 1);
+    }
+
+    // ── Battlements ──
+    ctx.fillStyle = lighten(wallColor, 0.1);
+    for (let x = m + r(12); x < W - m - r(12); x += r(5)) {
+      ctx.fillRect(x, bodyTop - r(4), r(3), r(4));
+    }
+    for (let x = m; x < m + towerW; x += r(5)) {
+      ctx.fillRect(x, towerTop - r(3), r(3), r(3));
+    }
+    for (let x = W - m - towerW; x < W - m; x += r(5)) {
+      ctx.fillRect(x, towerTop - r(3), r(3), r(3));
+    }
+
+    // ── Windows ──
+    ctx.fillStyle = '#1a2244';
+    ctx.fillRect(m + r(5), towerTop + r(12), r(3), r(6));
+    ctx.fillRect(m + r(10), towerTop + r(12), r(3), r(6));
+    ctx.fillRect(W - m - r(8), towerTop + r(12), r(3), r(6));
+    ctx.fillRect(W - m - r(13), towerTop + r(12), r(3), r(6));
+    const winCount = tiles >= 5 ? 6 : 4;
+    const winSpacing = Math.round((W - 2 * (m + r(18))) / winCount);
+    for (let i = 0; i < winCount; i++) {
+      const wx = m + r(18) + i * winSpacing;
+      ctx.fillRect(wx, bodyTop + r(8), r(4), r(5));
+      ctx.fillStyle = '#ffcc44';
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(wx + 1, bodyTop + r(9), r(2), r(3));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#1a2244';
+    }
+    ctx.fillRect(Math.round(W / 2 - r(2)), cTowerTop + r(6), r(4), r(8));
+
+    // ── Grand door ──
+    const gdW = r(16);
+    const gdH = r(21);
+    const gdX = Math.round(W / 2 - gdW / 2);
+    const gdY = bodyBot - gdH - r(1);
+    ctx.fillStyle = darken(accentColor, 0.3);
+    ctx.fillRect(gdX - 1, gdY - 1, gdW + 2, gdH + 2);
+    ctx.fillStyle = darken(accentColor, 0.1);
+    ctx.fillRect(gdX, gdY, gdW, gdH);
+    ctx.fillStyle = lighten(wallColor, 0.1);
+    ctx.fillRect(gdX - r(2), gdY - r(3), gdW + r(4), r(3));
+    ctx.fillStyle = darken(accentColor, 0.2);
+    ctx.fillRect(gdX + Math.round(gdW / 2) - 1, gdY, 2, gdH);
+    ctx.fillStyle = MEDIEVAL.gold;
+    ctx.fillRect(gdX + Math.round(gdW * 0.3), gdY + Math.round(gdH * 0.5), r(2), r(2));
+    ctx.fillRect(gdX + Math.round(gdW * 0.6), gdY + Math.round(gdH * 0.5), r(2), r(2));
+
+    // ── Royal banner ──
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(Math.round(W / 2 - r(4)), cTowerTop - r(2), r(8), r(6));
+    ctx.fillStyle = lighten(accentColor, 0.3);
+    ctx.fillRect(Math.round(W / 2 - r(2)), cTowerTop - 1, r(4), r(4));
+    ctx.fillStyle = MEDIEVAL.ironMedium;
+    ctx.fillRect(Math.round(W / 2), 0, 1, cTowerTop);
+
+    // ── Throne inside door (visible on larger castles) ──
+    if (tiles >= 5) {
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(gdX + Math.round(gdW / 2) - r(4), gdY + r(3), r(8), r(2));
+      ctx.fillStyle = darken(accentColor, 0.2);
+      ctx.fillRect(gdX + Math.round(gdW / 2) - r(3), gdY + r(5), r(6), r(8));
+      ctx.fillStyle = MEDIEVAL.goldDark;
+      ctx.fillRect(gdX + Math.round(gdW / 2) - r(3), gdY + r(3), r(1), r(10));
+      ctx.fillRect(gdX + Math.round(gdW / 2) + r(2), gdY + r(3), r(1), r(10));
+    }
+
+    // ── Foundation ──
+    ctx.fillStyle = darken(wallColor, 0.25);
+    ctx.fillRect(m, bodyBot, W - m * 2, r(4));
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a town gate archway (3×2 tiles, 96×64) */
+  private static generateGate(scene: Phaser.Scene, key: string, wallColor: string, roofColor: string, accentColor: string): void {
+    if (scene.textures.exists(key)) return;
+    const W = TILE_SIZE * 3;
+    const H = TILE_SIZE * 2;
+    const { canvas, ctx } = ArtRegistry.createCanvas(W, H);
+
+    // Left pillar
+    for (let y = 0; y < H; y++) {
+      for (let x = 2; x < 16; x++) {
+        ctx.fillStyle = varyColor(wallColor, 3);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // Right pillar
+    for (let y = 0; y < H; y++) {
+      for (let x = W - 16; x < W - 2; x++) {
+        ctx.fillStyle = varyColor(wallColor, 3);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // Arch beam
+    ctx.fillStyle = darken(wallColor, 0.15);
+    ctx.fillRect(2, 0, W - 4, 8);
+    ctx.fillStyle = darken(roofColor, 0.1);
+    ctx.fillRect(2, 8, W - 4, 4);
+
+    // Battlements on top
+    ctx.fillStyle = lighten(wallColor, 0.1);
+    for (let x = 0; x < W; x += 6) {
+      ctx.fillRect(x, 0, 4, 4);
+    }
+    // Pillar caps
+    ctx.fillStyle = lighten(wallColor, 0.15);
+    ctx.fillRect(0, 0, 18, 2);
+    ctx.fillRect(W - 18, 0, 18, 2);
+
+    // Kingdom banner
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(W / 2 - 8, 12, 16, 12);
+    ctx.fillStyle = lighten(accentColor, 0.3);
+    ctx.fillRect(W / 2 - 4, 14, 8, 8);
+    ctx.fillStyle = darken(accentColor, 0.3);
+    ctx.fillRect(W / 2 - 8, 12, 16, 2);
+
+    // Torch brackets on pillars
+    ctx.fillStyle = MEDIEVAL.ironDark;
+    ctx.fillRect(12, 20, 3, 2);
+    ctx.fillRect(W - 15, 20, 3, 2);
+    ctx.fillStyle = '#ffcc44';
+    ctx.fillRect(14, 17, 2, 3);
+    ctx.fillRect(W - 14, 17, 2, 3);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
   /** Generate a stone well */
   private static generateWell(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
@@ -210,6 +751,101 @@ export class BuildingRenderer {
     ctx.fillRect(Math.round(S * 0.75), Math.round(S * 0.1), 2, Math.round(S * 0.4));
     // Roof beam
     ctx.fillRect(Math.round(S * 0.15), Math.round(S * 0.1), Math.round(S * 0.7), 2);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+  /** Generate a pond (circular water body) */
+  private static generatePond(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    for (let py = 0; py < S; py++) {
+      for (let px = 0; px < S; px++) {
+        const dx = (px - S / 2) / (S * 0.4);
+        const dy = (py - S / 2) / (S * 0.35);
+        if (dx * dx + dy * dy > 1) continue;
+        const wave = Math.sin(px * 0.5 + py * 0.3) * 6;
+        ctx.fillStyle = varyColor(MEDIEVAL.waterMedium, 3 + Math.round(wave));
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    // Shore edge
+    ctx.fillStyle = MEDIEVAL.dirtMedium;
+    for (let a = 0; a < Math.PI * 2; a += 0.1) {
+      ctx.fillRect(
+        Math.round(S / 2 + Math.cos(a) * S * 0.4),
+        Math.round(S / 2 + Math.sin(a) * S * 0.35), 1, 1,
+      );
+    }
+    ctx.fillStyle = 'rgba(200,230,255,0.3)';
+    ctx.fillRect(Math.round(S * 0.35), Math.round(S * 0.35), 3, 1);
+    ctx.fillRect(Math.round(S * 0.55), Math.round(S * 0.45), 2, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a hot spring (steaming pond) */
+  private static generateHotSpring(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    for (let py = 0; py < S; py++) {
+      for (let px = 0; px < S; px++) {
+        const dx = (px - S / 2) / (S * 0.38);
+        const dy = (py - S / 2) / (S * 0.32);
+        if (dx * dx + dy * dy > 1) continue;
+        const wave = Math.sin(px * 0.4 + py * 0.2) * 5;
+        ctx.fillStyle = varyColor('#448888', 4 + Math.round(wave));
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    ctx.fillStyle = '#776655';
+    for (let a = 0; a < Math.PI * 2; a += 0.08) {
+      const r = 1 + Math.random();
+      ctx.fillRect(
+        Math.round(S / 2 + Math.cos(a) * S * 0.38),
+        Math.round(S / 2 + Math.sin(a) * S * 0.32),
+        Math.round(r), Math.round(r),
+      );
+    }
+    // Steam wisps
+    ctx.fillStyle = 'rgba(220,240,255,0.25)';
+    ctx.fillRect(Math.round(S * 0.3), Math.round(S * 0.15), 2, 4);
+    ctx.fillRect(Math.round(S * 0.5), Math.round(S * 0.1), 2, 5);
+    ctx.fillRect(Math.round(S * 0.65), Math.round(S * 0.18), 1, 3);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Generate a waterfall tile */
+  private static generateWaterfall(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+
+    // Rock face on sides
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(0, 0, Math.round(S * 0.3), S);
+    ctx.fillRect(Math.round(S * 0.7), 0, Math.round(S * 0.3), S);
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(Math.round(S * 0.25), 0, Math.round(S * 0.08), S);
+    ctx.fillRect(Math.round(S * 0.67), 0, Math.round(S * 0.08), S);
+
+    // Cascading water
+    for (let py = 0; py < S; py++) {
+      for (let px = Math.round(S * 0.3); px < Math.round(S * 0.7); px++) {
+        const shimmer = Math.sin(py * 0.8 + px * 0.3) * 8;
+        ctx.fillStyle = varyColor(MEDIEVAL.waterLight, 5 + Math.round(shimmer));
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    // Foam at bottom
+    ctx.fillStyle = 'rgba(220,240,255,0.5)';
+    ctx.fillRect(Math.round(S * 0.2), S - 4, Math.round(S * 0.6), 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(Math.round(S * 0.4), S - 3, 3, 2);
 
     ArtRegistry.registerTexture(scene, key, canvas);
   }

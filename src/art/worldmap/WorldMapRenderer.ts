@@ -195,6 +195,103 @@ export class WorldMapRenderer {
       ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.4), 2, 2);
       ctx.fillRect(Math.round(s * 0.55), Math.round(s * 0.4), 2, 2);
     });
+
+    // Treant icon (ancient tree — thicker trunk + spreading canopy, distinct from forest)
+    this.generateNodeIcon(scene, 'node_treant', (ctx, s) => {
+      // Thick trunk
+      ctx.fillStyle = '#4a2a0a';
+      ctx.fillRect(Math.round(s * 0.35), Math.round(s * 0.4), Math.round(s * 0.3), Math.round(s * 0.45));
+      // Roots
+      ctx.fillRect(Math.round(s * 0.25), Math.round(s * 0.75), Math.round(s * 0.12), Math.round(s * 0.1));
+      ctx.fillRect(Math.round(s * 0.63), Math.round(s * 0.75), Math.round(s * 0.12), Math.round(s * 0.1));
+      // Branches
+      ctx.fillStyle = '#3a1a00';
+      ctx.fillRect(Math.round(s * 0.2), Math.round(s * 0.35), Math.round(s * 0.15), Math.round(s * 0.06));
+      ctx.fillRect(Math.round(s * 0.65), Math.round(s * 0.35), Math.round(s * 0.15), Math.round(s * 0.06));
+      // Large canopy
+      ctx.fillStyle = '#1a5a1a';
+      fillOval(ctx, s * 0.1, s * 0.05, s * 0.8, s * 0.4);
+      ctx.fillStyle = '#2a7a2a';
+      fillOval(ctx, s * 0.15, s * 0.1, s * 0.7, s * 0.3);
+      // Face on trunk (treant is alive!)
+      ctx.fillStyle = '#2a1a00';
+      ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.5), 2, 2);
+      ctx.fillRect(Math.round(s * 0.55), Math.round(s * 0.5), 2, 2);
+      ctx.fillRect(Math.round(s * 0.44), Math.round(s * 0.58), Math.round(s * 0.12), 1);
+    });
+
+    // Peak icon (tall multi-peak mountain with larger snow caps, distinct from mountain)
+    this.generateNodeIcon(scene, 'node_peak', (ctx, s) => {
+      // Back peak (left)
+      ctx.fillStyle = '#8888aa';
+      fillTriangle(ctx, s * 0.3, s * 0.2, s * 0.05, s * 0.85, s * 0.55, s * 0.85);
+      // Main peak (center, tallest)
+      ctx.fillStyle = '#666688';
+      fillTriangle(ctx, s * 0.55, s * 0.05, s * 0.25, s * 0.85, s * 0.85, s * 0.85);
+      // Right peak
+      ctx.fillStyle = '#777799';
+      fillTriangle(ctx, s * 0.75, s * 0.25, s * 0.55, s * 0.85, s * 0.95, s * 0.85);
+      // Snow caps
+      ctx.fillStyle = '#eeeeff';
+      fillTriangle(ctx, s * 0.3, s * 0.2, s * 0.2, s * 0.38, s * 0.4, s * 0.38);
+      fillTriangle(ctx, s * 0.55, s * 0.05, s * 0.42, s * 0.28, s * 0.68, s * 0.28);
+      fillTriangle(ctx, s * 0.75, s * 0.25, s * 0.65, s * 0.4, s * 0.85, s * 0.4);
+    });
+
+    // Hotspring icon (pool + steam rising)
+    this.generateNodeIcon(scene, 'node_hotspring', (ctx, s) => {
+      // Pool base
+      ctx.fillStyle = '#4488bb';
+      fillOval(ctx, s * 0.15, s * 0.5, s * 0.7, s * 0.35);
+      // Pool highlight
+      ctx.fillStyle = '#66aadd';
+      fillOval(ctx, s * 0.25, s * 0.55, s * 0.5, s * 0.2);
+      // Rocks around pool
+      ctx.fillStyle = '#887766';
+      fillOval(ctx, s * 0.08, s * 0.6, s * 0.15, s * 0.12);
+      fillOval(ctx, s * 0.75, s * 0.55, s * 0.15, s * 0.14);
+      fillOval(ctx, s * 0.35, s * 0.72, s * 0.12, s * 0.1);
+      // Steam lines (3 wavy columns)
+      ctx.fillStyle = '#ccddee';
+      for (let col = 0; col < 3; col++) {
+        const baseX = s * 0.28 + col * s * 0.18;
+        for (let py = 0; py < 6; py++) {
+          const y = Math.round(s * 0.48 - py * s * 0.07);
+          const x = Math.round(baseX + Math.sin(py * 1.2 + col) * s * 0.04);
+          ctx.globalAlpha = 0.7 - py * 0.1;
+          ctx.fillRect(x, y, 2, Math.round(s * 0.04));
+        }
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    // Dwarf fortress icon (squat building + anvil symbol)
+    this.generateNodeIcon(scene, 'node_dwarf', (ctx, s) => {
+      // Mountain/cave entrance background
+      ctx.fillStyle = '#665544';
+      fillTriangle(ctx, s * 0.5, s * 0.1, s * 0.05, s * 0.8, s * 0.95, s * 0.8);
+      // Fortress door (wide, low)
+      ctx.fillStyle = '#554433';
+      ctx.fillRect(Math.round(s * 0.25), Math.round(s * 0.35), Math.round(s * 0.5), Math.round(s * 0.45));
+      // Door arch
+      ctx.fillStyle = '#776655';
+      ctx.fillRect(Math.round(s * 0.25), Math.round(s * 0.33), Math.round(s * 0.5), Math.round(s * 0.05));
+      // Dark entrance
+      ctx.fillStyle = '#221100';
+      ctx.fillRect(Math.round(s * 0.35), Math.round(s * 0.45), Math.round(s * 0.3), Math.round(s * 0.35));
+      // Anvil symbol (inside entrance)
+      ctx.fillStyle = '#aaaaaa';
+      // Anvil top
+      ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.55), Math.round(s * 0.2), Math.round(s * 0.04));
+      // Anvil base
+      ctx.fillRect(Math.round(s * 0.42), Math.round(s * 0.59), Math.round(s * 0.16), Math.round(s * 0.04));
+      ctx.fillRect(Math.round(s * 0.46), Math.round(s * 0.63), Math.round(s * 0.08), Math.round(s * 0.06));
+      ctx.fillRect(Math.round(s * 0.42), Math.round(s * 0.69), Math.round(s * 0.16), Math.round(s * 0.03));
+      // Torch flames on either side
+      ctx.fillStyle = '#ffaa22';
+      ctx.fillRect(Math.round(s * 0.28), Math.round(s * 0.38), 2, 3);
+      ctx.fillRect(Math.round(s * 0.68), Math.round(s * 0.38), 2, 3);
+    });
   }
 
   /** Generate a single node icon */
@@ -257,15 +354,15 @@ export function getNodeIconKey(regionId: string): string {
   const mapping: Record<string, string> = {
     region_hero: 'node_castle',
     region_elf: 'node_forest',
-    region_treant: 'node_forest',
+    region_treant: 'node_treant',
     region_beast: 'node_mountain',
     region_merfolk: 'node_water',
     region_giant: 'node_mountain',
-    region_dwarf: 'node_castle',
+    region_dwarf: 'node_dwarf',
     region_undead: 'node_skull',
     region_volcano: 'node_volcano',
-    region_hotspring: 'node_water',
-    region_mountain: 'node_mountain',
+    region_hotspring: 'node_hotspring',
+    region_mountain: 'node_peak',
     region_demon: 'node_demon',
   };
   return mapping[regionId] ?? 'node_castle';

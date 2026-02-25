@@ -2,13 +2,13 @@ import type { ItemData, EquipmentItem, EquipmentSlot, EquipmentTier } from '../.
 
 // ─── 消耗品 ───
 const consumables: ItemData[] = [
-  { id: 'item_potion_s', name: '小型藥水', type: 'consumable', description: '恢復 50 HP', price: 30, sellPrice: 15, effect: { type: 'heal_hp', value: 50, target: 'single' }, stackable: true, maxStack: 99 },
-  { id: 'item_potion_m', name: '中型藥水', type: 'consumable', description: '恢復 150 HP', price: 100, sellPrice: 50, effect: { type: 'heal_hp', value: 150, target: 'single' }, stackable: true, maxStack: 99 },
-  { id: 'item_potion_l', name: '大型藥水', type: 'consumable', description: '恢復 400 HP', price: 300, sellPrice: 150, effect: { type: 'heal_hp', value: 400, target: 'single' }, stackable: true, maxStack: 99 },
-  { id: 'item_ether_s', name: '小型魔力水', type: 'consumable', description: '恢復 30 MP', price: 50, sellPrice: 25, effect: { type: 'heal_mp', value: 30, target: 'single' }, stackable: true, maxStack: 99 },
-  { id: 'item_ether_m', name: '中型魔力水', type: 'consumable', description: '恢復 80 MP', price: 150, sellPrice: 75, effect: { type: 'heal_mp', value: 80, target: 'single' }, stackable: true, maxStack: 99 },
-  { id: 'item_elixir', name: '靈藥', type: 'consumable', description: '完全恢復 HP 和 MP', price: 1000, sellPrice: 500, effect: { type: 'full_restore', value: 0, target: 'single' }, stackable: true, maxStack: 10 },
-  { id: 'item_revive', name: '復活羽毛', type: 'consumable', description: '復活倒下的夥伴（50% HP）', price: 200, sellPrice: 100, effect: { type: 'revive', value: 50, target: 'single' }, stackable: true, maxStack: 10 },
+  { id: 'item_potion_s', name: '小型藥水', type: 'consumable', description: '恢復 50 HP', price: 30, sellPrice: 15, effect: { type: 'heal_hp', value: 50, target: 'single' }, stackable: true, maxStack: 999},
+  { id: 'item_potion_m', name: '中型藥水', type: 'consumable', description: '恢復 150 HP', price: 100, sellPrice: 50, effect: { type: 'heal_hp', value: 150, target: 'single' }, stackable: true, maxStack: 999},
+  { id: 'item_potion_l', name: '大型藥水', type: 'consumable', description: '恢復 400 HP', price: 300, sellPrice: 150, effect: { type: 'heal_hp', value: 400, target: 'single' }, stackable: true, maxStack: 999},
+  { id: 'item_ether_s', name: '小型魔力水', type: 'consumable', description: '恢復 30 MP', price: 50, sellPrice: 25, effect: { type: 'heal_mp', value: 30, target: 'single' }, stackable: true, maxStack: 999},
+  { id: 'item_ether_m', name: '中型魔力水', type: 'consumable', description: '恢復 80 MP', price: 150, sellPrice: 75, effect: { type: 'heal_mp', value: 80, target: 'single' }, stackable: true, maxStack: 999},
+  { id: 'item_elixir', name: '靈藥', type: 'consumable', description: '完全恢復 HP 和 MP', price: 1000, sellPrice: 500, effect: { type: 'full_restore', value: 0, target: 'single' }, stackable: true, maxStack: 999},
+  { id: 'item_revive', name: '復活羽毛', type: 'consumable', description: '復活倒下的夥伴（50% HP）', price: 200, sellPrice: 100, effect: { type: 'revive', value: 50, target: 'single' }, stackable: true, maxStack: 999},
 ];
 
 // ─── 裝備：生成 8 階 × 5 插槽 ───

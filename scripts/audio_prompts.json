@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "style_prefix": "fantasy RPG game music, medieval, orchestral",
+    "sfx_prefix": "game sound effect"
+  },
+  "bgm": [
+    {
+      "name": "title",
+      "duration": 30,
+      "prompt": "epic fantasy RPG opening theme, harp and strings, majestic, adventurous"
+    },
+    {
+      "name": "town",
+      "duration": 30,
+      "prompt": "cozy RPG town music, acoustic guitar, flute, warm and peaceful village"
+    },
+    {
+      "name": "field",
+      "duration": 30,
+      "prompt": "adventure exploration music, strings and woodwinds, open world, hopeful"
+    },
+    {
+      "name": "battle",
+      "duration": 30,
+      "prompt": "aggressive fast-paced battle music, driving heavy drums 160bpm, urgent brass stabs, relentless percussion, intense combat, adrenaline rush, heroic tension"
+    },
+    {
+      "name": "boss",
+      "duration": 30,
+      "prompt": "dark epic boss battle theme, dramatic choir, heavy percussion, menacing"
+    },
+    {
+      "name": "victory",
+      "duration": 10,
+      "prompt": "triumphant victory fanfare, brass and strings, celebration, short"
+    },
+    {
+      "name": "gameover",
+      "duration": 15,
+      "prompt": "sad game over music, slow piano, melancholy, somber"
+    },
+    {
+      "name": "shop",
+      "duration": 20,
+      "prompt": "cheerful medieval shop music, lute and recorder, trading, lighthearted"
+    }
+  ],
+  "sfx": [
+    {
+      "name": "sfx_select",
+      "duration": 1,
+      "prompt": "bright single xylophone note ping, crisp high pitched bell chime, staccato, clean digital tone"
+    },
+    {
+      "name": "sfx_cancel",
+      "duration": 1,
+      "prompt": "two quick descending piano notes, minor interval, soft muted pluck, short falling tone"
+    },
+    {
+      "name": "sfx_hit",
+      "duration": 1,
+      "prompt": "sharp percussive snare hit with metallic crash cymbal, aggressive attack impact, punchy drum strike"
+    },
+    {
+      "name": "sfx_magic",
+      "duration": 2,
+      "prompt": "ethereal ascending harp glissando with celesta sparkle, shimmering crystal chimes, mystical fairy dust"
+    },
+    {
+      "name": "sfx_heal",
+      "duration": 3,
+      "prompt": "healing spell sound effect, gentle chime, restoration, warm glow"
+    }
+  ]
+}

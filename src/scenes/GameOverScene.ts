@@ -142,15 +142,18 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private loadSave(): void {
+    const heroName = gameState.getState().heroName;
     // Try auto save first
-    if (SaveLoadSystem.load(-1)) {
+    if (heroName && SaveLoadSystem.load(heroName, -1)) {
       TransitionEffect.transition(this, 'WorldMapScene');
       return;
     }
-    for (let i = 0; i < 3; i++) {
-      if (SaveLoadSystem.load(i)) {
-        TransitionEffect.transition(this, 'WorldMapScene');
-        return;
+    if (heroName) {
+      for (let i = 0; i < 3; i++) {
+        if (SaveLoadSystem.load(heroName, i)) {
+          TransitionEffect.transition(this, 'WorldMapScene');
+          return;
+        }
       }
     }
     // No save found — fall back to town

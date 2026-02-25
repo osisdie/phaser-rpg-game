@@ -1,5 +1,6 @@
 import type { GameState, CharacterData, CompanionData, InventoryEntry, Difficulty } from '../types';
 import { MAX_PARTY_SIZE } from '../utils/constants';
+import { EquipmentSystem } from './EquipmentSystem';
 
 const DEFAULT_HERO_STATS: CharacterData = {
   id: 'hero',
@@ -7,23 +8,23 @@ const DEFAULT_HERO_STATS: CharacterData = {
   race: 'human',
   level: 1,
   exp: 0,
-  stats: { maxHP: 100, maxMP: 30, hp: 100, mp: 30, atk: 15, def: 10, agi: 10, luck: 5 },
-  growth: { hp: 8, mp: 3, atk: [2, 3], def: 2, agi: [1, 2], luck: 1 },
+  stats: { maxHP: 120, maxMP: 30, hp: 120, mp: 30, atk: 15, def: 12, agi: 10, luck: 5 },
+  growth: { hp: 10, mp: 3, atk: [2, 3], def: 2, agi: [1, 2], luck: 1 },
   skills: ['skill_slash'],
   equipment: { helmet: null, armor: null, shield: null, weapon: 'equip_wood_sword', boots: null },
   statPoints: 0,
 };
 
 function createDefaultState(): GameState {
-  return {
+  const state: GameState = {
     heroName: '勇者',
     hero: structuredClone(DEFAULT_HERO_STATS),
     party: ['hero'],
     companions: {},
     inventory: [
-      { itemId: 'item_potion_s', quantity: 3 },
+      { itemId: 'item_potion_s', quantity: 5 },
     ],
-    gold: 100,
+    gold: 200,
     flags: {},
     currentRegion: 'region_hero',
     currentScene: 'TitleScene',
@@ -34,7 +35,11 @@ function createDefaultState(): GameState {
     playTime: 0,
     difficulty: 'normal',
     encounterSteps: 0,
+    gameCompleted: false,
   };
+  // Apply starting equipment bonuses to hero stats
+  EquipmentSystem.applyAllEquipment(state.hero);
+  return state;
 }
 
 class GameStateManager {
@@ -100,9 +105,9 @@ class GameStateManager {
   addItem(itemId: string, quantity: number = 1): void {
     const entry = this.state.inventory.find(e => e.itemId === itemId);
     if (entry) {
-      entry.quantity += quantity;
+      entry.quantity = Math.min(entry.quantity + quantity, 999);
     } else {
-      this.state.inventory.push({ itemId, quantity });
+      this.state.inventory.push({ itemId, quantity: Math.min(quantity, 999) });
     }
   }
 
@@ -122,6 +127,12 @@ class GameStateManager {
 
   getInventory(): InventoryEntry[] {
     return this.state.inventory;
+  }
+
+  swapInventoryItems(indexA: number, indexB: number): void {
+    const inv = this.state.inventory;
+    if (indexA < 0 || indexA >= inv.length || indexB < 0 || indexB >= inv.length) return;
+    [inv[indexA], inv[indexB]] = [inv[indexB], inv[indexA]];
   }
 
   // ─── Gold ───
@@ -206,6 +217,15 @@ class GameStateManager {
     const m = Math.floor((total % 3600) / 60);
     const s = total % 60;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // ─── Completion ───
+  setGameCompleted(): void {
+    this.state.gameCompleted = true;
+  }
+
+  isGameCompleted(): boolean {
+    return this.state.gameCompleted;
   }
 
   // ─── Encounter ───

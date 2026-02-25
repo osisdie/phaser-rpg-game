@@ -17,13 +17,14 @@ export class SkillSystem {
     user.stats.mp -= skill.mpCost;
     const results: { target: CombatantState; value: number; type: 'damage' | 'heal' }[] = [];
 
+    const userLevel = user.level ?? 1;
     for (const target of targets) {
       if (skill.type === 'heal') {
-        const heal = calculateHeal(skill.power);
+        const heal = calculateHeal(skill.power, userLevel);
         target.stats.hp = Math.min(target.stats.maxHP, target.stats.hp + heal);
         results.push({ target, value: heal, type: 'heal' });
       } else if (skill.type === 'physical' || skill.type === 'magical') {
-        let damage = calculateSkillDamage(skill.power, user.stats.atk, target.stats.def);
+        let damage = calculateSkillDamage(skill.power, user.stats.atk, target.stats.def, userLevel);
         if (target.isDefending) damage = Math.max(1, Math.floor(damage * 0.5));
         // Element weakness check (simplified)
         damage = this.applyElementModifier(damage, skill.element, target.element);

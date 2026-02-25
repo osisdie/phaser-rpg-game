@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "bash scripts/dev.sh",
-    "stop": "bash scripts/stop.sh",
-    "status": "bash scripts/status.sh"
+    "start": "bash scripts/start_frontend.sh",
+    "stop": "bash scripts/stop_frontend.sh",
+    "status": "bash scripts/status_frontend.sh"
   },
   "dependencies": {
     "phaser": "^3.87.0"

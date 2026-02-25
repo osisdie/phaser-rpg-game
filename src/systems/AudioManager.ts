@@ -237,6 +237,44 @@ function defineTracks(): Record<string, TrackDef> {
   const k_mountain= kingdom('高山族',   NOTE.G4, PENTATONIC, 64, [0,1,3,4,3,1,0,1, 3,6,4,3,1,0,1,3], 'triangle', 'none');
   const k_demon   = kingdom('魔王城',   NOTE.C3, MINOR,     76, [0,3,5,7,5,3,0,3, 7,5,3,0,-1,0,3,5], 'sawtooth', 'boss');
 
+  // ─── 12 王國城鎮主題 (calmer, softer versions for town scenes) ───
+  const townTrack = (
+    name: string, root: number, scale: number[], bpm: number,
+    pattern: number[], drum: 'calm' | 'none' | 'waltz'
+  ): TrackDef => {
+    const notes = scaleNotes(root, scale);
+    return {
+      name, bpm, loopBars: 8,
+      melody: melodyFromScale(notes, pattern),
+      melodyRhythm: pattern.map(() => 2),
+      melodyWave: 'sine', melodyVol: 0.12,
+      bass: [notes[0] / 2, notes[4] / 2, notes[3] / 2, notes[0] / 2,
+             notes[2] / 2, notes[5] / 2, notes[4] / 2, notes[0] / 2],
+      bassRhythm: [4,4,4,4,4,4,4,4], bassWave: 'sine', bassVol: 0.1,
+      padChords: [
+        [notes[0], notes[2], notes[4]],
+        [notes[3], notes[5], notes[7 % notes.length]],
+        [notes[4], notes[6 % notes.length], notes[1]],
+        [notes[0], notes[2], notes[4]],
+      ],
+      padWave: 'sine', padVol: 0.06,
+      drumPattern: generateDrumLoop(drum), drumVol: drum === 'none' ? 0 : 0.05,
+    };
+  };
+
+  const t_hero    = townTrack('勇者王國城鎮', NOTE.C4, MAJOR,      72, [0,2,4,2, 0,2,5,4, 2,4,7,5, 4,2,0,2], 'calm');
+  const t_elf     = townTrack('精靈王國城鎮', NOTE.E4, PENTATONIC,  64, [0,3,1,4, 3,1,0,3, 1,4,3,1, 0,1,3,4], 'none');
+  const t_treant  = townTrack('樹人王國城鎮', NOTE.G3, MAJOR,      56, [0,4,2,7, 2,0,-1,0, 4,2,5,4, 2,0,-1,2], 'none');
+  const t_beast   = townTrack('獸人王國城鎮', NOTE.A3, PENT_MINOR,  80, [0,4,2,0, 2,4,7,4, 2,0,2,4, 7,4,2,0], 'calm');
+  const t_merfolk = townTrack('人魚王國城鎮', NOTE.D4, MAJOR,      60, [0,4,7,4, 2,0,2,4, 7,9,7,4, 2,0,4,2], 'waltz');
+  const t_giant   = townTrack('巨人王國城鎮', NOTE.C3, MIXOLYDIAN,  58, [0,4,2,5, 4,2,0,-1, 2,4,7,5, 4,2,0,2], 'calm');
+  const t_dwarf   = townTrack('矮人王國城鎮', NOTE.D3, DORIAN,     78, [0,3,5,3, 2,0,3,5, 7,5,3,2, 0,2,3,5], 'calm');
+  const t_undead  = townTrack('不死王國城鎮', NOTE.A3, MINOR,      50, [0,1,3,1, 0,-1,0,1, 3,4,3,1, 0,-1,-1,0], 'none');
+  const t_volcano = townTrack('火山族城鎮',   NOTE.E3, PENT_MINOR,  84, [0,2,4,7, 4,2,0,2, 4,7,4,2, 0,2,4,2], 'calm');
+  const t_spring  = townTrack('溫泉族城鎮',   NOTE.F4, MAJOR,      56, [0,4,2,5, 4,2,0,4, 5,4,2,0, 2,4,5,7], 'none');
+  const t_mountain= townTrack('高山族城鎮',   NOTE.G4, PENTATONIC,  52, [0,3,1,4, 1,0,1,3, 4,3,1,0, 1,3,4,6], 'none');
+  const t_demon   = townTrack('魔王城城鎮',   NOTE.C3, MINOR,      60, [0,3,5,3, 0,-1,0,3, 5,3,0,-1, 0,3,5,7], 'none');
+
   // ─── 戰鬥 (每王國有普通小怪戰鬥+Boss戰) ───
   function battleTrack(name: string, root: number, scale: number[], bpm: number, drumStyle: 'battle'|'boss'): TrackDef {
     const notes = scaleNotes(root, scale);
@@ -290,11 +328,16 @@ function defineTracks(): Record<string, TrackDef> {
 
   return {
     title, victory, gameover, ending, sad, happy, thinking, companion, memory, shop,
-    // Kingdom themes
+    // Kingdom themes (used for field/overworld)
     kingdom_hero: k_hero, kingdom_elf: k_elf, kingdom_treant: k_treant,
     kingdom_beast: k_beast, kingdom_merfolk: k_merfolk, kingdom_giant: k_giant,
     kingdom_dwarf: k_dwarf, kingdom_undead: k_undead, kingdom_volcano: k_volcano,
     kingdom_hotspring: k_spring, kingdom_mountain: k_mountain, kingdom_demon: k_demon,
+    // Town themes (calmer versions for towns)
+    town_hero: t_hero, town_elf: t_elf, town_treant: t_treant,
+    town_beast: t_beast, town_merfolk: t_merfolk, town_giant: t_giant,
+    town_dwarf: t_dwarf, town_undead: t_undead, town_volcano: t_volcano,
+    town_hotspring: t_spring, town_mountain: t_mountain, town_demon: t_demon,
     // Battle themes
     battle_hero: b_hero, battle_elf: b_elf, battle_treant: b_treant,
     battle_beast: b_beast, battle_merfolk: b_merfolk, battle_giant: b_giant,
@@ -320,12 +363,52 @@ class AudioManagerClass {
   private masterGain: GainNode | null = null;
   private bgmGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
-  private bgmVolume = 0.3;
-  private sfxVolume = 0.5;
+  private bgmVolume = 0.2;
+  private sfxVolume = 0.3;
+  private bgmMuted = false;
+  private sfxMuted = false;
+  private bgmVolumeBeforeMute = 0.2;
+  private sfxVolumeBeforeMute = 0.3;
   private activeNodes: ActiveNodes = { oscillators: [], gains: [], sources: [], timeout: null };
   private currentTrackKey = '';
   private loopTimeout: ReturnType<typeof setTimeout> | null = null;
   private tracks: Record<string, TrackDef> | null = null;
+  // AI pre-recorded audio (AI first, procedural fallback)
+  private preRecorded: Map<string, AudioBuffer> = new Map();
+  private preRecordedBgmSource: AudioBufferSourceNode | null = null;
+
+  constructor() {
+    this.loadSettings();
+  }
+
+  private loadSettings(): void {
+    try {
+      const saved = localStorage.getItem('audio_settings');
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (typeof s.bgmVolume === 'number') this.bgmVolume = s.bgmVolume;
+        if (typeof s.sfxVolume === 'number') this.sfxVolume = s.sfxVolume;
+        if (typeof s.bgmMuted === 'boolean') this.bgmMuted = s.bgmMuted;
+        if (typeof s.sfxMuted === 'boolean') this.sfxMuted = s.sfxMuted;
+        // saveSettings stores pre-mute volume, so restore accordingly
+        this.bgmVolumeBeforeMute = this.bgmVolume;
+        this.sfxVolumeBeforeMute = this.sfxVolume;
+        if (this.bgmMuted) this.bgmVolume = 0;
+        if (this.sfxMuted) this.sfxVolume = 0;
+      }
+    } catch { /* ignore corrupt data */ }
+  }
+
+  private saveSettings(): void {
+    try {
+      localStorage.setItem('audio_settings', JSON.stringify({
+        bgmVolume: this.bgmMuted ? this.bgmVolumeBeforeMute : this.bgmVolume,
+        sfxVolume: this.sfxMuted ? this.sfxVolumeBeforeMute : this.sfxVolume,
+        bgmMuted: this.bgmMuted,
+        sfxMuted: this.sfxMuted,
+      }));
+    } catch { /* storage full or unavailable */ }
+  }
 
   private getContext(): AudioContext {
     if (!this.audioContext) {
@@ -334,10 +417,10 @@ class AudioManagerClass {
       this.masterGain.gain.value = 1;
       this.masterGain.connect(this.audioContext.destination);
       this.bgmGain = this.audioContext.createGain();
-      this.bgmGain.gain.value = this.bgmVolume;
+      this.bgmGain.gain.value = this.bgmMuted ? 0 : this.bgmVolume;
       this.bgmGain.connect(this.masterGain);
       this.sfxGain = this.audioContext.createGain();
-      this.sfxGain.gain.value = this.sfxVolume;
+      this.sfxGain.gain.value = this.sfxMuted ? 0 : this.sfxVolume;
       this.sfxGain.connect(this.masterGain);
     }
     if (!this.tracks) this.tracks = defineTracks();
@@ -347,15 +430,61 @@ class AudioManagerClass {
   setBgmVolume(vol: number): void {
     this.bgmVolume = Math.max(0, Math.min(1, vol));
     if (this.bgmGain) this.bgmGain.gain.value = this.bgmVolume;
+    if (!this.bgmMuted) this.bgmVolumeBeforeMute = this.bgmVolume;
+    this.saveSettings();
   }
 
   setSfxVolume(vol: number): void {
     this.sfxVolume = Math.max(0, Math.min(1, vol));
     if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume;
+    if (!this.sfxMuted) this.sfxVolumeBeforeMute = this.sfxVolume;
+    this.saveSettings();
   }
 
   getBgmVolume(): number { return this.bgmVolume; }
   getSfxVolume(): number { return this.sfxVolume; }
+
+  toggleBgmMute(): boolean {
+    if (!this.bgmMuted) {
+      this.bgmMuted = true;
+      this.bgmVolumeBeforeMute = this.bgmVolume;
+      this.bgmVolume = 0;
+      if (this.bgmGain) this.bgmGain.gain.value = 0;
+    } else {
+      this.bgmMuted = false;
+      this.bgmVolume = this.bgmVolumeBeforeMute;
+      if (this.bgmGain) this.bgmGain.gain.value = this.bgmVolume;
+    }
+    this.saveSettings();
+    return this.bgmMuted;
+  }
+
+  toggleSfxMute(): boolean {
+    if (!this.sfxMuted) {
+      this.sfxMuted = true;
+      this.sfxVolumeBeforeMute = this.sfxVolume;
+      this.sfxVolume = 0;
+      if (this.sfxGain) this.sfxGain.gain.value = 0;
+    } else {
+      this.sfxMuted = false;
+      this.sfxVolume = this.sfxVolumeBeforeMute;
+      if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume;
+    }
+    this.saveSettings();
+    return this.sfxMuted;
+  }
+
+  isBgmMuted(): boolean { return this.bgmMuted; }
+  isSfxMuted(): boolean { return this.sfxMuted; }
+
+  // ─── AI pre-recorded audio registration ───
+  registerPreRecorded(key: string, buffer: AudioBuffer): void {
+    this.preRecorded.set(key, buffer);
+  }
+
+  hasPreRecorded(key: string): boolean {
+    return this.preRecorded.has(key);
+  }
 
   // ─── Region-aware BGM mapping ───
   playBgm(type: string, regionId?: string): void {
@@ -364,11 +493,40 @@ class AudioManagerClass {
     this.stopBgm();
     this.currentTrackKey = trackKey;
 
+    // AI first: check for pre-recorded audio
+    const aiKey = this.resolveBgmAIKey(type);
+    const buffer = aiKey ? this.preRecorded.get(aiKey) : undefined;
+    if (buffer) {
+      this.playPreRecordedBgm(buffer);
+      return;
+    }
+
+    // Procedural fallback
     const ctx = this.getContext();
     const track = this.tracks![trackKey];
     if (!track) return;
 
     this.playTrack(ctx, track);
+  }
+
+  private resolveBgmAIKey(type: string): string | undefined {
+    // Only use AI audio for non-region-specific types.
+    // Region types (field/town/battle/boss) use procedural per-kingdom music.
+    const keyMap: Record<string, string> = {
+      title: 'title', victory: 'victory',
+      gameover: 'gameover', shop: 'shop',
+    };
+    return keyMap[type];
+  }
+
+  private playPreRecordedBgm(buffer: AudioBuffer): void {
+    const ctx = this.getContext();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(this.bgmGain!);
+    source.start();
+    this.preRecordedBgmSource = source;
   }
 
   private resolveTrackKey(type: string, regionId?: string): string {
@@ -389,6 +547,7 @@ class AudioManagerClass {
       case 'memory': return 'memory';
       case 'shop': return 'shop';
       case 'town':
+        return regionId ? `town_${regionSuffix}` : 'town_hero';
       case 'field':
         return regionId ? `kingdom_${regionSuffix}` : 'kingdom_hero';
       case 'battle':
@@ -583,6 +742,12 @@ class AudioManagerClass {
       clearTimeout(this.loopTimeout);
       this.loopTimeout = null;
     }
+    // Stop pre-recorded BGM source if playing
+    if (this.preRecordedBgmSource) {
+      try { this.preRecordedBgmSource.stop(); } catch { /* already stopped */ }
+      try { this.preRecordedBgmSource.disconnect(); } catch { /* ok */ }
+      this.preRecordedBgmSource = null;
+    }
     this.cleanupNodes();
   }
 
@@ -602,15 +767,28 @@ class AudioManagerClass {
   }
 
   // ─── SFX (improved) ───
-  playSfx(type: 'select' | 'cancel' | 'hit' | 'magic' | 'heal' | 'levelup' | 'fanfare' | 'step' | 'equip'): void {
+  playSfx(type: 'select' | 'cancel' | 'hit' | 'magic' | 'heal' | 'levelup' | 'fanfare' | 'step' | 'equip' | 'fail' | 'warning'): void {
+    // AI first: check for pre-recorded SFX
+    const aiKey = `sfx_${type}`;
+    const buffer = this.preRecorded.get(aiKey);
+    if (buffer) {
+      const ctx = this.getContext();
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.sfxGain!);
+      source.start();
+      return;
+    }
+
+    // Procedural fallback
     const ctx = this.getContext();
 
     switch (type) {
       case 'select':
-        this.playToneSequence(ctx, [{ f: 440, d: 0.04 }, { f: 660, d: 0.06 }], 'triangle', 0.15);
+        this.playToneSequence(ctx, [{ f: 440, d: 0.04 }, { f: 660, d: 0.06 }], 'sine', 0.10);
         break;
       case 'cancel':
-        this.playToneSequence(ctx, [{ f: 440, d: 0.04 }, { f: 330, d: 0.08 }], 'triangle', 0.12);
+        this.playToneSequence(ctx, [{ f: 440, d: 0.04 }, { f: 330, d: 0.08 }], 'sine', 0.08);
         break;
       case 'hit':
         this.playNoiseBurst(ctx, 150, 0.12, 0.2);
@@ -643,6 +821,17 @@ class AudioManagerClass {
         break;
       case 'equip':
         this.playToneSequence(ctx, [{ f: 330, d: 0.04 }, { f: 440, d: 0.04 }, { f: 554, d: 0.08 }], 'triangle', 0.12);
+        break;
+      case 'fail':
+        this.playToneSequence(ctx, [{ f: 400, d: 0.06 }, { f: 300, d: 0.06 }, { f: 200, d: 0.12 }], 'square', 0.2);
+        this.playNoiseBurst(ctx, 300, 0.08, 0.15);
+        break;
+      case 'warning':
+        // Two descending alarm pulses — urgent low tone
+        this.playToneSequence(ctx, [
+          { f: 520, d: 0.1 }, { f: 380, d: 0.15 },
+          { f: 520, d: 0.1 }, { f: 380, d: 0.2 },
+        ], 'square', 0.15);
         break;
     }
   }

@@ -40,6 +40,7 @@ export class CombatSystem {
     const party: CombatantState[] = partyData.map((c, i) => ({
       id: c.id,
       name: c.name,
+      level: c.level,
       stats: { ...c.stats },
       isEnemy: false,
       isDefending: false,
@@ -136,9 +137,11 @@ export class CombatSystem {
       this.state.actionQueue.push(action);
     }
 
-    // Sort by AGI
-    const allCombatants = [...this.state.party, ...this.state.enemies];
+    // Sort by AGI, but flee actions always execute first
     this.state.actionQueue.sort((a, b) => {
+      // Flee actions get top priority (prevents getting killed before fleeing)
+      if (a.type === 'flee' && b.type !== 'flee') return -1;
+      if (a.type !== 'flee' && b.type === 'flee') return 1;
       const actorA = a.isEnemy ? this.state.enemies[a.actorIndex] : this.state.party[a.actorIndex];
       const actorB = b.isEnemy ? this.state.enemies[b.actorIndex] : this.state.party[b.actorIndex];
       if (!actorA || !actorB) return 0;
@@ -304,6 +307,17 @@ export class CombatSystem {
       case 'aggressive': {
         // Target lowest HP player
         const weakest = alivePlayers.reduce((a, b) => a.stats.hp < b.stats.hp ? a : b);
+        // 40% chance to use a skill if available
+        if (Math.random() < 0.4 && enemy.skills.length > 0) {
+          const usableSkills = enemy.skills.filter(s => {
+            const skill = getSkillById(s);
+            return skill && enemy.stats.mp >= skill.mpCost;
+          });
+          if (usableSkills.length > 0) {
+            const skillId = usableSkills[Math.floor(Math.random() * usableSkills.length)];
+            return { type: 'skill', actorIndex: enemy.index, isEnemy: true, targetIndex: weakest.index, skillId };
+          }
+        }
         return { type: 'attack', actorIndex: enemy.index, isEnemy: true, targetIndex: weakest.index };
       }
 
@@ -391,7 +405,8 @@ export class CombatSystem {
       for (const drop of monster.drops) {
         const adjustedRate = calculateDropRate(drop.rate * mods.dropRateMult, avgLuck);
         if (Math.random() < adjustedRate) {
-          drops.push(drop.itemId);
+          const item = getItemById(drop.itemId);
+          drops.push(item?.name ?? drop.itemId);
           gameState.addItem(drop.itemId);
         }
       }

@@ -1,0 +1,365 @@
+{
+  "_meta": {
+    "style_prefix": "medieval European fantasy, Harry Potter aesthetic, warm candlelight atmosphere, stone and wood architecture, British countryside",
+    "style_suffix_pixel": "pixel art, PixArFK, 2D game asset, top-down view, 32x32 sprite",
+    "style_suffix_char": "pixel art, PixArFK, 2D game character sprite, front-facing, 32x32",
+    "style_suffix_monster": "pixel art, PixArFK, 2D game monster sprite, front-facing",
+    "negative_prompt": "blurry, 3d render, photo, realistic, anti-aliasing, smooth gradient, text, watermark, signature, modern, sci-fi, futuristic"
+  },
+
+  "tiles": [
+    {
+      "name": "tile_grass",
+      "size": 32,
+      "prompt": "grass tile, lush green meadow, small wildflowers, top-down view"
+    },
+    {
+      "name": "tile_stone",
+      "size": 32,
+      "prompt": "cobblestone path tile, worn grey stones, moss between cracks, top-down view"
+    },
+    {
+      "name": "tile_wood",
+      "size": 32,
+      "prompt": "wooden floor tile, dark oak planks, wood grain texture, top-down view"
+    },
+    {
+      "name": "tile_water",
+      "size": 32,
+      "prompt": "water tile, clear blue water surface, gentle ripples, top-down view"
+    },
+    {
+      "name": "tile_sand",
+      "size": 32,
+      "prompt": "sandy ground tile, desert sand, small pebbles, top-down view"
+    },
+    {
+      "name": "tile_dirt",
+      "size": 32,
+      "prompt": "dirt path tile, packed brown earth, small stones, top-down view"
+    },
+    {
+      "name": "tile_snow",
+      "size": 32,
+      "prompt": "snow covered ground tile, white snow, frost crystals, top-down view"
+    },
+    {
+      "name": "tile_lava",
+      "size": 32,
+      "prompt": "lava tile, glowing orange magma, dark crust, top-down view"
+    },
+    {
+      "name": "tile_dark_stone",
+      "size": 32,
+      "prompt": "dark dungeon stone floor tile, black obsidian, purple cracks, top-down view"
+    },
+    {
+      "name": "tile_cave",
+      "size": 32,
+      "prompt": "cave floor tile, rough grey rock, mineral veins, top-down view"
+    },
+    {
+      "name": "tile_wall_stone",
+      "size": 32,
+      "prompt": "stone castle wall tile, grey brick wall, medieval fortress, top-down view"
+    },
+    {
+      "name": "tile_wall_wood",
+      "size": 32,
+      "prompt": "wooden wall tile, timber frame, tudor style, top-down view"
+    }
+  ],
+
+  "buildings": [
+    {
+      "name": "bld_tudor",
+      "size": 64,
+      "prompt": "tudor style house, half-timbered walls, thatched roof, medieval village, front view"
+    },
+    {
+      "name": "bld_shop",
+      "size": 64,
+      "prompt": "medieval shop building, hanging wooden sign, display window, potions and goods, front view"
+    },
+    {
+      "name": "bld_castle",
+      "size": 64,
+      "prompt": "stone castle keep, tower with banner, Hogwarts inspired, front view"
+    },
+    {
+      "name": "bld_inn",
+      "size": 64,
+      "prompt": "medieval inn tavern, wooden sign with tankard, warm light from windows, chimney smoke, front view"
+    },
+    {
+      "name": "bld_church",
+      "size": 64,
+      "prompt": "medieval stone church, stained glass window, bell tower, gothic architecture, front view"
+    },
+    {
+      "name": "bld_blacksmith",
+      "size": 64,
+      "prompt": "blacksmith forge building, anvil sign, smoke from chimney, stone and wood, front view"
+    },
+    {
+      "name": "bld_wizard_tower",
+      "size": 64,
+      "prompt": "wizard tower, crooked tall stone tower, glowing window, magical atmosphere, Hogwarts style, front view"
+    },
+    {
+      "name": "bld_ruins",
+      "size": 64,
+      "prompt": "ancient ruins, crumbling stone walls, overgrown with ivy, mysterious, front view"
+    }
+  ],
+
+  "characters": [
+    {
+      "name": "char_hero",
+      "size": 32,
+      "prompt": "young adventurer hero, brown hair, blue cloak, leather armor, sword on back, brave expression"
+    },
+    {
+      "name": "char_elf",
+      "size": 32,
+      "prompt": "elf archer companion, long blonde hair, pointed ears, green tunic, bow and quiver, elegant"
+    },
+    {
+      "name": "char_treant",
+      "size": 32,
+      "prompt": "tree spirit companion, bark skin, leaf hair, wooden staff, nature magic, gentle giant"
+    },
+    {
+      "name": "char_beast",
+      "size": 32,
+      "prompt": "beastman warrior companion, wolf features, fur armor, battle axe, fierce but loyal"
+    },
+    {
+      "name": "char_merfolk",
+      "size": 32,
+      "prompt": "merfolk mage companion, blue scales, aquatic features, trident, water magic, mystical"
+    },
+    {
+      "name": "char_giant",
+      "size": 32,
+      "prompt": "young giant companion, muscular, stone gauntlets, friendly face, mountain dweller"
+    },
+    {
+      "name": "char_dwarf",
+      "size": 32,
+      "prompt": "dwarf blacksmith companion, red beard, mining helmet, hammer, short and stout, armored"
+    },
+    {
+      "name": "char_undead",
+      "size": 32,
+      "prompt": "reformed undead knight companion, ghostly blue glow, ancient armor, noble spirit, ethereal"
+    },
+    {
+      "name": "char_npc_shop",
+      "size": 32,
+      "prompt": "medieval shopkeeper NPC, apron, friendly smile, merchant outfit, warm colors"
+    },
+    {
+      "name": "char_npc_quest",
+      "size": 32,
+      "prompt": "quest giver NPC, wise old man, long beard, mysterious robes, exclamation mark"
+    },
+    {
+      "name": "char_npc_save",
+      "size": 32,
+      "prompt": "church priest NPC, white robes, gentle expression, prayer book, holy symbol"
+    },
+    {
+      "name": "char_npc_info",
+      "size": 32,
+      "prompt": "town guide NPC, traveler outfit, hat, map in hand, informative gesture"
+    }
+  ],
+
+  "monsters": [
+    {
+      "name": "mon_slime",
+      "size": 32,
+      "prompt": "green slime monster, gelatinous blob, cute eyes, transparent body, RPG enemy"
+    },
+    {
+      "name": "mon_bat",
+      "size": 32,
+      "prompt": "dark bat monster, spread wings, red eyes, fangs, cave dwelling creature"
+    },
+    {
+      "name": "mon_goblin",
+      "size": 32,
+      "prompt": "small goblin, green skin, ragged clothes, crude dagger, sneaky expression"
+    },
+    {
+      "name": "mon_snake",
+      "size": 32,
+      "prompt": "venomous snake, coiled body, forked tongue, green scales, dangerous"
+    },
+    {
+      "name": "mon_wolf",
+      "size": 32,
+      "prompt": "wild wolf, grey fur, bared fangs, glowing yellow eyes, aggressive stance"
+    },
+    {
+      "name": "mon_skeleton",
+      "size": 32,
+      "prompt": "skeleton warrior, bone armor, rusty sword, glowing eye sockets, undead soldier"
+    },
+    {
+      "name": "mon_spider",
+      "size": 32,
+      "prompt": "giant black spider, eight legs, red eyes, web strands, venomous fangs"
+    },
+    {
+      "name": "mon_ghost",
+      "size": 32,
+      "prompt": "floating ghost spirit, translucent white, ethereal glow, haunting expression"
+    },
+    {
+      "name": "mon_flower",
+      "size": 32,
+      "prompt": "carnivorous flower monster, venus flytrap, thorny vines, purple petals, plant creature"
+    },
+    {
+      "name": "mon_treant",
+      "size": 32,
+      "prompt": "dark treant monster, gnarled bark face, twisted branches, angry tree creature"
+    },
+    {
+      "name": "mon_mushroom",
+      "size": 32,
+      "prompt": "mushroom creature, spotted cap, spore cloud, stubby legs, fungus monster"
+    },
+    {
+      "name": "mon_lion",
+      "size": 32,
+      "prompt": "prairie lion beast, golden mane, powerful claws, fierce roar, savanna predator"
+    },
+    {
+      "name": "mon_scorpion",
+      "size": 32,
+      "prompt": "giant desert scorpion, curved tail stinger, armored shell, pincers, sand creature"
+    },
+    {
+      "name": "mon_jellyfish",
+      "size": 32,
+      "prompt": "deep sea jellyfish monster, glowing tentacles, translucent bell, electric sparks"
+    },
+    {
+      "name": "mon_shark",
+      "size": 48,
+      "prompt": "shadow shark monster, dark fins, glowing red eyes, razor teeth, underwater predator"
+    },
+    {
+      "name": "mon_golem",
+      "size": 48,
+      "prompt": "stone golem, massive rock body, glowing rune markings, clenched fists, ancient construct"
+    },
+    {
+      "name": "mon_dragon_young",
+      "size": 48,
+      "prompt": "young dragon, small wings, fire breath, green scales, fierce baby dragon"
+    },
+    {
+      "name": "mon_demon_soldier",
+      "size": 48,
+      "prompt": "demon soldier, dark armor, horns, red eyes, demonic sword, hell warrior"
+    },
+    {
+      "name": "mon_dark_knight",
+      "size": 48,
+      "prompt": "dark knight, black full plate armor, glowing purple sword, menacing helmet visor"
+    },
+
+    {
+      "name": "mon_boss_guardian",
+      "size": 64,
+      "prompt": "fallen guardian boss, corrupted paladin, broken holy armor, dark aura, large imposing figure"
+    },
+    {
+      "name": "mon_boss_elf_king",
+      "size": 64,
+      "prompt": "corrupted elf king boss, dark crown, twisted features, nature magic gone wrong, thorny vines"
+    },
+    {
+      "name": "mon_boss_ancient_tree",
+      "size": 64,
+      "prompt": "ancient corrupted tree boss, massive gnarled trunk, glowing red sap, dark roots"
+    },
+    {
+      "name": "mon_boss_beast_general",
+      "size": 64,
+      "prompt": "beast general boss, massive minotaur, war armor, giant battle axe, muscular"
+    },
+    {
+      "name": "mon_boss_sea_dragon",
+      "size": 64,
+      "prompt": "deep sea dragon boss, colossal sea serpent, water magic, coral crown, tsunami waves"
+    },
+    {
+      "name": "mon_boss_mountain_king",
+      "size": 64,
+      "prompt": "mountain demon king boss, stone giant, crystal embedded, earthquake power"
+    },
+    {
+      "name": "mon_boss_forge_master",
+      "size": 64,
+      "prompt": "forge demon boss, molten metal body, fire hammer, volcanic forge, lava dripping"
+    },
+    {
+      "name": "mon_boss_death_lord",
+      "size": 64,
+      "prompt": "undead death lord boss, skeletal king, dark crown, soul magic, ghostly cape, necromancer"
+    },
+    {
+      "name": "mon_boss_demon_lord",
+      "size": 96,
+      "prompt": "great demon lord final boss, massive dark wings, horned crown, hellfire, ultimate evil, throne of darkness"
+    }
+  ],
+
+  "decorations": [
+    {
+      "name": "deco_tree_green",
+      "size": 32,
+      "prompt": "green oak tree, lush foliage, thick trunk, top-down RPG decoration"
+    },
+    {
+      "name": "deco_tree_autumn",
+      "size": 32,
+      "prompt": "autumn tree, orange and red leaves, falling leaves, top-down RPG decoration"
+    },
+    {
+      "name": "deco_tree_dead",
+      "size": 32,
+      "prompt": "dead tree, bare branches, dark bark, spooky, top-down RPG decoration"
+    },
+    {
+      "name": "deco_tree_snow",
+      "size": 32,
+      "prompt": "snow covered pine tree, white snow on branches, winter, top-down RPG decoration"
+    },
+    {
+      "name": "deco_rock",
+      "size": 32,
+      "prompt": "stone boulder, grey rock, moss covered, natural formation, top-down RPG decoration"
+    },
+    {
+      "name": "deco_flowers",
+      "size": 32,
+      "prompt": "flower patch, colorful wildflowers, meadow flowers, top-down RPG decoration"
+    },
+    {
+      "name": "deco_well",
+      "size": 32,
+      "prompt": "medieval stone well, wooden bucket, rope, village well, top-down RPG decoration"
+    },
+    {
+      "name": "deco_fountain",
+      "size": 32,
+      "prompt": "stone fountain, water spout, circular basin, town square, top-down RPG decoration"
+    }
+  ]
+}

@@ -26,7 +26,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     body.setCollideWorldBounds(true);
     // Adjust body size to be slightly smaller than visual
     body.setSize(16, 16);
-    body.setOffset(4, 14);
+    body.setOffset(8, 30); // centered in 32×48 sprite: (32-16)/2=8, 48-16-2=30
 
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();

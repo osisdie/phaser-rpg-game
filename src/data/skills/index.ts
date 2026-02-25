@@ -4,7 +4,7 @@ const skills: SkillData[] = [
   // ─── 勇者通用技能 ───
   { id: 'skill_slash', name: '斬擊', description: '強力的一刀', type: 'physical', target: 'single_enemy', element: 'none', mpCost: 3, power: 130, levelRequired: 1 },
   { id: 'skill_power_strike', name: '猛力一擊', description: '全力揮擊', type: 'physical', target: 'single_enemy', element: 'none', mpCost: 8, power: 200, levelRequired: 10 },
-  { id: 'skill_heal', name: '治療', description: '恢復少量 HP', type: 'heal', target: 'single_ally', element: 'light', mpCost: 5, power: 60, levelRequired: 5 },
+  { id: 'skill_heal', name: '治療', description: '恢復少量 HP', type: 'heal', target: 'single_ally', element: 'light', mpCost: 5, power: 60, levelRequired: 3 },
   { id: 'skill_war_cry', name: '戰吼', description: '提升全體攻擊力', type: 'buff', target: 'all_allies', element: 'none', mpCost: 10, power: 20, levelRequired: 15 },
   { id: 'skill_holy_blade', name: '聖光劍', description: '光屬性強力攻擊', type: 'magical', target: 'single_enemy', element: 'light', mpCost: 15, power: 280, levelRequired: 25 },
   { id: 'skill_hero_strike', name: '勇者一擊', description: '勇者的必殺技', type: 'physical', target: 'single_enemy', element: 'light', mpCost: 30, power: 500, levelRequired: 50 },
@@ -55,7 +55,7 @@ const skills: SkillData[] = [
   { id: 'skill_monster_bite', name: '撕咬', description: '野獸的撕咬', type: 'physical', target: 'single_enemy', element: 'none', mpCost: 0, power: 120, levelRequired: 1 },
   { id: 'skill_monster_fire', name: '火焰吐息', description: '噴出火焰', type: 'magical', target: 'all_enemies', element: 'fire', mpCost: 5, power: 100, levelRequired: 1 },
   { id: 'skill_monster_heal', name: '再生', description: '恢復少量 HP', type: 'heal', target: 'self', element: 'none', mpCost: 5, power: 80, levelRequired: 1 },
-  { id: 'skill_boss_smash', name: '毀滅重擊', description: '魔王的強力攻擊', type: 'physical', target: 'single_enemy', element: 'dark', mpCost: 10, power: 300, levelRequired: 1 },
+  { id: 'skill_boss_smash', name: '毀滅重擊', description: '魔王的強力攻擊', type: 'physical', target: 'single_enemy', element: 'dark', mpCost: 10, power: 200, levelRequired: 1 },
   { id: 'skill_boss_dark_blast', name: '暗黑爆裂', description: '魔王的全體攻擊', type: 'magical', target: 'all_enemies', element: 'dark', mpCost: 20, power: 200, levelRequired: 1 },
 ];
 

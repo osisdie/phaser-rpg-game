@@ -18,6 +18,9 @@ import { SaveLoadSystem } from '../systems/SaveLoadSystem';
 import { MonsterRenderer } from '../art/monsters/MonsterRenderer';
 import { BattleEffects } from '../art/effects/BattleEffects';
 import { getCompanionTextureKey } from '../art/characters/NPCProfiles';
+import { ItemIconRenderer } from '../art/ui/ItemIconRenderer';
+import { getCompanionForRegion } from '../data/characters/index';
+import { getRegionById } from '../data/regions/index';
 
 type BattlePhaseUI = 'intro' | 'menu' | 'target_select' | 'skill_select' | 'item_select' | 'executing' | 'result';
 
@@ -40,6 +43,22 @@ export class BattleScene extends Phaser.Scene {
   private logIndex = 0;
   private targetCursor?: Phaser.GameObjects.Triangle;
   private nearDeathLabels: Phaser.GameObjects.Text[] = [];
+  private nearDeathTweens: (Phaser.Tweens.Tween | null)[] = [];
+  private wasNearDeath: boolean[] = [];
+  private activeOverlayCleanup: (() => void) | null = null;
+
+  // Auto-attack mode
+  private autoAttackMode = false;
+  private autoAttackLabel?: Phaser.GameObjects.Text;
+  private autoAttackCancelLabel?: Phaser.GameObjects.Text;
+
+  // Battle log panel (scrollable, auto-append)
+  private battleLogEntries: string[] = [];
+  private battleLogBg!: Phaser.GameObjects.Rectangle;
+  private battleLogText!: Phaser.GameObjects.Text;
+  private battleLogMaskGraphics!: Phaser.GameObjects.Graphics;
+  private battleLogScrollY = 0;
+  private battleLogMaxScroll = 0;
 
   constructor() {
     super('BattleScene');
@@ -71,35 +90,41 @@ export class BattleScene extends Phaser.Scene {
     // Draw enemy sprites (top center) — classic JRPG layout
     const state = this.combat.getState();
     this.enemySprites = [];
-    const enemySpacing = Math.min(140, (GAME_WIDTH - 300) / Math.max(1, state.enemies.length));
+    const enemySpacing = Math.min(180, (GAME_WIDTH - 300) / Math.max(1, state.enemies.length));
     const enemyTotalW = (state.enemies.length - 1) * enemySpacing;
     state.enemies.forEach((enemy, i) => {
       const x = GAME_WIDTH / 2 - enemyTotalW / 2 + i * enemySpacing;
       const y = this.isBoss ? 160 : 200;
       const isBossEnemy = enemy.id.includes('boss');
 
-      // Generate monster texture on-demand
+      // Generate monster textures: overworld (small) + battle (high-res, no scale)
       const texKey = MonsterRenderer.getTextureKey(enemy.name, enemy.id, isBossEnemy);
       MonsterRenderer.generateForMonster(this, texKey, enemy.name, this.monsters[i]?.spriteColor ?? 0xff4444, isBossEnemy);
+      const battleTexKey = MonsterRenderer.generateForBattle(this, texKey, enemy.name, this.monsters[i]?.spriteColor ?? 0xff4444, isBossEnemy);
 
-      const sprite = this.add.sprite(x, y, texKey).setDepth(DEPTH.characters);
+      const sprite = this.add.sprite(x, y, battleTexKey).setDepth(DEPTH.characters);
       sprite.setData('homeX', x);
       sprite.setData('homeY', y);
       this.enemySprites.push(sprite);
 
-      this.add.text(x, y + (isBossEnemy ? TILE_SIZE + 8 : TILE_SIZE / 2 + 8), enemy.name, {
+      this.add.text(x, y + (isBossEnemy ? 100 : 75), enemy.name, {
         fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(DEPTH.characters + 1);
     });
 
+    // Direction indices for diagonal battle facing (matches DIRECTIONS array in CharacterRenderer)
+    const DIR_DOWN_LEFT = 4;
+    const DIR_DOWN = 0;
+    const DIR_DOWN_RIGHT = 5;
+
     // Draw party sprites (bottom center) — classic JRPG layout
     this.partySprites = [];
-    const partySpacing = Math.min(110, (GAME_WIDTH - 300) / Math.max(1, state.party.length));
+    const partySpacing = Math.min(150, (GAME_WIDTH - 300) / Math.max(1, state.party.length));
     const partyTotalW = (state.party.length - 1) * partySpacing;
     state.party.forEach((member, i) => {
       const x = GAME_WIDTH / 2 - partyTotalW / 2 + i * partySpacing;
-      const y = 470;
+      const y = 450;
 
       // Determine texture key — hero or companion
       let texKey = 'char_hero';
@@ -110,26 +135,39 @@ export class BattleScene extends Phaser.Scene {
         }
       }
 
-      const sprite = this.add.sprite(x, y, texKey, 0).setDepth(DEPTH.characters);
+      // Choose diagonal facing based on screen position (3/4 view toward enemies)
+      const relX = (x - GAME_WIDTH / 2) / (GAME_WIDTH / 2);
+      const battleDir = relX < -0.15 ? DIR_DOWN_RIGHT : relX > 0.15 ? DIR_DOWN_LEFT : DIR_DOWN;
+      const idleFrame = battleDir * 4 + 1; // 4 frames/dir, frame 1 = neutral idle
+
+      // Use battle-resolution texture if available (3× native, no scale needed)
+      const battleTexKey = `${texKey}_battle`;
+      const useBattleTex = this.textures.exists(battleTexKey);
+      const sprite = this.add.sprite(x, y, useBattleTex ? battleTexKey : texKey, idleFrame).setDepth(DEPTH.characters);
+      if (!useBattleTex) sprite.setScale(2.5); // fallback for missing battle textures
       sprite.setData('homeX', x);
       sprite.setData('homeY', y);
       this.partySprites.push(sprite);
 
-      this.add.text(x, y + TILE_SIZE / 2 + 4, member.name, {
+      this.add.text(x, y + 80, member.name, {
         fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(DEPTH.characters + 1);
     });
 
-    // Near-death labels (hidden initially)
+    // Near-death labels & pulse tracking (hidden initially)
     this.nearDeathLabels = [];
+    this.nearDeathTweens = [];
+    this.wasNearDeath = [];
     state.party.forEach((_member, i) => {
       const sprite = this.partySprites[i];
-      const label = this.add.text(sprite.x, sprite.y - 20, t('battle.near_death'), {
+      const label = this.add.text(sprite.x, sprite.y - 80, t('battle.near_death'), {
         fontFamily: FONT_FAMILY, fontSize: '10px', color: '#ff4444',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setDepth(DEPTH.characters + 2).setVisible(false);
       this.nearDeathLabels.push(label);
+      this.nearDeathTweens.push(null);
+      this.wasNearDeath.push(false);
     });
 
     // HUD
@@ -141,12 +179,26 @@ export class BattleScene extends Phaser.Scene {
     // Menu
     this.menu = new BattleMenu(this);
 
-    // TextBox
+    // TextBox (for intro and victory/defeat only)
     this.textBox = new TextBox(this);
 
-    // Target cursor
-    this.targetCursor = this.add.triangle(0, 0, 0, 0, 10, -14, 20, 0, COLORS.gold)
+    // Battle log panel (always visible during combat)
+    this.createBattleLog();
+
+    // Target cursor (larger offset for scaled sprites)
+    this.targetCursor = this.add.triangle(0, 0, 0, 0, 12, -18, 24, 0, COLORS.gold)
       .setDepth(DEPTH.ui + 5).setVisible(false);
+
+    // Auto-attack UI (hidden initially)
+    this.autoAttackMode = false;
+    this.autoAttackLabel = this.add.text(GAME_WIDTH / 2, 30, t('battle.auto_attack'), {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#ffdd44',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH.ui + 10).setVisible(false);
+    this.autoAttackCancelLabel = this.add.text(GAME_WIDTH / 2, 50, `(${t('battle.auto_cancel')})`, {
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#aaaaaa',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH.ui + 10).setVisible(false);
 
     // Start with intro message
     this.uiPhase = 'intro';
@@ -165,10 +217,79 @@ export class BattleScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.handleConfirm());
     this.input.keyboard?.on('keydown-Z', () => this.handleConfirm());
     this.input.keyboard?.on('keydown-ESC', () => this.handleCancel());
+    this.input.keyboard?.on('keydown-A', () => {
+      if (this.uiPhase === 'menu' && !this.autoAttackMode) {
+        this.startAutoAttack();
+      }
+    });
 
     TransitionEffect.fadeIn(this, 300);
     audioManager.playBgm(this.isBoss ? 'boss' : 'battle', this.regionId);
   }
+
+  // ─── Battle Log Panel ───
+
+  private createBattleLog(): void {
+    this.battleLogEntries = [];
+    this.battleLogScrollY = 0;
+
+    const logX = 195;
+    const logY = GAME_HEIGHT - 168;
+    const logW = 500;
+    const logH = 138;
+
+    // Semi-transparent background
+    this.battleLogBg = this.add.rectangle(logX + logW / 2, logY + logH / 2, logW, logH, 0x000000, 0.45)
+      .setDepth(DEPTH.ui + 2);
+
+    // Border
+    this.add.rectangle(logX + logW / 2, logY + logH / 2, logW + 2, logH + 2, 0x334466, 0.6)
+      .setDepth(DEPTH.ui + 1);
+
+    // Text object — newest first, word-wrapped
+    this.battleLogText = this.add.text(logX + 8, logY + 4, '', {
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ccddee',
+      wordWrap: { width: logW - 20 },
+      lineSpacing: 2,
+    }).setDepth(DEPTH.ui + 3);
+
+    // Mask so text doesn't overflow
+    this.battleLogMaskGraphics = this.add.graphics().setDepth(0);
+    this.battleLogMaskGraphics.fillRect(logX, logY, logW, logH);
+    const mask = this.battleLogMaskGraphics.createGeometryMask();
+    this.battleLogText.setMask(mask);
+
+    // Mouse wheel scroll
+    this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gos: Phaser.GameObjects.GameObject[], _dx: number, deltaY: number) => {
+      if (this.uiPhase === 'executing' || this.uiPhase === 'menu') {
+        this.battleLogScrollY += deltaY > 0 ? 24 : -24;
+        this.battleLogScrollY = Phaser.Math.Clamp(this.battleLogScrollY, 0, this.battleLogMaxScroll);
+        this.updateBattleLogDisplay();
+      }
+    });
+  }
+
+  private addBattleLogMessage(msg: string): void {
+    this.battleLogEntries.unshift(msg); // newest first
+    this.battleLogScrollY = 0; // auto-scroll to top (newest)
+    this.updateBattleLogDisplay();
+  }
+
+  private updateBattleLogDisplay(): void {
+    const logH = 138;
+    const text = this.battleLogEntries.join('\n');
+    this.battleLogText.setText(text);
+
+    // Calculate max scroll based on text height
+    const textHeight = this.battleLogText.height;
+    this.battleLogMaxScroll = Math.max(0, textHeight - logH + 8);
+
+    // Apply scroll offset
+    const logY = GAME_HEIGHT - 168;
+    this.battleLogText.setY(logY + 4 - this.battleLogScrollY);
+  }
+
+  // ─── Update & Input ───
 
   update(time: number, delta: number): void {
     this.textBox.update(time, delta);
@@ -184,16 +305,57 @@ export class BattleScene extends Phaser.Scene {
       }
     });
     state.party.forEach((p, i) => {
+      const isDown = p.stats.hp <= 0;
+      const isNearDeath = p.stats.hp > 0 && p.stats.hp <= p.stats.maxHP * 0.25;
+
       if (this.partySprites[i]) {
-        const isDown = p.stats.hp <= 0;
-        this.partySprites[i].setAlpha(isDown ? 0.4 : 1);
-        if (isDown) this.partySprites[i].setTint(0xff4444);
-        else if (this.uiPhase !== 'menu' || i !== this.currentPartyIndex) this.partySprites[i].clearTint();
+        if (isDown) {
+          this.partySprites[i].setAlpha(0.4);
+          this.partySprites[i].setTint(0xff4444);
+          this.stopNearDeathPulse(i);
+        } else if (isNearDeath) {
+          // First time entering near-death → SFX + start pulse
+          if (!this.wasNearDeath[i]) {
+            audioManager.playSfx('warning');
+            this.startNearDeathPulse(i);
+            this.wasNearDeath[i] = true;
+          }
+          // Tint managed by pulse tween — don't clear
+        } else {
+          // Healthy — clear effects
+          if (this.uiPhase !== 'menu' || i !== this.currentPartyIndex) this.partySprites[i].clearTint();
+          this.partySprites[i].setAlpha(1);
+          this.stopNearDeathPulse(i);
+        }
       }
       if (this.nearDeathLabels[i]) {
-        this.nearDeathLabels[i].setVisible(p.stats.hp <= 0);
+        this.nearDeathLabels[i].setVisible(isNearDeath);
       }
     });
+  }
+
+  private startNearDeathPulse(index: number): void {
+    if (this.nearDeathTweens[index]) return;
+    const sprite = this.partySprites[index];
+    if (!sprite) return;
+    sprite.setTint(0xff8888);
+    this.nearDeathTweens[index] = this.tweens.add({
+      targets: sprite,
+      alpha: { from: 1, to: 0.45 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private stopNearDeathPulse(index: number): void {
+    const tw = this.nearDeathTweens[index];
+    if (tw) {
+      tw.destroy();
+      this.nearDeathTweens[index] = null;
+    }
+    this.wasNearDeath[index] = false;
   }
 
   private handleConfirm(): void {
@@ -204,19 +366,38 @@ export class BattleScene extends Phaser.Scene {
       case 'result':
         this.advanceResult();
         break;
-      case 'executing':
-        this.advanceLog();
-        break;
     }
   }
 
   private handleCancel(): void {
+    // Cancel auto-attack mode
+    if (this.autoAttackMode) {
+      this.autoAttackMode = false;
+      this.autoAttackLabel?.setVisible(false);
+      this.autoAttackCancelLabel?.setVisible(false);
+      audioManager.playSfx('cancel');
+      // If we're in executing phase, the mode will stop after current turn
+      // If we're in menu phase, show the menu
+      if (this.uiPhase === 'menu') {
+        this.showMenuForCurrentMember();
+      }
+      return;
+    }
+
     if (this.uiPhase === 'target_select' || this.uiPhase === 'skill_select' || this.uiPhase === 'item_select') {
+      // Clean up skill/item overlay panels and their keyboard listeners
+      if (this.activeOverlayCleanup) {
+        this.activeOverlayCleanup();
+        this.activeOverlayCleanup = null;
+      }
       this.targetCursor?.setVisible(false);
       this.uiPhase = 'menu';
+      audioManager.playSfx('cancel');
       this.showMenuForCurrentMember();
     }
   }
+
+  // ─── Menu & Target Selection ───
 
   private showMenuForCurrentMember(): void {
     const state = this.combat.getState();
@@ -231,6 +412,19 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
+    // Auto-attack: skip menu and auto-assign attack
+    if (this.autoAttackMode) {
+      const firstAliveEnemy = state.enemies.findIndex(e => e.stats.hp > 0);
+      if (firstAliveEnemy >= 0) {
+        this.partyActions.push({
+          type: 'attack', actorIndex: this.currentPartyIndex, isEnemy: false, targetIndex: firstAliveEnemy,
+        });
+        this.currentPartyIndex++;
+        this.showMenuForCurrentMember();
+        return;
+      }
+    }
+
     // Highlight current member with tint
     this.partySprites.forEach((s, i) => {
       if (i === this.currentPartyIndex) {
@@ -241,6 +435,26 @@ export class BattleScene extends Phaser.Scene {
     });
 
     this.menu.show((action) => this.handleMenuAction(action));
+  }
+
+  /** Toggle auto-attack mode from BattleMenu 'A' key */
+  private startAutoAttack(): void {
+    if (this.uiPhase !== 'menu') return;
+    this.autoAttackMode = true;
+    this.autoAttackLabel?.setVisible(true);
+    this.autoAttackCancelLabel?.setVisible(true);
+    // Pulse animation for the label
+    this.tweens.add({
+      targets: this.autoAttackLabel,
+      alpha: { from: 1, to: 0.4 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.menu.hide();
+    audioManager.playSfx('select');
+    this.showMenuForCurrentMember();
   }
 
   private handleMenuAction(action: MenuAction): void {
@@ -300,7 +514,7 @@ export class BattleScene extends Phaser.Scene {
     const updateCursor = () => {
       const sprite = sprites[selectedIdx];
       if (sprite) {
-        this.targetCursor?.setPosition(sprite.x, sprite.y - 30).setVisible(true);
+        this.targetCursor?.setPosition(sprite.x, sprite.y - 85).setVisible(true);
       }
     };
     updateCursor();
@@ -318,15 +532,16 @@ export class BattleScene extends Phaser.Scene {
       do { selectedIdx = (selectedIdx - 1 + targets.length) % targets.length; }
       while (targets[selectedIdx].stats.hp <= 0);
       updateCursor();
+      audioManager.playSfx('select');
     };
     const onRight = () => {
       do { selectedIdx = (selectedIdx + 1) % targets.length; }
       while (targets[selectedIdx].stats.hp <= 0);
       updateCursor();
+      audioManager.playSfx('select');
     };
     const onConfirm = () => {
       cleanup();
-      audioManager.playSfx('select');
       onSelect(selectedIdx);
     };
 
@@ -370,11 +585,20 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
 
     const items: Phaser.GameObjects.Text[] = [];
+    const skillIcons: Phaser.GameObjects.Image[] = [];
     let selectedIdx = 0;
 
     skills.forEach((skill, i) => {
       const canUse = actor.stats.mp >= skill.mpCost;
-      const text = this.add.text(panelX - 130, panelY - 80 + i * 28, `  ${skill.name} (MP:${skill.mpCost})`, {
+      const iy = panelY - 80 + i * 28;
+      // Skill icon
+      const iconKey = ItemIconRenderer.getSkillIconKey(skill.element, skill.type);
+      if (this.textures.exists(iconKey)) {
+        const icon = this.add.image(panelX - 130, iy + 9, iconKey).setScale(0.65).setDepth(DEPTH.overlay + 1);
+        if (!canUse) icon.setAlpha(0.4);
+        skillIcons.push(icon);
+      }
+      const text = this.add.text(panelX - 115, iy, `  ${skill.name} (MP:${skill.mpCost})`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: canUse ? COLORS.textPrimary : '#666666',
       }).setDepth(DEPTH.overlay + 1);
 
@@ -399,17 +623,20 @@ export class BattleScene extends Phaser.Scene {
     const cleanup = () => {
       panel.destroy(); border?.destroy(); title.destroy();
       items.forEach(t => t.destroy());
+      skillIcons.forEach(ic => ic.destroy());
       this.input.keyboard?.off('keydown-UP', onUp);
       this.input.keyboard?.off('keydown-DOWN', onDown);
       this.input.keyboard?.off('keydown-ENTER', onConfirm);
+      this.input.keyboard?.off('keydown-SPACE', onConfirm);
       this.input.keyboard?.off('keydown-Z', onConfirm);
+      this.activeOverlayCleanup = null;
     };
+    this.activeOverlayCleanup = cleanup;
 
     const selectSkill = (i: number) => {
       const skill = skills[i];
       if (actor.stats.mp < skill.mpCost) return;
       cleanup();
-      audioManager.playSfx('select');
 
       const isAllyTarget = skill.target === 'single_ally' || skill.target === 'all_allies' || skill.target === 'self';
       if (skill.target === 'self' || skill.target.startsWith('all_')) {
@@ -434,13 +661,14 @@ export class BattleScene extends Phaser.Scene {
       }
     };
 
-    const onUp = () => { selectedIdx = (selectedIdx - 1 + skills.length) % skills.length; updateList(); };
-    const onDown = () => { selectedIdx = (selectedIdx + 1) % skills.length; updateList(); };
+    const onUp = () => { selectedIdx = (selectedIdx - 1 + skills.length) % skills.length; updateList(); audioManager.playSfx('select'); };
+    const onDown = () => { selectedIdx = (selectedIdx + 1) % skills.length; updateList(); audioManager.playSfx('select'); };
     const onConfirm = () => selectSkill(selectedIdx);
 
     this.input.keyboard?.on('keydown-UP', onUp);
     this.input.keyboard?.on('keydown-DOWN', onDown);
     this.input.keyboard?.on('keydown-ENTER', onConfirm);
+    this.input.keyboard?.on('keydown-SPACE', onConfirm);
     this.input.keyboard?.on('keydown-Z', onConfirm);
   }
 
@@ -470,8 +698,16 @@ export class BattleScene extends Phaser.Scene {
     const items: Phaser.GameObjects.Text[] = [];
     let selectedIdx = 0;
 
+    const itemIcons: Phaser.GameObjects.Image[] = [];
     usable.forEach((entry, i) => {
-      const text = this.add.text(panelX - 130, panelY - 80 + i * 28, `  ${entry.item.name} ×${entry.quantity}`, {
+      const iy = panelY - 80 + i * 28;
+      // Icon
+      const iconKey = ItemIconRenderer.getIconKey(entry.item.id);
+      if (this.textures.exists(iconKey)) {
+        const icon = this.add.image(panelX - 130, iy + 9, iconKey).setScale(0.65).setDepth(DEPTH.overlay + 1);
+        itemIcons.push(icon);
+      }
+      const text = this.add.text(panelX - 115, iy, `  ${entry.item.name} ×${entry.quantity}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textPrimary,
       }).setDepth(DEPTH.overlay + 1).setInteractive({ useHandCursor: true });
 
@@ -491,15 +727,18 @@ export class BattleScene extends Phaser.Scene {
     const cleanup = () => {
       panel.destroy(); border?.destroy(); title.destroy();
       items.forEach(t => t.destroy());
+      itemIcons.forEach(ic => ic.destroy());
       this.input.keyboard?.off('keydown-UP', onUp);
       this.input.keyboard?.off('keydown-DOWN', onDown);
       this.input.keyboard?.off('keydown-ENTER', onConfirm);
+      this.input.keyboard?.off('keydown-SPACE', onConfirm);
       this.input.keyboard?.off('keydown-Z', onConfirm);
+      this.activeOverlayCleanup = null;
     };
+    this.activeOverlayCleanup = cleanup;
 
     const selectItem = (i: number) => {
       cleanup();
-      audioManager.playSfx('select');
       // Select target for item (always ally)
       this.uiPhase = 'target_select';
       this.showTargetSelect(true, (targetIndex) => {
@@ -513,15 +752,18 @@ export class BattleScene extends Phaser.Scene {
       });
     };
 
-    const onUp = () => { selectedIdx = (selectedIdx - 1 + usable.length) % usable.length; updateList(); };
-    const onDown = () => { selectedIdx = (selectedIdx + 1) % usable.length; updateList(); };
+    const onUp = () => { selectedIdx = (selectedIdx - 1 + usable.length) % usable.length; updateList(); audioManager.playSfx('select'); };
+    const onDown = () => { selectedIdx = (selectedIdx + 1) % usable.length; updateList(); audioManager.playSfx('select'); };
     const onConfirm = () => selectItem(selectedIdx);
 
     this.input.keyboard?.on('keydown-UP', onUp);
     this.input.keyboard?.on('keydown-DOWN', onDown);
     this.input.keyboard?.on('keydown-ENTER', onConfirm);
+    this.input.keyboard?.on('keydown-SPACE', onConfirm);
     this.input.keyboard?.on('keydown-Z', onConfirm);
   }
+
+  // ─── Turn Execution & Action Sequence ───
 
   private executeTurn(): void {
     this.uiPhase = 'executing';
@@ -549,21 +791,17 @@ export class BattleScene extends Phaser.Scene {
     index: number,
   ): void {
     if (index >= results.length) {
-      // All animations done — show the full action log
-      this.logIndex = 0;
-      if (this.actionLog.length > 0) {
-        this.textBox.show('', this.actionLog[0], () => this.advanceLog());
-      } else {
-        this.checkBattleResult();
-      }
+      // All animations done — go directly to check result (no TextBox log needed)
+      this.checkBattleResult();
       return;
     }
 
     const { actor, action, results: msgs } = results[index];
-    this.actionLog.push(...msgs);
 
     // Skip if actor died mid-turn
     if (actor.stats.hp <= 0 && action.type !== 'defend') {
+      // Still log death-related messages
+      for (const msg of msgs) this.addBattleLogMessage(msg);
       this.playActionSequence(results, index + 1);
       return;
     }
@@ -573,6 +811,7 @@ export class BattleScene extends Phaser.Scene {
       : this.partySprites[action.actorIndex];
 
     if (!actorSprite) {
+      for (const msg of msgs) this.addBattleLogMessage(msg);
       this.playActionSequence(results, index + 1);
       return;
     }
@@ -588,6 +827,7 @@ export class BattleScene extends Phaser.Scene {
           : this.enemySprites[action.targetIndex ?? 0];
 
         if (!targetSprite) {
+          for (const msg of msgs) this.addBattleLogMessage(msg);
           this.playActionSequence(results, index + 1);
           return;
         }
@@ -605,6 +845,8 @@ export class BattleScene extends Phaser.Scene {
             audioManager.playSfx('hit');
             BattleEffects.playAttackEffect(this, targetSprite.x, targetSprite.y);
             this.showDamageFromMessages(msgs);
+            // Add messages to battle log
+            for (const msg of msgs) this.addBattleLogMessage(msg);
 
             // Flash + shake target
             this.tweens.add({
@@ -643,9 +885,14 @@ export class BattleScene extends Phaser.Scene {
           y: stepY,
           duration: 150,
           onComplete: () => {
-            // Play magic/heal effects on targets
-            audioManager.playSfx('hit');
+            // Play appropriate SFX based on skill type
             const isHealSkill = skill?.type === 'heal';
+            if (isHealSkill) {
+              audioManager.playSfx('heal');
+            } else {
+              audioManager.playSfx('magic');
+            }
+
             const targetSprites = this.getActionTargetSprites(action);
 
             for (const ts of targetSprites) {
@@ -660,6 +907,8 @@ export class BattleScene extends Phaser.Scene {
               }
             }
             this.showDamageFromMessages(msgs);
+            // Add messages to battle log
+            for (const msg of msgs) this.addBattleLogMessage(msg);
 
             this.time.delayedCall(350, () => {
               // Return to home
@@ -682,9 +931,12 @@ export class BattleScene extends Phaser.Scene {
       case 'item': {
         const targetSprite = this.partySprites[action.targetIndex ?? 0];
         if (targetSprite) {
+          audioManager.playSfx('heal');
           BattleEffects.playHealEffect(this, targetSprite.x, targetSprite.y);
           this.showDamageFromMessages(msgs);
         }
+        // Add messages to battle log
+        for (const msg of msgs) this.addBattleLogMessage(msg);
         this.time.delayedCall(400, () => {
           this.playActionSequence(results, index + 1);
         });
@@ -694,6 +946,8 @@ export class BattleScene extends Phaser.Scene {
       case 'defend': {
         // Brief shield flash
         actorSprite.setTint(0x4488ff);
+        // Add messages to battle log
+        for (const msg of msgs) this.addBattleLogMessage(msg);
         this.time.delayedCall(350, () => {
           actorSprite.clearTint();
           this.playActionSequence(results, index + 1);
@@ -702,6 +956,7 @@ export class BattleScene extends Phaser.Scene {
       }
 
       default:
+        for (const msg of msgs) this.addBattleLogMessage(msg);
         this.playActionSequence(results, index + 1);
     }
   }
@@ -755,7 +1010,7 @@ export class BattleScene extends Phaser.Scene {
           const ally = state.party.find(p => p.name === name);
           const sprite = enemy ? this.enemySprites[enemy.index] : ally ? this.partySprites[ally.index] : null;
           if (sprite) {
-            showDamageNumber(this, sprite.x, sprite.y - 20, parseInt(dmgMatch[1]), 'damage');
+            showDamageNumber(this, sprite.x, sprite.y - 70, parseInt(dmgMatch[1]), 'damage');
           }
         }
       }
@@ -765,27 +1020,14 @@ export class BattleScene extends Phaser.Scene {
         if (healTarget) {
           const p = state.party.find(p => p.name === healTarget[1]);
           if (p && this.partySprites[p.index]) {
-            showDamageNumber(this, this.partySprites[p.index].x, this.partySprites[p.index].y - 20, parseInt(healMatch[1]), 'heal');
+            showDamageNumber(this, this.partySprites[p.index].x, this.partySprites[p.index].y - 70, parseInt(healMatch[1]), 'heal');
           }
         }
       }
     }
   }
 
-  private advanceLog(): void {
-    if (!this.textBox.getIsComplete()) {
-      this.textBox.advance();
-      return;
-    }
-
-    this.logIndex++;
-    if (this.logIndex < this.actionLog.length) {
-      this.textBox.show('', this.actionLog[this.logIndex], () => this.advanceLog());
-    } else {
-      this.textBox.hide();
-      this.checkBattleResult();
-    }
-  }
+  // ─── Battle Result ───
 
   private checkBattleResult(): void {
     if (this.combat.isBattleOver()) {
@@ -797,7 +1039,8 @@ export class BattleScene extends Phaser.Scene {
       } else if (state.phase === 'defeat') {
         this.showDefeat();
       } else if (state.phase === 'fled') {
-        this.returnToField();
+        this.addBattleLogMessage(t('battle.fled'));
+        this.time.delayedCall(600, () => this.returnToField());
       }
     } else {
       // Next turn
@@ -805,13 +1048,24 @@ export class BattleScene extends Phaser.Scene {
       this.currentPartyIndex = 0;
       this.partyActions = [];
       this.uiPhase = 'menu';
-      this.showMenuForCurrentMember();
+      // Small delay before auto-attack continues (so player can see results)
+      if (this.autoAttackMode) {
+        this.time.delayedCall(200, () => this.showMenuForCurrentMember());
+      } else {
+        this.showMenuForCurrentMember();
+      }
     }
   }
 
   private showVictory(): void {
     const result = this.combat.getState().result!;
     audioManager.playBgm('victory');
+    audioManager.playSfx('fanfare');
+
+    // Stop auto-attack on victory
+    this.autoAttackMode = false;
+    this.autoAttackLabel?.setVisible(false);
+    this.autoAttackCancelLabel?.setVisible(false);
 
     const lines: string[] = [t('battle.victory')];
     lines.push(t('battle.exp_gained', result.exp));
@@ -820,7 +1074,14 @@ export class BattleScene extends Phaser.Scene {
     for (const drop of result.drops) {
       lines.push(t('battle.item_dropped', drop));
     }
+
+    // Check if mini-boss was defeated (demon kingdom guard)
+    if (this.monsters.some(m => m.id === 'r12_mini_boss')) {
+      gameState.setFlag('mini_boss_demon_defeated');
+      lines.push('魔王護衛已被擊敗！前方就是大魔王！');
+    }
     for (const lu of result.levelUps) {
+      audioManager.playSfx('levelup');
       lines.push(t('battle.level_up', lu.characterId, lu.newLevel));
     }
 
@@ -828,6 +1089,27 @@ export class BattleScene extends Phaser.Scene {
     if (this.isBoss) {
       gameState.liberateRegion(this.regionId);
       lines.push(`${gameState.getState().heroName} 解放了此地區！`);
+
+      // Add companion for this region (if available)
+      const companion = getCompanionForRegion(this.regionId);
+      if (companion) {
+        const companionData = structuredClone(companion);
+        gameState.addCompanion(companionData);
+        if (gameState.addToParty(companionData.id)) {
+          lines.push(t('battle.companion_join', companionData.name));
+        }
+      }
+
+      // Demon king defeated — trigger ending sequence
+      const region = getRegionById(this.regionId);
+      if (region?.type === 'final') {
+        gameState.setGameCompleted();
+        SaveLoadSystem.autoSave();
+        this.actionLog = lines;
+        this.logIndex = 0;
+        this.textBox.show('', lines[0]);
+        return; // returnToField will redirect to EndingScene
+      }
     }
 
     this.actionLog = lines;
@@ -861,6 +1143,12 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private returnToField(): void {
+    // If the demon king was just defeated, go to ending instead
+    const region = getRegionById(this.regionId);
+    if (this.isBoss && region?.type === 'final') {
+      TransitionEffect.transition(this, 'EndingScene');
+      return;
+    }
     TransitionEffect.transition(this, this.returnScene, this.returnData);
   }
 }

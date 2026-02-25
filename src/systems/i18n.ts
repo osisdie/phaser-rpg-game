@@ -61,6 +61,8 @@ const strings: Record<string, string> = {
   'shop.bought': '購買了 {0}',
   'shop.sold': '出售了 {0}',
   'shop.confirm_buy': '確定購買 {0} 嗎？（{1} 金幣）',
+  'shop.confirm_sell': '確定出售 {0} 嗎？（獲得 {1} 金幣）',
+  'shop.insufficient': '金幣不足，無法購買！',
 
   // ─── 存檔 ───
   'save.slot': '存檔欄 {0}',
@@ -108,6 +110,8 @@ const strings: Record<string, string> = {
   'system.hard': '困難',
   'system.bgm_volume': '音樂音量',
   'system.sfx_volume': '音效音量',
+  'system.mute': '靜音',
+  'system.unmute': '取消靜音',
   'system.return_title': '回到標題',
 
   // ─── 進度 ───
@@ -123,11 +127,35 @@ const strings: Record<string, string> = {
   'gameover.gold_lost': '失去了 {0} 金幣...',
   'gameover.revived': '在城鎮中恢復了意識...',
   'battle.near_death': '瀕死',
+  'battle.auto_attack': '自動攻擊中',
+  'battle.auto_cancel': 'ESC 取消',
+
+  // ─── 寶箱 ───
+  'chest.found': '發現了寶箱！',
+  'chest.gold': '獲得了 {0} 金幣！',
+  'chest.item': '獲得了 {0}！',
+  'chest.equipment': '獲得了 {0}！',
+  'chest.empty': '寶箱是空的…',
+  'chest.already_opened': '這個寶箱已經打開過了。',
 
   // ─── 結局 ───
   'ending.congratulations': '恭喜通關！',
   'ending.playtime': '遊戲時間：{0}',
   'ending.newgame_plus': '新遊戲+',
+  'ending.thank_you': 'Thank you for playing.\nThe End',
+  'ending.continue': '繼續冒險',
+
+  // ─── 夥伴 ───
+  'battle.companion_join': '夥伴 {0} 加入了隊伍！',
+
+  // ─── 魔王城 ───
+  'world.demon_confirm': '前方是魔王城，最終決戰之地。\n確定要進入挑戰嗎？',
+  'world.demon_confirm_yes': '前進！',
+  'world.demon_confirm_no': '還需要準備…',
+  'battle.mini_boss_guard': '魔王護衛擋住了去路！必須先擊敗他！',
+
+  // ─── 存檔 ───
+  'save.completed': '★ 通關',
 };
 
 export function t(key: string, ...args: (string | number)[]): string {

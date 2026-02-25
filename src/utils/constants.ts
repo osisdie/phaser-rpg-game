@@ -3,8 +3,8 @@ export const MAX_SAVE_SLOTS = 3;
 export const MAX_PARTY_SIZE = 3;
 export const MAX_LEVEL = 70;
 
-export const BASE_ENCOUNTER_STEPS = 22;
-export const ENCOUNTER_VARIANCE = 8;
+export const BASE_ENCOUNTER_STEPS = 30;
+export const ENCOUNTER_VARIANCE = 10;
 
 export const FONT_FAMILY = '"Microsoft JhengHei", "微軟正黑體", "Noto Sans TC", sans-serif';
 

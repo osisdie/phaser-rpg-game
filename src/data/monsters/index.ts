@@ -1,5 +1,34 @@
 import type { MonsterData, EncounterTable } from '../../types';
 
+// ─── Equipment tier helpers ───
+const EQUIP_TIERS = ['wood', 'iron', 'steel', 'silver', 'mithril', 'dragon', 'holy', 'legendary'] as const;
+const EQUIP_SLOTS = ['sword', 'helmet', 'armor', 'shield', 'boots'];
+
+function getTierForLevel(lv: number): string {
+  if (lv < 8) return 'wood';
+  if (lv < 18) return 'iron';
+  if (lv < 30) return 'steel';
+  if (lv < 42) return 'silver';
+  if (lv < 55) return 'mithril';
+  if (lv < 65) return 'dragon';
+  return 'holy';
+}
+
+function getNextTier(tier: string): string {
+  const idx = EQUIP_TIERS.indexOf(tier as any);
+  return EQUIP_TIERS[Math.min(idx + 1, EQUIP_TIERS.length - 1)];
+}
+
+function getPotionForLevel(lv: number): string {
+  if (lv < 15) return 'item_potion_s';
+  if (lv < 35) return 'item_potion_m';
+  return 'item_potion_l';
+}
+
+function getEtherForLevel(lv: number): string {
+  return lv < 30 ? 'item_ether_s' : 'item_ether_m';
+}
+
 /** Generate monsters for a region based on level range */
 function generateRegionMonsters(
   regionId: string,
@@ -10,14 +39,18 @@ function generateRegionMonsters(
 ): MonsterData[] {
   return names.map((name, i) => {
     const lv = baseLv + i * Math.max(1, Math.floor((names.length > 1 ? 7 : 1) / (names.length - 1 || 1)));
-    const hpBase = 30 + lv * 12;
+    const hpBase = 22 + lv * 12;
+    const tier = getTierForLevel(lv);
+    const equipSlot = EQUIP_SLOTS[i % EQUIP_SLOTS.length];
+    const equipDropRate = 0.04 + i * 0.006; // 4%→10% scaling with monster index
+
     return {
       id: `${regionId}_monster_${i}`,
       name,
       stats: {
         maxHP: hpBase, hp: hpBase,
         maxMP: 10 + lv * 2, mp: 10 + lv * 2,
-        atk: 8 + lv * 3,
+        atk: 5 + lv * 3,
         def: 5 + lv * 2,
         agi: 5 + lv,
         luck: 3,
@@ -26,8 +59,9 @@ function generateRegionMonsters(
       exp: 10 + lv * 5,
       gold: 5 + lv * 3,
       drops: [
-        { itemId: 'item_potion_s', rate: 0.3 },
-        { itemId: i >= 7 ? 'item_potion_m' : 'item_potion_s', rate: 0.1 },
+        { itemId: getPotionForLevel(lv), rate: 0.3 },
+        { itemId: getEtherForLevel(lv), rate: 0.08 },
+        { itemId: `equip_${tier}_${equipSlot}`, rate: equipDropRate },
       ],
       skills: lv > 10 ? ['skill_monster_bite'] : [],
       element: element as any,
@@ -44,14 +78,16 @@ function generateBoss(
   color: number,
   element: string = 'dark'
 ): MonsterData {
+  const tier = getTierForLevel(lv);
+  const nextTier = getNextTier(tier);
   return {
     id: `${regionId}_boss`,
     name,
     stats: {
-      maxHP: (30 + lv * 12) * 2.5, hp: (30 + lv * 12) * 2.5,
+      maxHP: (22 + lv * 12) * 2.0, hp: (22 + lv * 12) * 2.0,
       maxMP: 50 + lv * 5, mp: 50 + lv * 5,
-      atk: (8 + lv * 3) * 1.8,
-      def: (5 + lv * 2) * 1.5,
+      atk: (5 + lv * 3) * 1.4,
+      def: (5 + lv * 2) * 1.2,
       agi: 5 + lv * 1.2,
       luck: 10,
     },
@@ -59,8 +95,10 @@ function generateBoss(
     exp: (10 + lv * 5) * 5,
     gold: (5 + lv * 3) * 5,
     drops: [
-      { itemId: 'item_potion_l', rate: 1 },
-      { itemId: 'item_ether_m', rate: 0.5 },
+      { itemId: getPotionForLevel(lv + 10), rate: 1 },
+      { itemId: getEtherForLevel(lv + 10), rate: 0.5 },
+      { itemId: `equip_${nextTier}_sword`, rate: 1.0 },   // guaranteed weapon
+      { itemId: `equip_${nextTier}_armor`, rate: 0.5 },   // 50% armor
     ],
     skills: ['skill_boss_smash', 'skill_monster_fire'],
     element: element as any,
@@ -74,7 +112,24 @@ const heroMonsters = generateRegionMonsters('r1', 1,
   ['史萊姆', '蝙蝠', '小哥布林', '毒蛇', '野狼', '骷髏兵', '土匪', '暗影鼠', '食屍鬼', '黑蜘蛛'],
   0x44aa44
 );
-const heroBoss = generateBoss('r1', '墮落守衛長', 10, 0x880000);
+// Tutorial boss — hand-crafted for solo hero at ~Lv 5-6
+const heroBoss: MonsterData = {
+  id: 'r1_boss',
+  name: '墮落守衛長',
+  stats: { maxHP: 250, hp: 250, maxMP: 40, mp: 40, atk: 35, def: 20, agi: 12, luck: 5 },
+  ai: 'aggressive',
+  exp: 200,
+  gold: 150,
+  drops: [
+    { itemId: 'item_potion_m', rate: 1.0 },
+    { itemId: 'equip_iron_sword', rate: 1.0 },
+    { itemId: 'equip_iron_armor', rate: 0.5 },
+  ],
+  skills: ['skill_monster_bite', 'skill_monster_fire'],
+  element: 'dark',
+  isBoss: true,
+  spriteColor: 0x880000,
+};
 
 // ─── Region 2: 精靈王國 (Lv 7-14) ───
 const elfMonsters = generateRegionMonsters('r2', 7,
@@ -150,6 +205,24 @@ const demonMonsters = generateRegionMonsters('r12', 60,
   0x880088, 'dark'
 );
 
+// Mini-boss guard that must be defeated before the final boss
+const demonMiniBoss: MonsterData = {
+  id: 'r12_mini_boss',
+  name: '魔王護衛',
+  stats: { maxHP: 5000, hp: 5000, maxMP: 500, mp: 500, atk: 140, def: 110, agi: 80, luck: 30 },
+  ai: 'aggressive',
+  exp: 5000,
+  gold: 5000,
+  drops: [
+    { itemId: 'item_elixir', rate: 1.0 },
+    { itemId: 'equip_holy_sword', rate: 0.5 },
+  ],
+  skills: ['skill_boss_smash', 'skill_boss_dark_blast', 'skill_monster_fire'],
+  element: 'dark',
+  isBoss: true,
+  spriteColor: 0x660066,
+};
+
 const finalBoss: MonsterData = {
   id: 'r12_boss',
   name: '大魔王',
@@ -177,7 +250,7 @@ const allMonsters: MonsterData[] = [
   ...volcanoMonsters, volcanoBoss,
   ...hotspringMonsters, hotspringBoss,
   ...mountainMonsters, mountainBoss,
-  ...demonMonsters, finalBoss,
+  ...demonMonsters, demonMiniBoss, finalBoss,
 ];
 
 const monsterMap = new Map<string, MonsterData>();
@@ -197,6 +270,11 @@ export function getMonstersForRegion(regionId: string): MonsterData[] {
   };
   const p = prefixMap[regionId] ?? prefix;
   return allMonsters.filter(m => m.id.startsWith(p + '_') && !m.isBoss);
+}
+
+export function getMiniBossForRegion(regionId: string): MonsterData | undefined {
+  if (regionId === 'region_demon') return monsterMap.get('r12_mini_boss');
+  return undefined;
 }
 
 export function getBossForRegion(regionId: string): MonsterData | undefined {

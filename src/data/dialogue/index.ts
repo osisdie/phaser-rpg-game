@@ -105,7 +105,7 @@ const dialogues: Record<string, DialogueTree> = {
     startNode: 'start',
     nodes: {
       start: {
-        id: 'start', speaker: '旅店老闆', text: '歡迎來到旅店！住一晚只要 30 金幣，可以完全恢復體力。要住宿嗎？',
+        id: 'start', speaker: '旅店老闆', text: '歡迎來到旅店！住一晚就能完全恢復體力。要住宿嗎？',
         choices: [
           { text: '好的，住一晚', next: 'rest' },
           { text: '不了，謝謝', next: 'bye' },
@@ -452,6 +452,115 @@ const dialogues: Record<string, DialogueTree> = {
     nodes: {
       start: { id: 'start', speaker: '被囚勇者', text: '你…你是新來的勇者嗎？我是上一代的冒險者，被困在這裡很久了…', next: 'help' },
       help: { id: 'help', speaker: '被囚勇者', text: '小心魔王的力量…他能操控黑暗本身。但只要各王國團結一心，一定能戰勝他！加油！' },
+    },
+  },
+  // ─── King & Guard dialogues ───
+  npc_royal_guard: {
+    id: 'npc_royal_guard', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '衛兵', text: '城堡由我們守護。國王就在裡面，有事可以去拜見。' },
+    },
+  },
+  npc_gate_guard: {
+    id: 'npc_gate_guard', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '城門守衛', text: '歡迎回來，{heroName}。城外最近有不少魔物出沒，請小心。' },
+    },
+  },
+  npc_king_hero: {
+    id: 'npc_king_hero', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '國王 亞瑟', text: '勇者{heroName}！你來了。魔王的威脅日益嚴重，整個大陸都在等待你的行動。', next: 'plea' },
+      plea: { id: 'plea', speaker: '國王 亞瑟', text: '請替我向各國傳達聯盟的意願。只有團結一致，我們才能打敗魔王。', next: 'gift' },
+      gift: { id: 'gift', speaker: '國王 亞瑟', text: '拿著這枚王印吧，各國的國王看到它就會知道你是我的使者。願光明與你同在！', action: 'set_flag:hero_king_ally' },
+    },
+  },
+  npc_king_elf: {
+    id: 'npc_king_elf', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '精靈王 艾瑞隆', text: '人類的勇者...很久沒有人類踏入精靈的領地了。', next: 'ask' },
+      ask: { id: 'ask', speaker: '精靈王 艾瑞隆', text: '你帶來了亞瑟王的王印？看來魔王的威脅已經嚴重到需要各族聯手了。', next: 'agree' },
+      agree: { id: 'agree', speaker: '精靈王 艾瑞隆', text: '精靈族願意加入聯盟。但首先，請幫我們解決森林中的腐化問題。', action: 'set_flag:elf_king_ally' },
+    },
+  },
+  npc_king_treant: {
+    id: 'npc_king_treant', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '樹人王 歐克斯', text: '...你好，小小的生物。我已經守護這片森林三千年了。', next: 'listen' },
+      listen: { id: 'listen', speaker: '樹人王 歐克斯', text: '聯盟？嗯...魔王的黑暗力量確實在侵蝕大地的生命力。', next: 'promise' },
+      promise: { id: 'promise', speaker: '樹人王 歐克斯', text: '只要你能證明你保護自然的決心，樹人族會站在你這邊。', action: 'set_flag:treant_king_ally' },
+    },
+  },
+  npc_king_beast: {
+    id: 'npc_king_beast', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '獸王 格羅姆', text: '哈！一個人類敢闖入獸人的領地？你很有膽量！', next: 'test' },
+      test: { id: 'test', speaker: '獸王 格羅姆', text: '獸人只尊重強者。如果你能打敗草原上的魔物頭領，我就認可你！', next: 'join' },
+      join: { id: 'join', speaker: '獸王 格羅姆', text: '到時候，獸人的戰士們將為你而戰！', action: 'set_flag:beast_king_ally' },
+    },
+  },
+  npc_king_merfolk: {
+    id: 'npc_king_merfolk', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '人魚王 尼普頓', text: '陸上來的客人？有趣。海底世界最近也不太平。', next: 'problem' },
+      problem: { id: 'problem', speaker: '人魚王 尼普頓', text: '深海中出現了可怕的海獸，那是魔王的手下。', next: 'deal' },
+      deal: { id: 'deal', speaker: '人魚王 尼普頓', text: '幫我們消滅深海的威脅，人魚族將會以海洋之力支持你的聯盟！', action: 'set_flag:merfolk_king_ally' },
+    },
+  },
+  npc_king_giant: {
+    id: 'npc_king_giant', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '巨人王 泰坦', text: '嗯？你這麼小的生物，居然爬上了我們的山頂。', next: 'respect' },
+      respect: { id: 'respect', speaker: '巨人王 泰坦', text: '有毅力的傢伙。說吧，你來做什麼？', next: 'alliance' },
+      alliance: { id: 'alliance', speaker: '巨人王 泰坦', text: '打倒魔王？哈哈！好，巨人族的力量借你用用。但你可別讓我失望！', action: 'set_flag:giant_king_ally' },
+    },
+  },
+  npc_king_dwarf: {
+    id: 'npc_king_dwarf', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '矮人王 杜林', text: '歡迎來到地底王國！看看我們的鍛造坊，全大陸最好的！', next: 'forge' },
+      forge: { id: 'forge', speaker: '矮人王 杜林', text: '聯盟嗎？矮人族可以為聯軍打造最精良的武器和防具！', next: 'condition' },
+      condition: { id: 'condition', speaker: '矮人王 杜林', text: '但你得先幫我們處理礦脈深處的問題...那裡出現了不該存在的東西。', action: 'set_flag:dwarf_king_ally' },
+    },
+  },
+  npc_king_undead: {
+    id: 'npc_king_undead', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '亡靈王 莫爾德', text: '...又一個活著的生物。你不怕這裡嗎？', next: 'truth' },
+      truth: { id: 'truth', speaker: '亡靈王 莫爾德', text: '我們不死族並非邪惡...是魔王的詛咒讓我們變成這樣的。', next: 'wish' },
+      wish: { id: 'wish', speaker: '亡靈王 莫爾德', text: '如果你能打敗魔王，也許我們就能重獲安息。為了這個願望，不死族會支持你。', action: 'set_flag:undead_king_ally' },
+    },
+  },
+  npc_king_volcano: {
+    id: 'npc_king_volcano', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '火族長 伊格尼斯', text: '你能承受這裡的高溫？看來你不是普通人。', next: 'fire' },
+      fire: { id: 'fire', speaker: '火族長 伊格尼斯', text: '火族的戰士以火焰為武器，魔王的黑暗在烈焰面前不堪一擊！', next: 'join' },
+      join: { id: 'join', speaker: '火族長 伊格尼斯', text: '告訴各國的領袖，火族已經準備好了。讓我們一起燒毀魔王的黑暗！', action: 'set_flag:volcano_king_ally' },
+    },
+  },
+  npc_king_hotspring: {
+    id: 'npc_king_hotspring', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '溫泉族長 泉月', text: '旅途辛苦了，{heroName}。先泡個溫泉恢復一下吧。', next: 'heal' },
+      heal: { id: 'heal', speaker: '溫泉族長 泉月', text: '溫泉族擅長治癒之術。在戰場上，我們的治療師是不可或缺的。', next: 'support' },
+      support: { id: 'support', speaker: '溫泉族長 泉月', text: '為了和平，溫泉族願意派出最優秀的治療師支援聯盟軍。', action: 'set_flag:hotspring_king_ally' },
+    },
+  },
+  npc_king_mountain: {
+    id: 'npc_king_mountain', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '山族長 蒼嵐', text: '能登上這座山峰的人，都不是凡人。', next: 'wind' },
+      wind: { id: 'wind', speaker: '山族長 蒼嵐', text: '山族掌握風之力，我們的斥候能在高空偵察魔王的動向。', next: 'ally' },
+      ally: { id: 'ally', speaker: '山族長 蒼嵐', text: '好，山族的鷹眼戰士將會是你的耳目。一起守護這片大陸吧。', action: 'set_flag:mountain_king_ally' },
+    },
+  },
+  npc_king_demon: {
+    id: 'npc_king_demon', startNode: 'start',
+    nodes: {
+      start: { id: 'start', speaker: '魔王 撒旦魯斯', text: '哈哈哈...勇者，你居然走到了這裡。', next: 'mock' },
+      mock: { id: 'mock', speaker: '魔王 撒旦魯斯', text: '即使你集結了所有王國的力量，在絕對的黑暗面前也只是螻蟻！', next: 'challenge' },
+      challenge: { id: 'challenge', speaker: '魔王 撒旦魯斯', text: '來吧，讓我看看你的力量！我在城堡深處等著你！', action: 'set_flag:demon_king_challenge' },
     },
   },
 };

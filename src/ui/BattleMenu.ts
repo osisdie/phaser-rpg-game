@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 import { COLORS, DEPTH, FONT_FAMILY } from '../utils/constants';
 import { t } from '../systems/i18n';
+import { audioManager } from '../systems/AudioManager';
 
 export type MenuAction = 'attack' | 'skill' | 'item' | 'defend' | 'flee';
 
@@ -14,6 +15,7 @@ export class BattleMenu extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
   private border: Phaser.GameObjects.Rectangle | null = null;
   private enabled = false;
+  private autoHint!: Phaser.GameObjects.Text;
 
   private readonly actions: { key: MenuAction; label: string; icon: string }[] = [
     { key: 'attack', label: t('battle.attack'), icon: 'icon_sword' },
@@ -64,9 +66,16 @@ export class BattleMenu extends Phaser.GameObjects.Container {
       this.add(text);
     });
 
+    // Auto-attack hint below the menu
+    this.autoHint = scene.add.text(menuX, menuY + menuH + 8, 'A: 自動攻擊', {
+      fontFamily: FONT_FAMILY, fontSize: '11px', color: '#888899',
+      stroke: '#000000', strokeThickness: 1,
+    }).setOrigin(0.5, 0);
+    this.add(this.autoHint);
+
     // Keyboard
-    scene.input.keyboard?.on('keydown-UP', () => { if (this.enabled) { this.selectedIndex = (this.selectedIndex - 1 + this.actions.length) % this.actions.length; this.updateDisplay(); } });
-    scene.input.keyboard?.on('keydown-DOWN', () => { if (this.enabled) { this.selectedIndex = (this.selectedIndex + 1) % this.actions.length; this.updateDisplay(); } });
+    scene.input.keyboard?.on('keydown-UP', () => { if (this.enabled) { this.selectedIndex = (this.selectedIndex - 1 + this.actions.length) % this.actions.length; this.updateDisplay(); audioManager.playSfx('select'); } });
+    scene.input.keyboard?.on('keydown-DOWN', () => { if (this.enabled) { this.selectedIndex = (this.selectedIndex + 1) % this.actions.length; this.updateDisplay(); audioManager.playSfx('select'); } });
     scene.input.keyboard?.on('keydown-ENTER', () => { if (this.enabled) this.confirm(); });
     scene.input.keyboard?.on('keydown-SPACE', () => { if (this.enabled) this.confirm(); });
 

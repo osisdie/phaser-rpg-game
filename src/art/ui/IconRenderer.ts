@@ -15,10 +15,24 @@ export class IconRenderer {
     this.generateShieldIcon(scene, 'icon_shield');
     this.generateBootIcon(scene, 'icon_boot');
 
+    // Equipment slot icons
+    this.generateHelmetIcon(scene, 'icon_helmet');
+    this.generateArmorIcon(scene, 'icon_armor');
+
     // Item icons
     this.generatePotionIcon(scene, 'icon_potion_hp', '#cc3344');
     this.generatePotionIcon(scene, 'icon_potion_mp', '#3344cc');
     this.generatePotionIcon(scene, 'icon_elixir', '#ccaa33');
+    this.generateScrollIcon(scene, 'icon_scroll');
+    this.generateHerbIcon(scene, 'icon_herb');
+    this.generateGemIcon(scene, 'icon_gem');
+
+    // Skill element icons
+    this.generateElementIcon(scene, 'icon_fire', '#ff4422', '#ffaa44');
+    this.generateElementIcon(scene, 'icon_ice', '#44aaff', '#aaddff');
+    this.generateElementIcon(scene, 'icon_lightning', '#ffdd22', '#ffffaa');
+    this.generateHealIcon(scene, 'icon_heal');
+    this.generateBuffIcon(scene, 'icon_buff');
 
     // NPC type markers
     this.generateMarker(scene, 'icon_npc_quest', '#ffcc00', '!');
@@ -205,6 +219,186 @@ export class IconRenderer {
     // Highlight
     ctx.fillStyle = '#ee4466';
     ctx.fillRect(3, 5, 3, 2);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateHelmetIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    ctx.fillStyle = MEDIEVAL.ironMedium;
+    // Dome
+    ctx.fillRect(4, 2, 8, 4);
+    ctx.fillRect(3, 4, 10, 4);
+    ctx.fillRect(2, 6, 12, 3);
+    // Visor
+    ctx.fillStyle = MEDIEVAL.ironDark;
+    ctx.fillRect(3, 9, 10, 2);
+    ctx.fillRect(5, 11, 6, 1);
+    // Eye slit
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(4, 9, 3, 1);
+    ctx.fillRect(9, 9, 3, 1);
+    // Crest
+    ctx.fillStyle = MEDIEVAL.gold;
+    ctx.fillRect(7, 1, 2, 3);
+    // Highlight
+    ctx.fillStyle = MEDIEVAL.ironLight;
+    ctx.fillRect(5, 3, 3, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateArmorIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Body plate
+    ctx.fillStyle = MEDIEVAL.ironMedium;
+    ctx.fillRect(3, 3, 10, 10);
+    ctx.fillRect(4, 2, 8, 1);
+    ctx.fillRect(4, 13, 8, 1);
+    // Shoulder plates
+    ctx.fillRect(1, 3, 3, 3);
+    ctx.fillRect(12, 3, 3, 3);
+    // Chest detail
+    ctx.fillStyle = MEDIEVAL.ironLight;
+    ctx.fillRect(7, 4, 2, 8);
+    ctx.fillRect(4, 6, 8, 1);
+    // Gold trim
+    ctx.fillStyle = MEDIEVAL.gold;
+    ctx.fillRect(4, 2, 8, 1);
+    ctx.fillRect(4, 13, 8, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateScrollIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Scroll body
+    ctx.fillStyle = MEDIEVAL.parchment;
+    ctx.fillRect(4, 3, 8, 10);
+    // Top roll
+    ctx.fillStyle = MEDIEVAL.parchmentDark;
+    ctx.fillRect(3, 2, 10, 2);
+    // Bottom roll
+    ctx.fillRect(3, 12, 10, 2);
+    // Text lines
+    ctx.fillStyle = '#665544';
+    ctx.fillRect(6, 5, 4, 1);
+    ctx.fillRect(6, 7, 5, 1);
+    ctx.fillRect(6, 9, 3, 1);
+    // Seal
+    ctx.fillStyle = '#cc3333';
+    ctx.fillRect(5, 10, 2, 2);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateHerbIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Stem
+    ctx.fillStyle = '#3a7a2a';
+    ctx.fillRect(7, 6, 2, 8);
+    // Leaves
+    ctx.fillStyle = '#4a9a3a';
+    ctx.fillRect(4, 4, 4, 3);
+    ctx.fillRect(8, 3, 4, 3);
+    ctx.fillRect(5, 7, 3, 2);
+    // Flower top
+    ctx.fillStyle = '#ffcc44';
+    ctx.fillRect(6, 2, 4, 3);
+    ctx.fillStyle = '#ffdd66';
+    ctx.fillRect(7, 1, 2, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateGemIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Diamond shape
+    ctx.fillStyle = '#44aacc';
+    ctx.fillRect(6, 2, 4, 2);
+    ctx.fillRect(4, 4, 8, 4);
+    ctx.fillRect(5, 8, 6, 3);
+    ctx.fillRect(6, 11, 4, 2);
+    ctx.fillRect(7, 13, 2, 1);
+    // Facet highlights
+    ctx.fillStyle = '#88ddee';
+    ctx.fillRect(6, 3, 2, 1);
+    ctx.fillRect(5, 5, 2, 2);
+    // Sparkle
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(6, 4, 1, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateElementIcon(scene: Phaser.Scene, key: string, baseColor: string, lightColor: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Flame/element shape
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(6, 3, 4, 10);
+    ctx.fillRect(5, 5, 6, 6);
+    ctx.fillRect(4, 7, 8, 4);
+    // Top flicker
+    ctx.fillRect(7, 1, 2, 3);
+    // Inner glow
+    ctx.fillStyle = lightColor;
+    ctx.fillRect(6, 5, 4, 5);
+    ctx.fillRect(7, 3, 2, 3);
+    // Core
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(7, 7, 2, 2);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateHealIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Green cross
+    ctx.fillStyle = '#44cc44';
+    ctx.fillRect(6, 2, 4, 12);
+    ctx.fillRect(2, 6, 12, 4);
+    // Inner highlight
+    ctx.fillStyle = '#88ff88';
+    ctx.fillRect(7, 4, 2, 8);
+    ctx.fillRect(4, 7, 8, 2);
+    // Center glow
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(7, 7, 2, 2);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  private static generateBuffIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+
+    // Upward arrow shape (buff/power up)
+    ctx.fillStyle = '#ffaa22';
+    ctx.fillRect(7, 2, 2, 12);
+    // Arrowhead
+    ctx.fillRect(5, 4, 6, 2);
+    ctx.fillRect(6, 3, 4, 2);
+    ctx.fillRect(7, 2, 2, 2);
+    // Sparkle dots
+    ctx.fillStyle = '#ffdd66';
+    ctx.fillRect(3, 6, 2, 2);
+    ctx.fillRect(11, 6, 2, 2);
+    ctx.fillRect(5, 10, 1, 1);
+    ctx.fillRect(10, 10, 1, 1);
 
     ArtRegistry.registerTexture(scene, key, canvas);
   }
