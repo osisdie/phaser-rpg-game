@@ -1,0 +1,58 @@
+{
+  "bgm": [
+    {
+      "name": "battle",
+      "file": "bgm/battle.wav"
+    },
+    {
+      "name": "boss",
+      "file": "bgm/boss.wav"
+    },
+    {
+      "name": "field",
+      "file": "bgm/field.wav"
+    },
+    {
+      "name": "gameover",
+      "file": "bgm/gameover.wav"
+    },
+    {
+      "name": "shop",
+      "file": "bgm/shop.wav"
+    },
+    {
+      "name": "title",
+      "file": "bgm/title.wav"
+    },
+    {
+      "name": "town",
+      "file": "bgm/town.wav"
+    },
+    {
+      "name": "victory",
+      "file": "bgm/victory.wav"
+    }
+  ],
+  "sfx": [
+    {
+      "name": "sfx_cancel",
+      "file": "sfx/sfx_cancel.wav"
+    },
+    {
+      "name": "sfx_heal",
+      "file": "sfx/sfx_heal.wav"
+    },
+    {
+      "name": "sfx_hit",
+      "file": "sfx/sfx_hit.wav"
+    },
+    {
+      "name": "sfx_magic",
+      "file": "sfx/sfx_magic.wav"
+    },
+    {
+      "name": "sfx_select",
+      "file": "sfx/sfx_select.wav"
+    }
+  ]
+}

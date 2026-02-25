@@ -174,6 +174,7 @@ export interface LevelUpInfo {
 export interface CombatantState {
   id: string;
   name: string;
+  level?: number;
   stats: Stats;
   isEnemy: boolean;
   isDefending: boolean;
@@ -272,6 +273,7 @@ export interface SaveData {
   playTime: number;
   difficulty: Difficulty;
   timestamp: number;
+  gameCompleted: boolean;
 }
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -294,6 +296,7 @@ export interface GameState {
   playTime: number;
   difficulty: Difficulty;
   encounterSteps: number;
+  gameCompleted: boolean;
 }
 
 // ─── NPC ───

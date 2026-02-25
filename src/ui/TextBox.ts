@@ -45,12 +45,30 @@ export class TextBox extends Phaser.GameObjects.Container {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
       stroke: '#000000', strokeThickness: 1,
     });
+    const contentWrapWidth = boxWidth - 40;
     this.contentText = scene.add.text(boxX - boxWidth / 2 + 16, boxY - boxHeight / 2 + 32, '', {
       fontFamily: FONT_FAMILY, fontSize: '15px', color: COLORS.textPrimary,
-      wordWrap: { width: boxWidth - 40 },
+      wordWrap: { width: contentWrapWidth },
       lineSpacing: 4,
       maxLines: 4,
     });
+    // Phaser 3.90 drops wordWrap.callback from config; set directly on style
+    this.contentText.style.wordWrapCallback = (_text: string, textObject: Phaser.GameObjects.Text) => {
+      const ctx = textObject.context;
+      let result = '';
+      let lineWidth = 0;
+      for (const char of _text) {
+        if (char === '\n') { result += '\n'; lineWidth = 0; continue; }
+        const w = ctx.measureText(char).width;
+        if (lineWidth + w > contentWrapWidth && lineWidth > 0) {
+          result += '\n';
+          lineWidth = 0;
+        }
+        result += char;
+        lineWidth += w;
+      }
+      return result;
+    };
     this.indicator = scene.add.text(boxX + boxWidth / 2 - 30, boxY + boxHeight / 2 - 24, '▼', {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
     });
@@ -59,7 +77,9 @@ export class TextBox extends Phaser.GameObjects.Container {
     if (this.border) children.unshift(this.border);
     if (this.namePlate) children.push(this.namePlate);
     this.add(children);
+
     this.setVisible(false);
+    this.setScrollFactor(0);
 
     // Blink indicator
     scene.tweens.add({

@@ -3,11 +3,13 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 import { COLORS, FONT_FAMILY } from '../utils/constants';
 import { t } from '../systems/i18n';
 import { gameState } from '../systems/GameStateManager';
+import { SaveLoadSystem } from '../systems/SaveLoadSystem';
 import { TransitionEffect } from '../ui/TransitionEffect';
-import { audioManager } from '../systems/AudioManager';
+
 
 export class NameInputScene extends Phaser.Scene {
   private inputElement?: HTMLInputElement;
+  private errorText?: Phaser.GameObjects.Text;
 
   constructor() {
     super('NameInputScene');
@@ -73,8 +75,14 @@ export class NameInputScene extends Phaser.Scene {
       if (e.key === 'Enter') this.confirmName();
     });
 
+    // Error text (hidden initially)
+    this.errorText = this.add.text(GAME_WIDTH / 2, 450, '', {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#ff4444',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5);
+
     // Character hint
-    this.add.text(GAME_WIDTH / 2, 470, '（1-8 個字元）', {
+    this.add.text(GAME_WIDTH / 2, 480, '（1-8 個字元）', {
       fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textSecondary,
     }).setOrigin(0.5);
 
@@ -83,8 +91,18 @@ export class NameInputScene extends Phaser.Scene {
 
   private confirmName(): void {
     const name = this.inputElement?.value.trim() || t('name.default');
+
+    // Check for duplicate hero name across all existing saves
+    const allSaves = SaveLoadSystem.getAllSaves();
+    const nameInUse = allSaves.some(s => s.heroName === name);
+    if (nameInUse) {
+      if (this.errorText) {
+        this.errorText.setText(`「${name}」已被使用，請輸入其他名字`);
+      }
+      return;
+    }
+
     gameState.setHeroName(name);
-    audioManager.playSfx('select');
 
     // Clean up HTML element
     if (this.inputElement) {

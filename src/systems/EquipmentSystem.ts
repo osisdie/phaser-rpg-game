@@ -31,6 +31,14 @@ export class EquipmentSystem {
     return true;
   }
 
+  /** Apply all currently-equipped item bonuses (used for initial state setup) */
+  static applyAllEquipment(character: CharacterData): void {
+    for (const slot of ['helmet', 'armor', 'shield', 'weapon', 'boots'] as EquipmentSlot[]) {
+      const equipId = character.equipment[slot];
+      if (equipId) this.applyStats(character, equipId);
+    }
+  }
+
   private static applyStats(character: CharacterData, equipmentId: string): void {
     const equip = getEquipmentById(equipmentId);
     if (!equip) return;

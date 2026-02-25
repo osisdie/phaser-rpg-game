@@ -114,9 +114,9 @@ export class BattleHUD extends Phaser.GameObjects.Container {
     }
 
     const text = this.scene.add.text(x + width + 8, y - 2, '', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textSecondary,
-      stroke: '#000000', strokeThickness: 1,
-    });
+      fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textSecondary,
+      stroke: '#000000', strokeThickness: 2,
+    }).setResolution(2);
     return { frame, bg, fill, text };
   }
 

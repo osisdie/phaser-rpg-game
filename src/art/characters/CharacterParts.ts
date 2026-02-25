@@ -14,11 +14,11 @@ export interface CharacterAppearance {
   weaponColor: string;
 }
 
-/** Direction for sprite facing */
-export type Direction = 'down' | 'left' | 'right' | 'up';
+/** Direction for sprite facing (includes diagonal 3/4 views for battle) */
+export type Direction = 'down' | 'left' | 'right' | 'up' | 'down_left' | 'down_right';
 
-/** Walk animation frame (0=stand, 1=step-left, 2=step-right) */
-export type WalkFrame = 0 | 1 | 2;
+/** Walk animation frame (0=left-step, 1=neutral-pass, 2=right-step, 3=neutral-pass) */
+export type WalkFrame = 0 | 1 | 2 | 3;
 
 // ─── Predefined character appearances ───────────────────────────────
 
@@ -164,6 +164,36 @@ export const NPC_TYPE_APPEARANCES: Record<string, Partial<CharacterAppearance>> 
     cape: false,
   },
 };
+
+/** Guard appearances per region — derived from companion races */
+export function generateGuardAppearance(regionId: string): CharacterAppearance {
+  // Map regions to their companion race's look
+  const raceMap: Record<string, Partial<CharacterAppearance>> = {
+    region_elf:       { skinColor: MEDIEVAL.skinPale, hairColor: MEDIEVAL.hairBlonde, hairStyle: 'long', bodyColor: '#336633' },
+    region_treant:    { skinColor: '#7a8a5a', hairColor: '#3a5a2a', hairStyle: 'bald', bodyColor: '#5a6a3a' },
+    region_beast:     { skinColor: '#c8a070', hairColor: '#884422', hairStyle: 'spiky', bodyColor: '#885533' },
+    region_merfolk:   { skinColor: '#a0c8d8', hairColor: MEDIEVAL.hairBlue, hairStyle: 'long', bodyColor: '#4488aa' },
+    region_giant:     { skinColor: MEDIEVAL.skinDark, hairColor: MEDIEVAL.hairBlack, hairStyle: 'bald', bodyColor: '#666666' },
+    region_dwarf:     { skinColor: MEDIEVAL.skinMedium, hairColor: MEDIEVAL.hairRed, hairStyle: 'short', bodyColor: '#886644' },
+    region_undead:    { skinColor: '#c0c0d0', hairColor: MEDIEVAL.hairWhite, hairStyle: 'short', bodyColor: '#442266' },
+    region_volcano:   { skinColor: MEDIEVAL.skinDark, hairColor: MEDIEVAL.hairBlack, hairStyle: 'spiky', bodyColor: '#883322' },
+    region_hotspring: { skinColor: MEDIEVAL.skinLight, hairColor: MEDIEVAL.hairBrown, hairStyle: 'ponytail', bodyColor: '#558866' },
+    region_mountain:  { skinColor: MEDIEVAL.skinPale, hairColor: MEDIEVAL.hairBlonde, hairStyle: 'short', bodyColor: '#8888aa' },
+  };
+  const race = raceMap[regionId] ?? {};
+  return {
+    skinColor: race.skinColor ?? MEDIEVAL.skinLight,
+    hairStyle: (race.hairStyle as CharacterAppearance['hairStyle']) ?? 'short',
+    hairColor: race.hairColor ?? MEDIEVAL.hairBrown,
+    headgear: 'helmet',
+    bodyType: 'armor',
+    bodyColor: race.bodyColor ?? '#4466aa',
+    capeColor: race.bodyColor ?? '#4466aa',
+    cape: false,
+    weapon: 'sword',
+    weaponColor: MEDIEVAL.ironLight,
+  };
+}
 
 /** Generate a deterministic NPC appearance from type + seed */
 export function generateNPCAppearance(type: string, seed: number): CharacterAppearance {

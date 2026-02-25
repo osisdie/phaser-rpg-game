@@ -29,6 +29,8 @@ const MONSTER_SHAPE_MAP: Record<string, MonsterShape> = {
   '龜': 'turtle', '甲': 'turtle',
   '蟹': 'crab', '蝦': 'crab',
   '花': 'plant', '樹': 'plant', '藤': 'plant', '菇': 'plant',
+  '土匪': 'goblin', '盜賊': 'goblin', '刺客': 'goblin', '忍者': 'goblin',
+  '鼠': 'bat', '蝎': 'insect',
 };
 
 /** Infer monster shape from its name */
@@ -101,11 +103,32 @@ export class MonsterRenderer {
     });
   }
 
-  /** Generate a single monster texture */
-  private static generateMonsterTexture(scene: Phaser.Scene, key: string, visual: MonsterVisual): void {
+  /** Generate a high-resolution monster texture for battle display (no setScale needed) */
+  static generateForBattle(scene: Phaser.Scene, textureKey: string, monsterName: string, spriteColor: number, isBoss: boolean): string {
+    const battleKey = `${textureKey}_hires`;
+    if (scene.textures.exists(battleKey)) return battleKey;
+
+    const shape = inferShape(monsterName);
+    const features = inferFeatures(monsterName);
+    if (isBoss) features.push('crown');
+
+    this.generateMonsterTexture(scene, battleKey, {
+      shape,
+      baseColor: numToHex(spriteColor),
+      accentColor: isBoss ? '#ffd700' : '#ffff44',
+      size: 1, // size is baked into targetSize
+      features,
+    }, isBoss ? 160 : 120);
+
+    return battleKey;
+  }
+
+  /** Generate a single monster texture (targetSize overrides the base calculation) */
+  private static generateMonsterTexture(scene: Phaser.Scene, key: string, visual: MonsterVisual, targetSize?: number): void {
     if (scene.textures.exists(key)) return;
 
-    const size = Math.round(TILE_SIZE * visual.size);
+    const MONSTER_BASE = 48; // base monster size (was TILE_SIZE=32)
+    const size = targetSize ?? Math.round(MONSTER_BASE * visual.size);
     const padding = Math.round(size * 0.1);
     const canvasSize = size + padding * 2;
 

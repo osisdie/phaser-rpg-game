@@ -15,6 +15,7 @@ import { TransitionEffect } from '../ui/TransitionEffect';
 import { audioManager } from '../systems/AudioManager';
 import { getNPCTextureKey } from '../art/characters/NPCProfiles';
 import { BattleEffects } from '../art/effects/BattleEffects';
+import { getAllConsumables, getAllEquipments } from '../data/items/index';
 import type { NPCData } from '../types';
 
 /** Extended NPC tracking with label, marker, and wandering state */
@@ -31,6 +32,14 @@ interface NPCSpriteEntry {
   wanderDirY: number;
 }
 
+interface TreasureChest {
+  sprite: Phaser.GameObjects.Sprite;
+  gx: number;
+  gy: number;
+  flagKey: string;
+  opened: boolean;
+}
+
 export class TownScene extends Phaser.Scene {
   private player!: Player;
   private textBox!: TextBox;
@@ -40,6 +49,7 @@ export class TownScene extends Phaser.Scene {
   private interactKey?: Phaser.Input.Keyboard.Key;
   private inDialogue = false;
   private mapBounds = { width: 0, height: 0 };
+  private chests: TreasureChest[] = [];
 
   constructor() {
     super('TownScene');
@@ -53,6 +63,7 @@ export class TownScene extends Phaser.Scene {
     gameState.setCurrentScene('TownScene');
     this.inDialogue = false;
     this.npcSprites = [];
+    this.chests = [];
 
     // Create map
     const mapConfig = MapFactory.getTownConfig(this.regionId, region.color);
@@ -62,16 +73,36 @@ export class TownScene extends Phaser.Scene {
     // Set world bounds
     this.physics.world.setBounds(0, 0, bounds.width, bounds.height);
 
-    // Player
+    // Player — spawn just south of the gate
     this.player = new Player(this,
       Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2,
-      (mapConfig.height - 3) * TILE_SIZE + TILE_SIZE / 2,
+      (mapConfig.height - 2) * TILE_SIZE + TILE_SIZE / 2,
     );
     this.physics.add.collider(this.player, wallBodies);
 
     // Camera
     this.cameras.main.setBounds(0, 0, bounds.width, bounds.height);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+
+    // ── Gate guards — 2 kingdom-race guards flanking south entrance ──
+    const guardKey = `char_guard_${this.regionId}`;
+    if (this.textures.exists(guardKey)) {
+      const midX = Math.floor(mapConfig.width / 2);
+      const gateGy = mapConfig.height - 5;
+      const guardY = (gateGy + 2) * TILE_SIZE + TILE_SIZE / 2;
+      // Left guard — faces down-right (frame 21)
+      const leftGuard = this.add.sprite(
+        (midX - 1) * TILE_SIZE + TILE_SIZE / 2, guardY, guardKey, 21,
+      ).setDepth(DEPTH.characters);
+      this.physics.add.existing(leftGuard, true);
+      this.physics.add.collider(this.player, leftGuard);
+      // Right guard — faces down-left (frame 17)
+      const rightGuard = this.add.sprite(
+        (midX + 1) * TILE_SIZE + TILE_SIZE / 2, guardY, guardKey, 17,
+      ).setDepth(DEPTH.characters);
+      this.physics.add.existing(rightGuard, true);
+      this.physics.add.collider(this.player, rightGuard);
+    }
 
     // NPCs — use character sprites with wandering behavior
     const npcs = getNPCsForRegion(this.regionId);
@@ -101,17 +132,17 @@ export class TownScene extends Phaser.Scene {
       this.physics.add.collider(sprite, wallBodies);
 
       // NPC label (follows sprite for wanderers)
-      const label = this.add.text(px, py - 20, npc.name, {
+      const label = this.add.text(px, py - 28, npc.name, {
         fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(DEPTH.characters + 1);
 
-      // Type marker icon
+      // Type marker icon (positioned well above label to avoid overlap)
       let marker: Phaser.GameObjects.Image | undefined;
       const markerKey = `icon_npc_${npc.type}`;
       if (this.textures.exists(markerKey)) {
-        marker = this.add.image(px, py - 26, markerKey)
-          .setDepth(DEPTH.characters + 2);
+        marker = this.add.image(px, py - 42, markerKey)
+          .setDepth(DEPTH.characters + 2).setScale(0.8);
       }
 
       this.npcSprites.push({
@@ -121,6 +152,9 @@ export class TownScene extends Phaser.Scene {
         wanderDirX: 0, wanderDirY: 0,
       });
     }
+
+    // Spawn treasure chests
+    this.spawnTreasureChests(mapConfig, wallBodies);
 
     // UI
     this.textBox = new TextBox(this);
@@ -141,7 +175,7 @@ export class TownScene extends Phaser.Scene {
     // Controls footer with background bar for visibility
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 12, GAME_WIDTH, 24, 0x000000, 0.6)
       .setScrollFactor(0).setDepth(DEPTH.ui);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | Z互動 | F野外 | ESC選單 | Q世界地圖', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | Z互動 | F野外 | M選單 | Q世界地圖', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ddddcc',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
@@ -151,7 +185,7 @@ export class TownScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-F', () => this.goToField());
     this.input.keyboard?.on('keydown-Q', () => this.goToWorldMap());
     this.input.keyboard?.on('keydown-ESC', () => {
-      if (this.inDialogue) { this.endDialogue(); }
+      if (this.inDialogue) { this.endDialogue(); audioManager.playSfx('cancel'); }
       else { this.openMenu(); }
     });
     this.input.keyboard?.on('keydown-M', () => { if (!this.inDialogue) this.openMenu(); });
@@ -196,9 +230,11 @@ export class TownScene extends Phaser.Scene {
       }
     }
 
-    // Check NPC interaction
+    // Check NPC interaction or chest interaction
     if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-      this.checkNPCInteraction();
+      if (!this.checkChestInteraction()) {
+        this.checkNPCInteraction();
+      }
     }
   }
 
@@ -246,12 +282,217 @@ export class TownScene extends Phaser.Scene {
       );
 
       // Update label and marker to follow sprite
-      entry.label.setPosition(entry.sprite.x, entry.sprite.y - 20);
+      entry.label.setPosition(entry.sprite.x, entry.sprite.y - 28);
       if (entry.marker) {
-        entry.marker.setPosition(entry.sprite.x, entry.sprite.y - 26);
+        entry.marker.setPosition(entry.sprite.x, entry.sprite.y - 42);
       }
     }
   }
+
+  // ─── Treasure Chests ───
+
+  private spawnTreasureChests(mapConfig: { width: number; height: number }, wallBodies: Phaser.Physics.Arcade.StaticGroup): void {
+    // Generate chest texture if not exists
+    if (!this.textures.exists('deco_chest')) {
+      this.generateChestTexture();
+    }
+    if (!this.textures.exists('deco_chest_open')) {
+      this.generateChestOpenTexture();
+    }
+
+    // Truly random each visit: 0-1 chest per town
+    const chestCount = Math.random() < 0.6 ? 1 : 0;
+    if (chestCount === 0) return;
+
+    for (let ci = 0; ci < chestCount; ci++) {
+      const flagKey = `chest_${this.regionId}_${ci}`;
+      const gx = 3 + Math.floor(Math.random() * (mapConfig.width - 6));
+      const gy = 6 + Math.floor(Math.random() * (mapConfig.height - 10));
+
+      const px = gx * TILE_SIZE + TILE_SIZE / 2;
+      const py = gy * TILE_SIZE + TILE_SIZE / 2;
+
+      const sprite = this.add.sprite(px, py, 'deco_chest')
+        .setDepth(DEPTH.objects + 1);
+
+      const chestBody = this.add.rectangle(px, py, TILE_SIZE - 8, TILE_SIZE - 8);
+      this.physics.add.existing(chestBody, true);
+      wallBodies.add(chestBody);
+      chestBody.setVisible(false);
+
+      this.chests.push({ sprite, gx, gy, flagKey, opened: false });
+    }
+  }
+
+  private checkChestInteraction(): boolean {
+    const playerPos = this.player.getGridPosition();
+    for (const chest of this.chests) {
+      const dist = Math.abs(playerPos.gx - chest.gx) + Math.abs(playerPos.gy - chest.gy);
+      if (dist <= 2) {
+        this.openChest(chest);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private openChest(chest: TreasureChest): void {
+    if (chest.opened || !chest.sprite) {
+      this.inDialogue = true;
+      this.textBox.show('', t('chest.already_opened'));
+      return;
+    }
+
+    chest.opened = true;
+    chest.sprite.setTexture('deco_chest_open');
+    audioManager.playSfx('select');
+
+    // Fade out after a short delay
+    this.time.delayedCall(800, () => {
+      if (chest.sprite) {
+        this.tweens.add({ targets: chest.sprite, alpha: 0, duration: 600, ease: 'Power2' });
+      }
+    });
+
+    // Determine reward: 60% gold, 30% item, 10% equipment
+    const roll = Math.random();
+    const region = getRegionById(this.regionId);
+    const baseLevel = region?.levelRange[0] ?? 1;
+
+    this.inDialogue = true;
+
+    if (roll < 0.6) {
+      // Gold reward — scaled with kingdom level
+      const minGold = Math.floor(10 + baseLevel * 3);
+      const maxGold = Math.floor(30 + baseLevel * 12);
+      const goldAmount = minGold + Math.floor(Math.random() * (maxGold - minGold));
+      gameState.addGold(goldAmount);
+      this.textBox.show('', `${t('chest.found')}\n${t('chest.gold', goldAmount)}`);
+    } else if (roll < 0.9) {
+      // Item reward — random consumable
+      const consumables = getAllConsumables();
+      const item = consumables[Math.floor(Math.random() * consumables.length)];
+      gameState.addItem(item.id);
+      this.textBox.show('', `${t('chest.found')}\n${t('chest.item', item.name)}`);
+    } else {
+      // Equipment reward — tier based on region level
+      const allEquip = getAllEquipments();
+      const tiers = ['wood', 'iron', 'steel', 'silver', 'mithril', 'dragon', 'holy', 'legendary'];
+      const tierIndex = Math.min(tiers.length - 1, Math.floor(baseLevel / 8));
+      const validTiers = tiers.slice(Math.max(0, tierIndex - 1), Math.min(tiers.length, tierIndex + 2));
+      const candidates = allEquip.filter(e => validTiers.includes(e.tier));
+      const equip = candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : allEquip[Math.floor(Math.random() * allEquip.length)];
+      gameState.addItem(equip.id);
+      this.textBox.show('', `${t('chest.found')}\n${t('chest.equipment', equip.name)}`);
+    }
+  }
+
+  private generateChestTexture(): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    for (let py = S - 5; py < S; py++) {
+      const w = Math.round((S - 12) * (1 - (py - (S - 5)) / 5 * 0.3));
+      ctx.fillRect(S / 2 - w / 2, py, w, 1);
+    }
+    // Chest body with wood grain
+    const bodyTop = Math.round(S * 0.35);
+    const bodyH = Math.round(S * 0.48);
+    for (let y = bodyTop; y < bodyTop + bodyH; y++) {
+      for (let x = 4; x < S - 4; x++) {
+        const grain = ((x * 7 + y * 3) % 5 === 0) ? -12 : 0;
+        ctx.fillStyle = `rgb(${0x8B + grain},${0x5E + grain},${0x3C + grain})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(4, bodyTop, 3, bodyH);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(S - 7, bodyTop, 3, bodyH);
+    // Lid
+    ctx.fillStyle = '#A0714F';
+    ctx.fillRect(3, Math.round(S * 0.25), S - 6, Math.round(S * 0.13));
+    ctx.fillStyle = '#B88060';
+    ctx.fillRect(4, Math.round(S * 0.25), S - 8, 2);
+    ctx.fillStyle = '#8a6040';
+    ctx.fillRect(3, Math.round(S * 0.36), S - 6, 2);
+    // Metal bands with rivets
+    ctx.fillStyle = '#C8A82E';
+    ctx.fillRect(4, Math.round(S * 0.38), S - 8, 2);
+    ctx.fillRect(4, Math.round(S * 0.58), S - 8, 2);
+    ctx.fillStyle = '#E0C040';
+    for (let rx = 6; rx < S - 6; rx += 5) {
+      ctx.fillRect(rx, Math.round(S * 0.38), 1, 1);
+      ctx.fillRect(rx, Math.round(S * 0.58), 1, 1);
+    }
+    // Lock plate + keyhole
+    ctx.fillStyle = '#B89828';
+    ctx.fillRect(S / 2 - 3, Math.round(S * 0.40), 6, 9);
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(S / 2 - 2, Math.round(S * 0.41), 4, 7);
+    ctx.fillStyle = '#3a2010';
+    ctx.fillRect(S / 2 - 1, Math.round(S * 0.44), 2, 3);
+    // Corner brackets
+    ctx.fillStyle = '#A08020';
+    ctx.fillRect(4, bodyTop, 3, 3);
+    ctx.fillRect(S - 7, bodyTop, 3, 3);
+    ctx.fillRect(4, bodyTop + bodyH - 3, 3, 3);
+    ctx.fillRect(S - 7, bodyTop + bodyH - 3, 3, 3);
+
+    this.textures.addCanvas('deco_chest', canvas);
+  }
+
+  private generateChestOpenTexture(): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    for (let py = S - 5; py < S; py++) {
+      const w = Math.round((S - 12) * (1 - (py - (S - 5)) / 5 * 0.3));
+      ctx.fillRect(S / 2 - w / 2, py, w, 1);
+    }
+    // Open lid
+    ctx.fillStyle = '#A0714F';
+    ctx.fillRect(3, Math.round(S * 0.15), S - 6, Math.round(S * 0.10));
+    ctx.fillStyle = '#8a6040';
+    ctx.fillRect(4, Math.round(S * 0.24), S - 8, Math.round(S * 0.10));
+    ctx.fillStyle = '#705030';
+    ctx.fillRect(5, Math.round(S * 0.32), S - 10, Math.round(S * 0.06));
+    ctx.fillStyle = '#B88060';
+    ctx.fillRect(4, Math.round(S * 0.15), S - 8, 2);
+    // Open body with grain
+    for (let y = Math.round(S * 0.38); y < Math.round(S * 0.82); y++) {
+      for (let x = 4; x < S - 4; x++) {
+        const grain = ((x * 7 + y * 3) % 5 === 0) ? -12 : 0;
+        ctx.fillStyle = `rgb(${0x8B + grain},${0x5E + grain},${0x3C + grain})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // Inside cavity with gold glint
+    ctx.fillStyle = '#2a1808';
+    ctx.fillRect(6, Math.round(S * 0.42), S - 12, Math.round(S * 0.22));
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(S / 2 - 1, Math.round(S * 0.50), 2, 2);
+    ctx.fillRect(S / 2 + 4, Math.round(S * 0.54), 1, 1);
+    // Metal band
+    ctx.fillStyle = '#C8A82E';
+    ctx.fillRect(4, Math.round(S * 0.40), S - 8, 2);
+
+    this.textures.addCanvas('deco_chest_open', canvas);
+  }
+
+  // ─── NPC Interaction ───
 
   private checkNPCInteraction(): void {
     const playerPos = this.player.getGridPosition();
@@ -260,6 +501,7 @@ export class TownScene extends Phaser.Scene {
       const npcGy = Math.floor(sprite.y / TILE_SIZE);
       const dist = Math.abs(playerPos.gx - npcGx) + Math.abs(playerPos.gy - npcGy);
       if (dist <= 2) {
+        audioManager.playSfx('select');
         this.startDialogue(data);
         return;
       }
@@ -285,7 +527,6 @@ export class TownScene extends Phaser.Scene {
     const node = this.dialogueSystem.start(tree);
     if (node) {
       this.textBox.show(node.speaker, node.text);
-      audioManager.playSfx('select');
     }
   }
 
@@ -298,11 +539,13 @@ export class TownScene extends Phaser.Scene {
     const choices = this.dialogueSystem.getAvailableChoices();
     if (choices.length > 0) {
       this.textBox.showChoices(choices, (index) => {
+        audioManager.playSfx('select');
         const next = this.dialogueSystem.advance(index);
         if (next) {
           this.textBox.show(next.speaker, next.text);
           this.checkDialogueFlags();
         } else {
+          this.checkDialogueFlags();
           this.endDialogue();
         }
       });
@@ -314,6 +557,7 @@ export class TownScene extends Phaser.Scene {
       this.textBox.show(next.speaker, next.text);
       this.checkDialogueFlags();
     } else {
+      this.checkDialogueFlags();
       this.endDialogue();
     }
   }
@@ -338,17 +582,19 @@ export class TownScene extends Phaser.Scene {
     }
     if (state.flags['trigger_inn']) {
       gameState.setFlag('trigger_inn', false);
-      const innCost = 30;
+      const region = getRegionById(this.regionId);
+      const baseLevel = region?.levelRange[0] ?? 1;
+      const innCost = 20 + baseLevel * 5;
       if (gameState.spendGold(innCost)) {
-        // Full heal all party members
         const party = gameState.getParty();
         for (const member of party) {
           member.stats.hp = member.stats.maxHP;
           member.stats.mp = member.stats.maxMP;
         }
         audioManager.playSfx('heal');
+        this.textBox.show('旅店老闆', `花費了 ${innCost} 金幣。全員 HP/MP 完全恢復！`);
       } else {
-        // Not enough gold — show "no gold" dialogue
+        audioManager.playSfx('fail');
         this.textBox.show('旅店老闆', '看來你的錢不太夠呢…下次再來吧。');
       }
     }
