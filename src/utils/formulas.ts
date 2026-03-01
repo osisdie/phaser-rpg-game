@@ -33,10 +33,10 @@ export function totalExpForLevel(level: number): number {
   return total;
 }
 
-/** 逃跑機率: 基於我方平均 AGI vs 敵方平均 AGI */
-export function calculateFleeChance(partyAvgAgi: number, enemyAvgAgi: number): number {
+/** 逃跑機率: 基於我方平均 AGI vs 敵方平均 AGI + 區域加成 (低等區域更容易逃) */
+export function calculateFleeChance(partyAvgAgi: number, enemyAvgAgi: number, regionBonus: number = 0): number {
   const ratio = partyAvgAgi / Math.max(1, enemyAvgAgi);
-  return Math.min(0.95, Math.max(0.1, 0.5 * ratio));
+  return Math.min(0.95, Math.max(0.15, 0.6 * ratio + regionBonus));
 }
 
 /** 掉落率修正: 基於幸運屬性 */

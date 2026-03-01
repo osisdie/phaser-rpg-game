@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { MEDIEVAL, darken, lighten } from '../palettes';
 import { ArtRegistry } from '../index';
 
-const ICON_SIZE = 16;
+const ICON_SIZE = 32;
+const DS = 16; // design space (pixel art coordinates authored at this size)
 
 /** Generates small 16×16 pixel art icons for items, skills, NPC markers, etc. */
 export class IconRenderer {
@@ -48,6 +49,7 @@ export class IconRenderer {
   private static generateSwordIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Blade (diagonal)
     ctx.fillStyle = MEDIEVAL.ironLight;
@@ -72,6 +74,7 @@ export class IconRenderer {
   private static generateStarIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     ctx.fillStyle = MEDIEVAL.goldBright;
     // Center
@@ -93,6 +96,7 @@ export class IconRenderer {
   private static generateBagIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Bag body
     ctx.fillStyle = MEDIEVAL.woodMedium;
@@ -116,6 +120,7 @@ export class IconRenderer {
   private static generateShieldIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Shield shape
     ctx.fillStyle = MEDIEVAL.ironMedium;
@@ -139,6 +144,7 @@ export class IconRenderer {
   private static generateBootIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Boot
     ctx.fillStyle = MEDIEVAL.woodDark;
@@ -158,6 +164,7 @@ export class IconRenderer {
   private static generatePotionIcon(scene: Phaser.Scene, key: string, liquidColor: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Bottle neck
     ctx.fillStyle = '#aabbcc';
@@ -184,8 +191,9 @@ export class IconRenderer {
 
   private static generateMarker(scene: Phaser.Scene, key: string, color: string, _symbol: string): void {
     if (scene.textures.exists(key)) return;
-    const S = 10;
+    const S = 20;
     const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    ctx.scale(2, 2);
 
     // Circle background
     ctx.fillStyle = color;
@@ -204,6 +212,7 @@ export class IconRenderer {
   private static generateHeartIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     ctx.fillStyle = '#cc2244';
     // Heart shape
@@ -226,6 +235,7 @@ export class IconRenderer {
   private static generateHelmetIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     ctx.fillStyle = MEDIEVAL.ironMedium;
     // Dome
@@ -253,6 +263,7 @@ export class IconRenderer {
   private static generateArmorIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Body plate
     ctx.fillStyle = MEDIEVAL.ironMedium;
@@ -277,6 +288,7 @@ export class IconRenderer {
   private static generateScrollIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Scroll body
     ctx.fillStyle = MEDIEVAL.parchment;
@@ -301,6 +313,7 @@ export class IconRenderer {
   private static generateHerbIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Stem
     ctx.fillStyle = '#3a7a2a';
@@ -322,6 +335,7 @@ export class IconRenderer {
   private static generateGemIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Diamond shape
     ctx.fillStyle = '#44aacc';
@@ -344,6 +358,7 @@ export class IconRenderer {
   private static generateElementIcon(scene: Phaser.Scene, key: string, baseColor: string, lightColor: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Flame/element shape
     ctx.fillStyle = baseColor;
@@ -366,6 +381,7 @@ export class IconRenderer {
   private static generateHealIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Green cross
     ctx.fillStyle = '#44cc44';
@@ -385,6 +401,7 @@ export class IconRenderer {
   private static generateBuffIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Upward arrow shape (buff/power up)
     ctx.fillStyle = '#ffaa22';
@@ -406,6 +423,7 @@ export class IconRenderer {
   private static generateCoinIcon(scene: Phaser.Scene, key: string): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
 
     // Coin body
     ctx.fillStyle = MEDIEVAL.gold;

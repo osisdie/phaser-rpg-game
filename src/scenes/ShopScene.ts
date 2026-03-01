@@ -110,7 +110,7 @@ export class ShopScene extends Phaser.Scene {
       // Item icon
       const iconKey = ItemIconRenderer.getIconKey(entry.id);
       if (this.textures.exists(iconKey)) {
-        const icon = this.add.image(85, y + 10, iconKey).setScale(0.65);
+        const icon = this.add.image(85, y + 10, iconKey).setScale(0.5);
         if (gameState.getGold() < entry.price) icon.setAlpha(0.4);
       }
 
@@ -199,7 +199,7 @@ export class ShopScene extends Phaser.Scene {
       // Item icon
       const iconKey = ItemIconRenderer.getIconKey(entry.item.id);
       if (this.textures.exists(iconKey)) {
-        this.add.image(85, y + 10, iconKey).setScale(0.65);
+        this.add.image(85, y + 10, iconKey).setScale(0.5);
       }
 
       const text = this.add.text(108, y, `  ${entry.item.name} ×${entry.quantity}  賣出: ${entry.item.sellPrice} 金幣`, {

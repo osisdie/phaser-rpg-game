@@ -84,24 +84,59 @@ export class TownScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, bounds.width, bounds.height);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-    // ── Gate guards — 2 kingdom-race guards flanking south entrance ──
+    // ── Gate guards — 2 kingdom-race guards flanking south entrance, patrolling ──
     const guardKey = `char_guard_${this.regionId}`;
     if (this.textures.exists(guardKey)) {
       const midX = Math.floor(mapConfig.width / 2);
       const gateGy = mapConfig.height - 5;
-      const guardY = (gateGy + 2) * TILE_SIZE + TILE_SIZE / 2;
-      // Left guard — faces down-right (frame 21)
-      const leftGuard = this.add.sprite(
-        (midX - 1) * TILE_SIZE + TILE_SIZE / 2, guardY, guardKey, 21,
-      ).setDepth(DEPTH.characters);
-      this.physics.add.existing(leftGuard, true);
+      // Moved guards 2 tiles back from gate so they don't block the entrance
+      const guardY = (gateGy + 4) * TILE_SIZE + TILE_SIZE / 2;
+      const leftGuardX = (midX - 2) * TILE_SIZE + TILE_SIZE / 2;
+      const rightGuardX = (midX + 2) * TILE_SIZE + TILE_SIZE / 2;
+
+      // Left guard (wandering near gate)
+      const leftGuard = this.add.sprite(leftGuardX, guardY, guardKey, 21)
+        .setDepth(DEPTH.characters);
+      this.physics.add.existing(leftGuard, false);
+      const lgBody = leftGuard.body as Phaser.Physics.Arcade.Body;
+      lgBody.setImmovable(true);
+      lgBody.setCollideWorldBounds(true);
+      lgBody.setSize(TILE_SIZE - 8, TILE_SIZE - 8);
       this.physics.add.collider(this.player, leftGuard);
-      // Right guard — faces down-left (frame 17)
-      const rightGuard = this.add.sprite(
-        (midX + 1) * TILE_SIZE + TILE_SIZE / 2, guardY, guardKey, 17,
-      ).setDepth(DEPTH.characters);
-      this.physics.add.existing(rightGuard, true);
+      this.physics.add.collider(leftGuard, wallBodies);
+
+      const leftLabel = this.add.text(leftGuardX, guardY - 56, '守衛', {
+        fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textPrimary,
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(DEPTH.characters + 1);
+
+      this.npcSprites.push({
+        sprite: leftGuard, data: { id: 'guard_left', name: '守衛', type: 'guard', dialogueId: '', x: 0, y: 0, spriteColor: 0x556688, behavior: 'wander' },
+        label: leftLabel, homeX: leftGuardX, homeY: guardY,
+        wanderTimer: 1000 + Math.random() * 1500, wanderDirX: 0, wanderDirY: 0,
+      });
+
+      // Right guard (wandering near gate)
+      const rightGuard = this.add.sprite(rightGuardX, guardY, guardKey, 17)
+        .setDepth(DEPTH.characters);
+      this.physics.add.existing(rightGuard, false);
+      const rgBody = rightGuard.body as Phaser.Physics.Arcade.Body;
+      rgBody.setImmovable(true);
+      rgBody.setCollideWorldBounds(true);
+      rgBody.setSize(TILE_SIZE - 8, TILE_SIZE - 8);
       this.physics.add.collider(this.player, rightGuard);
+      this.physics.add.collider(rightGuard, wallBodies);
+
+      const rightLabel = this.add.text(rightGuardX, guardY - 56, '守衛', {
+        fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textPrimary,
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(DEPTH.characters + 1);
+
+      this.npcSprites.push({
+        sprite: rightGuard, data: { id: 'guard_right', name: '守衛', type: 'guard', dialogueId: '', x: 0, y: 0, spriteColor: 0x556688, behavior: 'wander' },
+        label: rightLabel, homeX: rightGuardX, homeY: guardY,
+        wanderTimer: 2000 + Math.random() * 1500, wanderDirX: 0, wanderDirY: 0,
+      });
     }
 
     // NPCs — use character sprites with wandering behavior
@@ -132,7 +167,7 @@ export class TownScene extends Phaser.Scene {
       this.physics.add.collider(sprite, wallBodies);
 
       // NPC label (follows sprite for wanderers)
-      const label = this.add.text(px, py - 28, npc.name, {
+      const label = this.add.text(px, py - 56, npc.name, {
         fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(DEPTH.characters + 1);
@@ -141,7 +176,7 @@ export class TownScene extends Phaser.Scene {
       let marker: Phaser.GameObjects.Image | undefined;
       const markerKey = `icon_npc_${npc.type}`;
       if (this.textures.exists(markerKey)) {
-        marker = this.add.image(px, py - 42, markerKey)
+        marker = this.add.image(px, py - 84, markerKey)
           .setDepth(DEPTH.characters + 2).setScale(0.8);
       }
 
@@ -192,6 +227,11 @@ export class TownScene extends Phaser.Scene {
 
     // Environment particles
     BattleEffects.spawnEnvironmentParticles(this, this.regionId, bounds);
+
+    // Landing animation — expanding ring to help locate player spawn
+    const spawnX = Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
+    const spawnY = (mapConfig.height - 2) * TILE_SIZE + TILE_SIZE / 2;
+    this.spawnLandingEffect(spawnX, spawnY);
 
     TransitionEffect.fadeIn(this);
     audioManager.playBgm('town', this.regionId);
@@ -282,9 +322,9 @@ export class TownScene extends Phaser.Scene {
       );
 
       // Update label and marker to follow sprite
-      entry.label.setPosition(entry.sprite.x, entry.sprite.y - 28);
+      entry.label.setPosition(entry.sprite.x, entry.sprite.y - 56);
       if (entry.marker) {
-        entry.marker.setPosition(entry.sprite.x, entry.sprite.y - 42);
+        entry.marker.setPosition(entry.sprite.x, entry.sprite.y - 84);
       }
     }
   }
@@ -490,6 +530,47 @@ export class TownScene extends Phaser.Scene {
     ctx.fillRect(4, Math.round(S * 0.40), S - 8, 2);
 
     this.textures.addCanvas('deco_chest_open', canvas);
+  }
+
+  // ─── Landing Effect ───
+
+  private spawnLandingEffect(x: number, y: number): void {
+    // Downward arrow indicator above player
+    const arrow = this.add.triangle(x, y - 80, 0, 20, 12, 0, 24, 20, 0xffdd44)
+      .setDepth(DEPTH.ui - 1);
+    this.tweens.add({
+      targets: arrow, y: y - 56, alpha: { from: 1, to: 0 },
+      duration: 1200, ease: 'Bounce.easeOut',
+      onComplete: () => arrow.destroy(),
+    });
+
+    // Expanding ring at feet
+    const ring = this.add.circle(x, y + 16, 8, 0xffffff, 0)
+      .setStrokeStyle(2, 0x44ccff)
+      .setDepth(DEPTH.player - 1);
+    this.tweens.add({
+      targets: ring,
+      scale: { from: 0.5, to: 3 },
+      alpha: { from: 0.8, to: 0 },
+      duration: 800,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    // Second ring with slight delay
+    const ring2 = this.add.circle(x, y + 16, 8, 0xffffff, 0)
+      .setStrokeStyle(2, 0x44ccff).setAlpha(0)
+      .setDepth(DEPTH.player - 1);
+    this.time.delayedCall(200, () => {
+      this.tweens.add({
+        targets: ring2,
+        scale: { from: 0.5, to: 3 },
+        alpha: { from: 0.6, to: 0 },
+        duration: 800,
+        ease: 'Cubic.easeOut',
+        onComplete: () => ring2.destroy(),
+      });
+    });
   }
 
   // ─── NPC Interaction ───

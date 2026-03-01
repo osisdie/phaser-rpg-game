@@ -1,26 +1,5 @@
 {
-  "tiles": [
-    "deco_flowers",
-    "deco_fountain",
-    "deco_rock",
-    "deco_tree_autumn",
-    "deco_tree_dead",
-    "deco_tree_green",
-    "deco_tree_snow",
-    "deco_well",
-    "tile_cave",
-    "tile_dark_stone",
-    "tile_dirt",
-    "tile_grass",
-    "tile_lava",
-    "tile_sand",
-    "tile_snow",
-    "tile_stone",
-    "tile_wall_stone",
-    "tile_wall_wood",
-    "tile_water",
-    "tile_wood"
-  ],
+  "tiles": [],
   "characters": [
     "char_beast",
     "char_dwarf",

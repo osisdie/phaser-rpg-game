@@ -54,19 +54,11 @@ export class ArtRegistry {
       if (!dir || !keys) continue;
 
       // Skip character images — they're single portraits but the game needs
-      // procedural spritesheets (18 frames: 3 walk × 6 directions) for animations
+      // procedural spritesheets (24 frames: 4 walk × 6 directions) for animations.
+      // Character battle portraits are handled separately in Phase 3.
       if (category === 'characters') continue;
 
-      // Skip categories where sprites need transparent backgrounds.
-      // AI-generated PNGs are RGB (no alpha channel) — overlaying them on
-      // ground/battle layers produces ugly opaque rectangles.
-      // Buildings & monsters always need transparency.
-      if (category === 'buildings' || category === 'monsters') continue;
-
       for (const key of keys) {
-        // Skip decoration sprites — they overlay on ground and need transparency
-        if (key.startsWith('deco_')) continue;
-
         const path = `${basePath}/${dir}/${key}.png`;
         scene.load.image(key, path);
         this.aiLoadedKeys.add(key);
@@ -102,6 +94,15 @@ export class ArtRegistry {
 
     onProgress?.(100, '完成！');
     this.generated = true;
+
+    // Apply NEAREST filter to all AI-loaded textures so they stay crisp
+    // when used as source in canvas drawImage or displayed at pixel scale
+    for (const key of this.aiLoadedKeys) {
+      const tex = scene.textures.get(key);
+      if (tex && tex.key !== '__MISSING') {
+        tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      }
+    }
 
     if (this.aiLoadedKeys.size > 0) {
       console.log(`[ArtRegistry] ${this.aiLoadedKeys.size} AI-generated textures loaded, rest procedural`);

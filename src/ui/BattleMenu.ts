@@ -32,8 +32,8 @@ export class BattleMenu extends Phaser.GameObjects.Container {
 
     const menuX = 110;
     const menuY = GAME_HEIGHT - 210;
-    const menuW = 150;
-    const menuH = 170;
+    const menuW = 180;
+    const menuH = 200;
 
     // Use battle menu panel texture if available
     if (scene.textures.exists('ui_panel_battle_menu')) {
@@ -47,7 +47,7 @@ export class BattleMenu extends Phaser.GameObjects.Container {
 
     this.actions.forEach((action, i) => {
       const textX = menuX - menuW / 2 + 36;
-      const textY = menuY + 12 + i * 30;
+      const textY = menuY + 12 + i * 36;
 
       // Icon next to label
       if (scene.textures.exists(action.icon)) {

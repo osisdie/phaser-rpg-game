@@ -20,7 +20,8 @@ export class BattleEffects {
     const key = 'fx_slash';
     if (scene.textures.exists(key)) return;
     const S = 48;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     // Slash arc (bright white-yellow)
     ctx.strokeStyle = '#ffffff';
@@ -52,7 +53,8 @@ export class BattleEffects {
     const key = 'fx_magic';
     if (scene.textures.exists(key)) return;
     const S = 8;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     ctx.fillStyle = '#aabbff';
     ctx.fillRect(3, 1, 2, 6);
@@ -67,7 +69,8 @@ export class BattleEffects {
     const key = 'fx_heal';
     if (scene.textures.exists(key)) return;
     const S = 8;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     ctx.fillStyle = '#44ff88';
     ctx.fillRect(3, 0, 2, 8);
@@ -82,7 +85,8 @@ export class BattleEffects {
     const key = 'fx_fire';
     if (scene.textures.exists(key)) return;
     const S = 8;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     ctx.fillStyle = '#ff4422';
     ctx.fillRect(2, 3, 4, 4);
@@ -99,7 +103,8 @@ export class BattleEffects {
     const key = 'fx_ice';
     if (scene.textures.exists(key)) return;
     const S = 8;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     ctx.fillStyle = '#88ccff';
     ctx.fillRect(3, 0, 2, 8);
@@ -118,7 +123,8 @@ export class BattleEffects {
     const key = 'fx_lightning';
     if (scene.textures.exists(key)) return;
     const S = 8;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     ctx.fillStyle = '#ffff44';
     // Lightning bolt shape
@@ -137,7 +143,8 @@ export class BattleEffects {
     const key = 'fx_hit';
     if (scene.textures.exists(key)) return;
     const S = 16;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
 
     // Starburst
     ctx.fillStyle = '#ffffff';
@@ -173,7 +180,8 @@ export class BattleEffects {
   private static genSmallParticle(scene: Phaser.Scene, key: string, color: string, edgeColor: string): void {
     if (scene.textures.exists(key)) return;
     const S = 4;
-    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+    ctx.scale(2, 2);
     ctx.fillStyle = edgeColor;
     ctx.fillRect(0, 1, 4, 2);
     ctx.fillRect(1, 0, 2, 4);

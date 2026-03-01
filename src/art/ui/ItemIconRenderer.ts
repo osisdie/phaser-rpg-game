@@ -9,7 +9,9 @@ import { ArtRegistry } from '../index';
  *   - Centered pixel art (≈24×24)
  */
 
-const S = 32; // icon size
+const S = 64; // icon size
+const DS = 32; // design space (pixel art coordinates authored at this size)
+const SF = S / DS; // scale factor for ctx.scale
 
 // ─── Color Themes ───
 
@@ -85,6 +87,7 @@ export class ItemIconRenderer {
     const key = `iicon_${id}`;
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    ctx.scale(SF, SF);
     const t = ITEM_BG[theme] ?? ITEM_BG.hp;
     this.drawPlate(ctx, t.bg, t.border);
     if (shape === 'potion') this.drawPotion(ctx, color);
@@ -96,6 +99,7 @@ export class ItemIconRenderer {
     const key = `iicon_${id}`;
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    ctx.scale(SF, SF);
     const t = TIER_THEME[tier] ?? TIER_THEME.iron;
     this.drawPlate(ctx, t.bg, t.border);
     const draw: Record<string, () => void> = {
@@ -113,6 +117,7 @@ export class ItemIconRenderer {
     const key = `sicon_${element}_${type}`;
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    ctx.scale(SF, SF);
     const t = ELEM_THEME[element] ?? ELEM_THEME.none;
     this.drawPlate(ctx, t.bg, t.border);
     const draw: Record<string, () => void> = {
@@ -131,24 +136,24 @@ export class ItemIconRenderer {
 
   private static drawPlate(ctx: CanvasRenderingContext2D, bg: string, border: string): void {
     ctx.fillStyle = border;
-    ctx.fillRect(0, 0, S, S);
+    ctx.fillRect(0, 0, DS, DS);
     // Highlight (top + left inner edges)
     ctx.fillStyle = lighten(border, 0.35);
-    ctx.fillRect(1, 1, S - 2, 1);
-    ctx.fillRect(1, 2, 1, S - 4);
+    ctx.fillRect(1, 1, DS - 2, 1);
+    ctx.fillRect(1, 2, 1, DS - 4);
     // Shadow (bottom + right inner edges)
     ctx.fillStyle = darken(border, 0.35);
-    ctx.fillRect(1, S - 2, S - 2, 1);
-    ctx.fillRect(S - 2, 2, 1, S - 4);
+    ctx.fillRect(1, DS - 2, DS - 2, 1);
+    ctx.fillRect(DS - 2, 2, 1, DS - 4);
     // Background
     ctx.fillStyle = bg;
-    ctx.fillRect(2, 2, S - 4, S - 4);
+    ctx.fillRect(2, 2, DS - 4, DS - 4);
     // Top subtle highlight gradient
     ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    ctx.fillRect(2, 2, S - 4, 8);
+    ctx.fillRect(2, 2, DS - 4, 8);
     // Bottom subtle shadow
     ctx.fillStyle = 'rgba(0,0,0,0.05)';
-    ctx.fillRect(2, S - 10, S - 4, 8);
+    ctx.fillRect(2, DS - 10, DS - 4, 8);
   }
 
   // ─── Item Art ───
