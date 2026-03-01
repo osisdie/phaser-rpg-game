@@ -7,9 +7,13 @@ import {
   HERO_APPEARANCE, COMPANION_APPEARANCES, generateNPCAppearance, generateGuardAppearance,
 } from './CharacterParts';
 
-/** Frame size for character sprites (32×48 = 1 tile wide × 1.5 tiles tall, classic JRPG proportion) */
-const CHAR_W = 32;
-const CHAR_H = 48;
+/** Actual frame size for character sprites (64×96 = 1 tile wide × 1.5 tiles tall at 2× resolution) */
+const CHAR_W = 64;
+const CHAR_H = 96;
+
+/** Design-space size — all drawCharacter pixel art is authored at this resolution, then ctx.scale'd up */
+const DESIGN_W = 32;
+const DESIGN_H = 48;
 
 /** Directions in spritesheet order (6 directions: 4 cardinal + 2 diagonal for battle) */
 const DIRECTIONS: Direction[] = ['down', 'left', 'right', 'up', 'down_left', 'down_right'];
@@ -17,7 +21,7 @@ const DIRECTIONS: Direction[] = ['down', 'left', 'right', 'up', 'down_left', 'do
 /**
  * CharacterRenderer — Generates character spritesheets using Canvas 2D.
  * Each spritesheet = 4 cols (walk frames) × 6 rows (directions) = 24 frames
- * Layout: 128×288 pixels total (4×32 wide, 6×48 tall)
+ * Layout: 256×576 pixels total (4×64 wide, 6×96 tall)
  * Walk cycle: left-step → neutral-pass → right-step → neutral-pass
  */
 export class CharacterRenderer {
@@ -68,21 +72,23 @@ export class CharacterRenderer {
     for (let dirIdx = 0; dirIdx < DIRECTIONS.length; dirIdx++) {
       const dir = DIRECTIONS[dirIdx];
       for (let frame = 0; frame < 4; frame++) {
-        const ox = frame * CHAR_W;
-        const oy = dirIdx * CHAR_H;
-        this.drawCharacter(ctx, ox, oy, appearance, dir, frame as WalkFrame);
+        ctx.save();
+        ctx.translate(frame * CHAR_W, dirIdx * CHAR_H);
+        ctx.scale(CHAR_W / DESIGN_W, CHAR_H / DESIGN_H);
+        this.drawCharacter(ctx, 0, 0, appearance, dir, frame as WalkFrame);
+        ctx.restore();
       }
     }
 
     ArtRegistry.registerSpriteSheet(scene, key, canvas, CHAR_W, CHAR_H);
   }
 
-  /** Generate a 3× resolution battle spritesheet (pixel-perfect, no setScale needed) */
+  /** Generate a 2× resolution battle spritesheet (128×192 per frame, pixel-perfect) */
   static generateBattleSheet(scene: Phaser.Scene, key: string, appearance: CharacterAppearance): void {
     const battleKey = `${key}_battle`;
     if (scene.textures.exists(battleKey)) return;
 
-    const S = 3; // integer scale factor for pixel-perfect enlargement
+    const S = 2; // battle multiplier over overworld size (128×192)
     const bw = CHAR_W * S;
     const bh = CHAR_H * S;
     const sheetW = bw * 4;
@@ -94,7 +100,7 @@ export class CharacterRenderer {
       for (let frame = 0; frame < 4; frame++) {
         ctx.save();
         ctx.translate(frame * bw, dirIdx * bh);
-        ctx.scale(S, S);
+        ctx.scale(bw / DESIGN_W, bh / DESIGN_H);
         this.drawCharacter(ctx, 0, 0, appearance, dir, frame as WalkFrame);
         ctx.restore();
       }
@@ -112,50 +118,103 @@ export class CharacterRenderer {
     const bounce = (frame === 0 || frame === 2) ? -2 : frame === 3 ? -1 : 0;
     const legOffset = frame === 0 ? 3 : frame === 2 ? -3 : 0;
     const armSwing = frame === 0 ? 2 : frame === 2 ? -2 : 0;
+    // Cape flutter: bottom flare sways opposite to stride direction
+    const capeWave = frame === 0 ? 2 : frame === 2 ? -2 : frame === 3 ? -1 : 1;
 
     // Diagonal directions share base logic with 'down' but asymmetric
     if (dir === 'down_left' || dir === 'down_right') {
-      this.drawCharacterDiagonal(ctx, ox, oy, app, dir, bounce, legOffset, armSwing);
+      this.drawCharacterDiagonal(ctx, ox, oy, app, dir, bounce, legOffset, armSwing, capeWave);
       return;
     }
 
-    // ── Cape (behind body) ──
-    if (app.cape && (dir === 'down' || dir === 'left' || dir === 'right')) {
-      ctx.fillStyle = app.capeColor;
+    // ── Cape (behind body — visible in all directions) ──
+    if (app.cape) {
+      const cY = oy + 18 + bounce;
       if (dir === 'down') {
-        ctx.fillRect(ox + 9, oy + 18 + bounce, 14, 21);
-        ctx.fillRect(ox + 8, oy + 21 + bounce, 16, 15);
+        // Cape base — wider than body for visibility
+        ctx.fillStyle = darken(app.capeColor, 0.15);
+        ctx.fillRect(ox + 6, cY + 2, 20, 22);
+        ctx.fillStyle = app.capeColor;
+        ctx.fillRect(ox + 7, cY, 18, 21);
+        // Cape edge highlight (lighter inner border)
+        ctx.fillStyle = lighten(app.capeColor, 0.2);
+        ctx.fillRect(ox + 7, cY, 18, 2);
+        // Cape bottom flare — shifts with walk frame for flutter
+        ctx.fillStyle = darken(app.capeColor, 0.1);
+        ctx.fillRect(ox + 5 + capeWave, cY + 18, 22, 6);
+      } else if (dir === 'up') {
+        // Facing away — cape fully visible covering the back
+        ctx.fillStyle = darken(app.capeColor, 0.15);
+        ctx.fillRect(ox + 6, cY + 2, 20, 22);
+        ctx.fillStyle = app.capeColor;
+        ctx.fillRect(ox + 7, cY, 18, 21);
+        ctx.fillStyle = lighten(app.capeColor, 0.15);
+        ctx.fillRect(ox + 7, cY, 18, 2);
+        // Cape bottom flare — flutter
+        ctx.fillStyle = darken(app.capeColor, 0.1);
+        ctx.fillRect(ox + 5 + capeWave, cY + 18, 22, 6);
       } else {
-        const capeX = dir === 'left' ? ox + 16 : ox + 5;
-        ctx.fillRect(capeX, oy + 18 + bounce, 11, 20);
+        // Left or right — flutter shifts bottom outward
+        const capeX = dir === 'left' ? ox + 16 : ox + 3;
+        const sideWave = dir === 'left' ? capeWave : -capeWave;
+        ctx.fillStyle = darken(app.capeColor, 0.15);
+        ctx.fillRect(capeX, cY + 1, 13, 22);
+        ctx.fillStyle = app.capeColor;
+        ctx.fillRect(capeX + 1, cY, 12, 21);
+        ctx.fillStyle = lighten(app.capeColor, 0.2);
+        ctx.fillRect(capeX + 1, cY, 12, 2);
+        // Side cape bottom flare — flutter
+        ctx.fillStyle = darken(app.capeColor, 0.1);
+        ctx.fillRect(capeX + sideWave, cY + 18, 13, 4);
       }
     }
 
     // ── Legs ──
     const legY = oy + 36 + bounce;
-    ctx.fillStyle = darken(app.bodyColor, 0.2);
-    // Left leg
-    ctx.fillRect(ox + 11 + legOffset, legY, 4, 10);
-    ctx.fillStyle = darken(app.bodyColor, 0.35); // boots
-    ctx.fillRect(ox + 11 + legOffset, legY + 8, 4, 3);
-    // Right leg
-    ctx.fillStyle = darken(app.bodyColor, 0.2);
-    ctx.fillRect(ox + 17 - legOffset, legY, 4, 10);
-    ctx.fillStyle = darken(app.bodyColor, 0.35);
-    ctx.fillRect(ox + 17 - legOffset, legY + 8, 4, 3);
+    ctx.fillStyle = darken(app.bodyColor, 0.15);
+    // Left leg (trousers)
+    ctx.fillRect(ox + 11 + legOffset, legY, 4, 7);
+    // Left boot (taller, darker, with highlight)
+    ctx.fillStyle = '#3a2a1a';
+    ctx.fillRect(ox + 10 + legOffset, legY + 6, 6, 5);
+    ctx.fillStyle = '#4a3a2a';
+    ctx.fillRect(ox + 11 + legOffset, legY + 6, 4, 1); // boot top highlight
+    // Right leg (trousers)
+    ctx.fillStyle = darken(app.bodyColor, 0.15);
+    ctx.fillRect(ox + 17 - legOffset, legY, 4, 7);
+    // Right boot
+    ctx.fillStyle = '#3a2a1a';
+    ctx.fillRect(ox + 16 - legOffset, legY + 6, 6, 5);
+    ctx.fillStyle = '#4a3a2a';
+    ctx.fillRect(ox + 17 - legOffset, legY + 6, 4, 1);
 
     // ── Body ──
     const bodyY = oy + 18 + bounce;
     ctx.fillStyle = app.bodyColor;
     if (app.bodyType === 'armor') {
       ctx.fillRect(ox + 8, bodyY, 16, 18);
-      // Armor highlight
+      // Shoulder pauldrons (wider than body)
+      ctx.fillStyle = lighten(app.bodyColor, 0.15);
+      ctx.fillRect(ox + 6, bodyY, 4, 5);
+      ctx.fillRect(ox + 22, bodyY, 4, 5);
+      // Pauldron highlight
+      ctx.fillStyle = lighten(app.bodyColor, 0.35);
+      ctx.fillRect(ox + 6, bodyY, 4, 2);
+      ctx.fillRect(ox + 22, bodyY, 4, 2);
+      // Chest plate highlight
       ctx.fillStyle = lighten(app.bodyColor, 0.2);
       ctx.fillRect(ox + 9, bodyY + 2, 14, 2);
-      ctx.fillRect(ox + 8, bodyY, 2, 18);
+      // Chest emblem (small diamond)
+      ctx.fillStyle = MEDIEVAL.goldBright;
+      ctx.fillRect(ox + 15, bodyY + 5, 2, 2);
+      ctx.fillRect(ox + 14, bodyY + 6, 4, 2);
+      ctx.fillRect(ox + 15, bodyY + 8, 2, 2);
       // Belt
       ctx.fillStyle = darken(app.bodyColor, 0.3);
       ctx.fillRect(ox + 8, bodyY + 15, 16, 3);
+      // Belt buckle
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(ox + 15, bodyY + 15, 2, 3);
     } else if (app.bodyType === 'robe') {
       ctx.fillRect(ox + 8, bodyY, 16, 24);
       // Robe details
@@ -327,19 +386,30 @@ export class CharacterRenderer {
   private static drawCharacterDiagonal(
     ctx: CanvasRenderingContext2D, ox: number, oy: number,
     app: CharacterAppearance, dir: 'down_left' | 'down_right',
-    bounce: number, legOffset: number, armSwing: number,
+    bounce: number, legOffset: number, armSwing: number, capeWave: number,
   ): void {
-    // Mirror helper: flips X offset around character center (16)
+    // Mirror helper: flips X offset around design-space center (16)
     const m = dir === 'down_right';
-    const mx = (x: number) => m ? (CHAR_W - x) : x;
+    const mx = (x: number) => m ? (DESIGN_W - x) : x;
     // For rects: mx flips position, need to also shift by width
-    const mRect = (x: number, w: number) => m ? (CHAR_W - x - w) : x;
+    const mRect = (x: number, w: number) => m ? (DESIGN_W - x - w) : x;
 
     // ── Cape (behind body, on trailing side) ──
     if (app.cape) {
+      const cY = oy + 18 + bounce;
+      // Cape shadow
+      ctx.fillStyle = darken(app.capeColor, 0.15);
+      ctx.fillRect(ox + mRect(15, 14), cY + 1, 14, 23);
+      // Cape body
       ctx.fillStyle = app.capeColor;
-      // Cape trails on the receding side (right for down_left, left for down_right)
-      ctx.fillRect(ox + mRect(17, 10), oy + 18 + bounce, 10, 20);
+      ctx.fillRect(ox + mRect(16, 13), cY, 13, 22);
+      // Cape highlight
+      ctx.fillStyle = lighten(app.capeColor, 0.2);
+      ctx.fillRect(ox + mRect(16, 13), cY, 13, 2);
+      // Cape bottom flare — flutter (direction-aware)
+      ctx.fillStyle = darken(app.capeColor, 0.1);
+      const diagWave = m ? capeWave : -capeWave;
+      ctx.fillRect(ox + mRect(14, 16) + diagWave, cY + 19, 16, 5);
     }
 
     // ── Legs ──
@@ -362,10 +432,25 @@ export class CharacterRenderer {
     ctx.fillRect(ox + mRect(7, 17), bodyY, 17, 18);
 
     if (app.bodyType === 'armor') {
+      // Shoulder pauldrons
+      ctx.fillStyle = lighten(app.bodyColor, 0.15);
+      ctx.fillRect(ox + mRect(4, 5), bodyY, 5, 5);
+      ctx.fillRect(ox + mRect(22, 5), bodyY, 5, 5);
+      ctx.fillStyle = lighten(app.bodyColor, 0.35);
+      ctx.fillRect(ox + mRect(4, 5), bodyY, 5, 2);
+      ctx.fillRect(ox + mRect(22, 5), bodyY, 5, 2);
+      // Chest highlight
       ctx.fillStyle = lighten(app.bodyColor, 0.2);
       ctx.fillRect(ox + mRect(8, 14), bodyY + 2, 14, 2);
+      // Chest emblem
+      ctx.fillStyle = MEDIEVAL.goldBright;
+      ctx.fillRect(ox + mRect(13, 2), bodyY + 5, 2, 2);
+      ctx.fillRect(ox + mRect(12, 4), bodyY + 6, 4, 2);
+      // Belt
       ctx.fillStyle = darken(app.bodyColor, 0.3);
       ctx.fillRect(ox + mRect(7, 17), bodyY + 15, 17, 3);
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(ox + mRect(14, 2), bodyY + 15, 2, 3);
     } else if (app.bodyType === 'robe') {
       ctx.fillRect(ox + mRect(7, 17), bodyY, 17, 24);
       ctx.fillStyle = lighten(app.bodyColor, 0.15);
@@ -528,15 +613,39 @@ export class CharacterRenderer {
           repeat: -1,
         });
 
-        // Idle (neutral stand = frame 1)
+        // Idle — 2 frames for cape flutter sway (frames 1 & 3 have different capeWave)
         const idleKey = `${key}_idle_${dir}`;
         if (!scene.anims.exists(idleKey)) {
           scene.anims.create({
             key: idleKey,
-            frames: [{ key, frame: baseFrame + 1 }],
-            frameRate: 1,
+            frames: [
+              { key, frame: baseFrame + 1 },
+              { key, frame: baseFrame + 3 },
+            ],
+            frameRate: 2,
+            repeat: -1,
           });
         }
+      }
+    }
+
+    // Register idle animations for battle-resolution textures (same layout, 2× size)
+    const battleTexKeys = scene.textures.getTextureKeys().filter(k => k.startsWith('char_') && k.endsWith('_battle'));
+    for (const bKey of battleTexKeys) {
+      for (let dirIdx = 0; dirIdx < DIRECTIONS.length; dirIdx++) {
+        const dir = DIRECTIONS[dirIdx];
+        const idleKey = `${bKey}_idle_${dir}`;
+        if (scene.anims.exists(idleKey)) continue;
+        const baseFrame = dirIdx * 4;
+        scene.anims.create({
+          key: idleKey,
+          frames: [
+            { key: bKey, frame: baseFrame + 1 },
+            { key: bKey, frame: baseFrame + 3 },
+          ],
+          frameRate: 2,
+          repeat: -1,
+        });
       }
     }
   }

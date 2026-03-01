@@ -47,6 +47,11 @@ export class BattleScene extends Phaser.Scene {
   private wasNearDeath: boolean[] = [];
   private activeOverlayCleanup: (() => void) | null = null;
 
+  // Idle bob parameters (unique per sprite so they never sync)
+  private readonly IDLE_BOB_AMP = 3; // pixels
+  private readonly IDLE_BOB_FREQS = [0.0017, 0.0021, 0.0013, 0.0019, 0.0023, 0.0015, 0.0025, 0.0011];
+  private readonly IDLE_BOB_PHASES = [0, 1.7, 3.3, 0.9, 2.5, 4.1, 1.2, 3.8];
+
   // Auto-attack mode
   private autoAttackMode = false;
   private autoAttackLabel?: Phaser.GameObjects.Text;
@@ -90,7 +95,7 @@ export class BattleScene extends Phaser.Scene {
     // Draw enemy sprites (top center) — classic JRPG layout
     const state = this.combat.getState();
     this.enemySprites = [];
-    const enemySpacing = Math.min(180, (GAME_WIDTH - 300) / Math.max(1, state.enemies.length));
+    const enemySpacing = Math.min(220, (GAME_WIDTH - 300) / Math.max(1, state.enemies.length));
     const enemyTotalW = (state.enemies.length - 1) * enemySpacing;
     state.enemies.forEach((enemy, i) => {
       const x = GAME_WIDTH / 2 - enemyTotalW / 2 + i * enemySpacing;
@@ -107,7 +112,7 @@ export class BattleScene extends Phaser.Scene {
       sprite.setData('homeY', y);
       this.enemySprites.push(sprite);
 
-      this.add.text(x, y + (isBossEnemy ? 100 : 75), enemy.name, {
+      this.add.text(x, y + (isBossEnemy ? 140 : 110), enemy.name, {
         fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(DEPTH.characters + 1);
@@ -120,7 +125,7 @@ export class BattleScene extends Phaser.Scene {
 
     // Draw party sprites (bottom center) — classic JRPG layout
     this.partySprites = [];
-    const partySpacing = Math.min(150, (GAME_WIDTH - 300) / Math.max(1, state.party.length));
+    const partySpacing = Math.min(200, (GAME_WIDTH - 300) / Math.max(1, state.party.length));
     const partyTotalW = (state.party.length - 1) * partySpacing;
     state.party.forEach((member, i) => {
       const x = GAME_WIDTH / 2 - partyTotalW / 2 + i * partySpacing;
@@ -137,19 +142,27 @@ export class BattleScene extends Phaser.Scene {
 
       // Choose diagonal facing based on screen position (3/4 view toward enemies)
       const relX = (x - GAME_WIDTH / 2) / (GAME_WIDTH / 2);
-      const battleDir = relX < -0.15 ? DIR_DOWN_RIGHT : relX > 0.15 ? DIR_DOWN_LEFT : DIR_DOWN;
-      const idleFrame = battleDir * 4 + 1; // 4 frames/dir, frame 1 = neutral idle
+      const dirName = relX < -0.15 ? 'down_right' : relX > 0.15 ? 'down_left' : 'down';
+      const dirIdx = relX < -0.15 ? DIR_DOWN_RIGHT : relX > 0.15 ? DIR_DOWN_LEFT : DIR_DOWN;
+      const idleFrame = dirIdx * 4 + 1; // 4 frames/dir, frame 1 = neutral idle
 
       // Use battle-resolution texture if available (3× native, no scale needed)
       const battleTexKey = `${texKey}_battle`;
       const useBattleTex = this.textures.exists(battleTexKey);
-      const sprite = this.add.sprite(x, y, useBattleTex ? battleTexKey : texKey, idleFrame).setDepth(DEPTH.characters);
+      const actualTexKey = useBattleTex ? battleTexKey : texKey;
+      const sprite = this.add.sprite(x, y, actualTexKey, idleFrame).setDepth(DEPTH.characters);
       if (!useBattleTex) sprite.setScale(2.5); // fallback for missing battle textures
+
+      // Play idle animation with cape flutter (2-frame loop)
+      const idleAnimKey = `${actualTexKey}_idle_${dirName}`;
+      if (this.anims.exists(idleAnimKey)) {
+        sprite.play(idleAnimKey);
+      }
       sprite.setData('homeX', x);
       sprite.setData('homeY', y);
       this.partySprites.push(sprite);
 
-      this.add.text(x, y + 80, member.name, {
+      this.add.text(x, y + 110, member.name, {
         fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 0).setDepth(DEPTH.characters + 1);
@@ -161,7 +174,7 @@ export class BattleScene extends Phaser.Scene {
     this.wasNearDeath = [];
     state.party.forEach((_member, i) => {
       const sprite = this.partySprites[i];
-      const label = this.add.text(sprite.x, sprite.y - 80, t('battle.near_death'), {
+      const label = this.add.text(sprite.x, sprite.y - 110, t('battle.near_death'), {
         fontFamily: FONT_FAMILY, fontSize: '10px', color: '#ff4444',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setDepth(DEPTH.characters + 2).setVisible(false);
@@ -332,6 +345,25 @@ export class BattleScene extends Phaser.Scene {
         this.nearDeathLabels[i].setVisible(isNearDeath);
       }
     });
+
+    // Idle breathing bob — subtle vertical oscillation with unique freq per sprite
+    // Enemies use offset 0, party uses offset 4 so they never share the same freq/phase
+    this.applyIdleBob(time, this.enemySprites, 0);
+    this.applyIdleBob(time, this.partySprites, 4);
+  }
+
+  /** Apply sine-wave idle bob to sprites not currently in an action animation */
+  private applyIdleBob(time: number, sprites: Phaser.GameObjects.Sprite[], indexOffset: number): void {
+    const N = this.IDLE_BOB_FREQS.length;
+    for (let i = 0; i < sprites.length; i++) {
+      const s = sprites[i];
+      if (!s || s.getData('inAction')) continue;
+      const homeY = s.getData('homeY') as number;
+      const idx = (i + indexOffset) % N;
+      const freq = this.IDLE_BOB_FREQS[idx];
+      const phase = this.IDLE_BOB_PHASES[idx];
+      s.y = homeY + Math.sin(time * freq + phase) * this.IDLE_BOB_AMP;
+    }
   }
 
   private startNearDeathPulse(index: number): void {
@@ -833,6 +865,7 @@ export class BattleScene extends Phaser.Scene {
         }
 
         // Rush toward target (enemies rush down, party rushes up)
+        actorSprite.setData('inAction', true);
         const rushOffsetY = action.isEnemy ? -40 : 40;
         this.tweens.add({
           targets: actorSprite,
@@ -864,6 +897,7 @@ export class BattleScene extends Phaser.Scene {
                   duration: 200,
                   ease: 'Power2',
                   onComplete: () => {
+                    actorSprite.setData('inAction', false);
                     this.time.delayedCall(80, () => {
                       this.playActionSequence(results, index + 1);
                     });
@@ -879,6 +913,7 @@ export class BattleScene extends Phaser.Scene {
       case 'skill': {
         const skill = action.skillId ? getSkillById(action.skillId) : null;
         // Step forward slightly
+        actorSprite.setData('inAction', true);
         const stepY = action.isEnemy ? homeY + 25 : homeY - 25;
         this.tweens.add({
           targets: actorSprite,
@@ -886,9 +921,10 @@ export class BattleScene extends Phaser.Scene {
           duration: 150,
           onComplete: () => {
             // Play appropriate SFX based on skill type
-            const isHealSkill = skill?.type === 'heal';
-            if (isHealSkill) {
+            if (skill?.type === 'heal') {
               audioManager.playSfx('heal');
+            } else if (skill?.type === 'physical') {
+              audioManager.playSfx('hit');
             } else {
               audioManager.playSfx('magic');
             }
@@ -896,11 +932,15 @@ export class BattleScene extends Phaser.Scene {
             const targetSprites = this.getActionTargetSprites(action);
 
             for (const ts of targetSprites) {
-              if (isHealSkill) {
+              if (skill?.type === 'heal') {
                 BattleEffects.playHealEffect(this, ts.x, ts.y);
+              } else if (skill?.type === 'physical') {
+                // Physical skill: flash target (same as basic attack)
+                this.tweens.add({
+                  targets: ts, alpha: 0.3, duration: 60, yoyo: true, repeat: 2,
+                });
               } else {
                 BattleEffects.playMagicEffect(this, ts.x, ts.y, skill?.element ?? '');
-                // Flash target
                 this.tweens.add({
                   targets: ts, alpha: 0.3, duration: 60, yoyo: true, repeat: 2,
                 });
@@ -917,6 +957,7 @@ export class BattleScene extends Phaser.Scene {
                 y: homeY,
                 duration: 150,
                 onComplete: () => {
+                  actorSprite.setData('inAction', false);
                   this.time.delayedCall(80, () => {
                     this.playActionSequence(results, index + 1);
                   });
@@ -952,6 +993,18 @@ export class BattleScene extends Phaser.Scene {
           actorSprite.clearTint();
           this.playActionSequence(results, index + 1);
         });
+        break;
+      }
+
+      case 'flee': {
+        for (const msg of msgs) this.addBattleLogMessage(msg);
+        if (this.combat.getState().phase === 'fled') {
+          // Flee succeeded — skip remaining actions, go to result
+          this.time.delayedCall(400, () => this.checkBattleResult());
+          return;
+        }
+        // Flee failed — continue to next action
+        this.time.delayedCall(300, () => this.playActionSequence(results, index + 1));
         break;
       }
 
@@ -1097,6 +1150,8 @@ export class BattleScene extends Phaser.Scene {
         gameState.addCompanion(companionData);
         if (gameState.addToParty(companionData.id)) {
           lines.push(t('battle.companion_join', companionData.name));
+        } else {
+          lines.push(`${companionData.name} 成為了夥伴！隊伍已滿，可在選單中編組隊伍。`);
         }
       }
 

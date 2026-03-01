@@ -1,118 +1,146 @@
 {
   "_meta": {
     "style_prefix": "medieval European fantasy, Harry Potter aesthetic, warm candlelight atmosphere, stone and wood architecture, British countryside",
+    "style_prefix_xl": "16-bit JRPG pixel art, Dragon Quest style, Akira Toriyama influence, vibrant colors, detailed sprite work, masterpiece quality",
+    "style_prefix_monster": "fantasy pixel art",
     "style_suffix_pixel": "pixel art, PixArFK, 2D game asset, top-down view, 32x32 sprite",
-    "style_suffix_char": "pixel art, PixArFK, 2D game character sprite, front-facing, 32x32",
-    "style_suffix_monster": "pixel art, PixArFK, 2D game monster sprite, front-facing",
-    "negative_prompt": "blurry, 3d render, photo, realistic, anti-aliasing, smooth gradient, text, watermark, signature, modern, sci-fi, futuristic"
+    "style_suffix_pixel_xl": "pixel art, retro gaming sprite, crisp edges, limited color palette, top-down view, tileable, 2D game asset",
+    "style_suffix_char": "pixel art, PixArFK, 2D game character sprite, front-facing, on solid green background, 32x32",
+    "style_suffix_char_xl": "pixel art character sprite, detailed shading, front-facing pose, clean solid background, 2D JRPG style",
+    "style_suffix_monster": "pixel art, PixArFK, 2D game monster sprite, front-facing, on solid green background",
+    "style_suffix_monster_xl": "pixel art monster sprite, detailed shading, front-facing, clean dark background, 2D JRPG enemy, single creature centered",
+    "style_suffix_building": "pixel art, PixArFK, 2D game building, front view, on solid green background",
+    "style_suffix_building_xl": "pixel art building, detailed architecture, front elevation view, warm lighting, cozy atmosphere, clean background, 2D JRPG style",
+    "style_suffix_deco": "pixel art, PixArFK, 2D game decoration, top-down view, on solid green background",
+    "style_suffix_deco_xl": "pixel art decoration, top-down view, clean background, 2D game asset, detailed",
+    "negative_prompt": "blurry, 3d render, photo, realistic, anti-aliasing, smooth gradient, text, watermark, signature, modern, sci-fi, futuristic, complex background, busy background, gradient background, house, building, architecture, furniture, tent, room, interior, landscape, scenery, multiple characters, group, crowd",
+    "negative_prompt_xl": "blurry, 3d render, photorealistic, photograph, smooth gradient, text, watermark, signature, modern, sci-fi, futuristic, complex background, busy background, multiple creatures, two creatures, pair, duplicate, group, crowd, many, low quality, worst quality, jpeg artifacts, deformed, ugly, mutation, extra limbs",
+    "negative_prompt_pixelsprite": "blurry, photo, 3d render, scene, landscape, multiple creatures, duplicate, text, watermark, low quality, deformed, extra limbs"
   },
-
   "tiles": [
     {
       "name": "tile_grass",
       "size": 32,
-      "prompt": "grass tile, lush green meadow, small wildflowers, top-down view"
+      "prompt": "grass tile, lush green meadow, small wildflowers, top-down view",
+      "prompt_xl": "lush green grass tile, scattered tiny wildflowers, clover patches, rich soil visible between blades, varied green tones, natural meadow texture"
     },
     {
       "name": "tile_stone",
       "size": 32,
-      "prompt": "cobblestone path tile, worn grey stones, moss between cracks, top-down view"
+      "prompt": "cobblestone path tile, worn grey stones, moss between cracks, top-down view",
+      "prompt_xl": "medieval cobblestone path tile, worn irregular grey stones, green moss growing between cracks, weathered texture, damp surface highlights"
     },
     {
       "name": "tile_wood",
       "size": 32,
-      "prompt": "wooden floor tile, dark oak planks, wood grain texture, top-down view"
+      "prompt": "wooden floor tile, dark oak planks, wood grain texture, top-down view",
+      "prompt_xl": "dark oak wooden floor tile, natural wood grain pattern, plank seams visible, warm brown tones, polished surface with subtle highlights"
     },
     {
       "name": "tile_water",
       "size": 32,
-      "prompt": "water tile, clear blue water surface, gentle ripples, top-down view"
+      "prompt": "water tile, clear blue water surface, gentle ripples, top-down view",
+      "prompt_xl": "clear blue water surface tile, gentle concentric ripples, light reflections, transparent depth effect, varied blue-teal tones"
     },
     {
       "name": "tile_sand",
       "size": 32,
-      "prompt": "sandy ground tile, desert sand, small pebbles, top-down view"
+      "prompt": "sandy ground tile, desert sand, small pebbles, top-down view",
+      "prompt_xl": "desert sand ground tile, fine golden sand texture, scattered small pebbles and shell fragments, wind-swept patterns, warm tan tones"
     },
     {
       "name": "tile_dirt",
       "size": 32,
-      "prompt": "dirt path tile, packed brown earth, small stones, top-down view"
+      "prompt": "dirt path tile, packed brown earth, small stones, top-down view",
+      "prompt_xl": "packed dirt path tile, compressed brown earth, embedded small stones, dried mud cracks, worn footpath texture"
     },
     {
       "name": "tile_snow",
       "size": 32,
-      "prompt": "snow covered ground tile, white snow, frost crystals, top-down view"
+      "prompt": "snow covered ground tile, white snow, frost crystals, top-down view",
+      "prompt_xl": "fresh snow ground tile, pristine white snow surface, tiny frost crystal sparkles, subtle blue shadow in compressed areas, winter texture"
     },
     {
       "name": "tile_lava",
       "size": 32,
-      "prompt": "lava tile, glowing orange magma, dark crust, top-down view"
+      "prompt": "lava tile, glowing orange magma, dark crust, top-down view",
+      "prompt_xl": "molten lava tile, glowing bright orange-yellow magma, dark cooled volcanic crust with cracks, heat distortion glow, volcanic texture"
     },
     {
       "name": "tile_dark_stone",
       "size": 32,
-      "prompt": "dark dungeon stone floor tile, black obsidian, purple cracks, top-down view"
+      "prompt": "dark dungeon stone floor tile, black obsidian, purple cracks, top-down view",
+      "prompt_xl": "dark dungeon stone floor tile, polished black obsidian surface, glowing purple-violet magical cracks, sinister energy seeping through"
     },
     {
       "name": "tile_cave",
       "size": 32,
-      "prompt": "cave floor tile, rough grey rock, mineral veins, top-down view"
+      "prompt": "cave floor tile, rough grey rock, mineral veins, top-down view",
+      "prompt_xl": "rough cave floor tile, uneven grey-brown rock surface, sparkling mineral crystal veins, damp patches, stalactite drip marks"
     },
     {
       "name": "tile_wall_stone",
       "size": 32,
-      "prompt": "stone castle wall tile, grey brick wall, medieval fortress, top-down view"
+      "prompt": "stone castle wall tile, grey brick wall, medieval fortress, top-down view",
+      "prompt_xl": "medieval castle wall tile, large grey stone blocks, mortar between bricks, weathered fortress wall, arrow slit texture"
     },
     {
       "name": "tile_wall_wood",
       "size": 32,
-      "prompt": "wooden wall tile, timber frame, tudor style, top-down view"
+      "prompt": "wooden wall tile, timber frame, tudor style, top-down view",
+      "prompt_xl": "tudor timber frame wall tile, dark wooden beams crossing white plaster, half-timbered construction, medieval European style"
     }
   ],
-
   "buildings": [
     {
       "name": "bld_tudor",
       "size": 64,
-      "prompt": "tudor style house, half-timbered walls, thatched roof, medieval village, front view"
+      "prompt": "tudor style house, half-timbered walls, thatched roof, medieval village, front view",
+      "prompt_xl": "charming tudor style house, dark timber frame with white plaster walls, thick thatched straw roof, warm candlelight glowing from small windows, climbing ivy, flower boxes, chimney with wisps of smoke, cobblestone path, cozy medieval village dwelling"
     },
     {
       "name": "bld_shop",
       "size": 64,
-      "prompt": "medieval shop building, hanging wooden sign, display window, potions and goods, front view"
+      "prompt": "medieval shop building, hanging wooden sign, display window, potions and goods, front view",
+      "prompt_xl": "bustling medieval merchant shop, ornate hanging wooden sign with carved emblem, large display window showing potions bottles and magical goods, colorful awning, warm interior glow, barrels and crates outside, weathered stone and timber construction"
     },
     {
       "name": "bld_castle",
       "size": 64,
-      "prompt": "stone castle keep, tower with banner, Hogwarts inspired, front view"
+      "prompt": "stone castle keep, tower with banner, Hogwarts inspired, front view",
+      "prompt_xl": "imposing medieval stone castle keep, tall central tower with flying banner, Hogwarts inspired gothic architecture, arched entrance with portcullis, stained glass windows, gargoyles on corners, crenelated battlements, torch-lit entrance"
     },
     {
       "name": "bld_inn",
       "size": 64,
-      "prompt": "medieval inn tavern, wooden sign with tankard, warm light from windows, chimney smoke, front view"
+      "prompt": "medieval inn tavern, wooden sign with tankard, warm light from windows, chimney smoke, front view",
+      "prompt_xl": "welcoming medieval inn and tavern, hand-painted wooden sign showing golden tankard, warm amber light spilling from mullioned windows, thick chimney billowing cozy smoke, heavy oak door, stone foundation, second floor with balcony, hanging lanterns"
     },
     {
       "name": "bld_church",
       "size": 64,
-      "prompt": "medieval stone church, stained glass window, bell tower, gothic architecture, front view"
+      "prompt": "medieval stone church, stained glass window, bell tower, gothic architecture, front view",
+      "prompt_xl": "serene medieval stone church, magnificent rose stained glass window in brilliant colors, tall bell tower with bronze bell, gothic pointed arches, heavy wooden doors, surrounding graveyard visible, holy light emanating from within"
     },
     {
       "name": "bld_blacksmith",
       "size": 64,
-      "prompt": "blacksmith forge building, anvil sign, smoke from chimney, stone and wood, front view"
+      "prompt": "blacksmith forge building, anvil sign, smoke from chimney, stone and wood, front view",
+      "prompt_xl": "busy medieval blacksmith forge, iron anvil sign hanging over entrance, thick black smoke from brick chimney, open forge area with glowing orange coals visible, weapon and armor display racks, sturdy stone walls with wooden beams, sparks flying"
     },
     {
       "name": "bld_wizard_tower",
       "size": 64,
-      "prompt": "wizard tower, crooked tall stone tower, glowing window, magical atmosphere, Hogwarts style, front view"
+      "prompt": "wizard tower, crooked tall stone tower, glowing window, magical atmosphere, Hogwarts style, front view",
+      "prompt_xl": "mysterious wizard tower, slightly crooked tall stone spire, glowing arcane purple-blue light from round windows, swirling magical energy at the peak, astronomical instruments on balcony, Hogwarts style, covered in ancient runes, enchanted atmosphere"
     },
     {
       "name": "bld_ruins",
       "size": 64,
-      "prompt": "ancient ruins, crumbling stone walls, overgrown with ivy, mysterious, front view"
+      "prompt": "ancient ruins, crumbling stone walls, overgrown with ivy, mysterious, front view",
+      "prompt_xl": "hauntingly beautiful ancient ruins, crumbling stone walls and broken arches, thick ivy and moss covering surfaces, mysterious glowing runes still visible, scattered stone rubble, wild vegetation reclaiming the structure, atmospheric mist"
     }
   ],
-
   "characters": [
     {
       "name": "char_hero",
@@ -175,191 +203,376 @@
       "prompt": "town guide NPC, traveler outfit, hat, map in hand, informative gesture"
     }
   ],
-
   "monsters": [
     {
       "name": "mon_slime",
-      "size": 32,
-      "prompt": "green slime monster, gelatinous blob, cute eyes, transparent body, RPG enemy"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 22,
+      "guidance_xl": 7.0,
+      "prompt": "Dragon Quest slime, Akira Toriyama, teardrop blob, water droplet, no limbs horns ears, two dot eyes curved smile, bright blue gelatinous, JRPG mascot, minimal, black background",
+      "prompt_xl": "iconic Dragon Quest blue slime, Akira Toriyama style, perfect teardrop water-droplet shape, translucent gelatinous body with light refracting through, bright cerulean blue, two round black eyes with white highlight dots, small curved happy smile, shiny glossy surface with specular highlight on top, simple cute JRPG mascot creature, no limbs no horns no ears, centered on dark background",
+      "negative_prompt": "horns, ears, spikes, tentacles, arms, legs, feet, claws, fangs, teeth, menacing, scary, purple, multiple blobs",
+      "prompt_hq": "single blue slime, cute teardrop shape, translucent gel body, two dot eyes, happy smile, glossy, no limbs",
+      "prompt_pixelsprite": "blue slime monster, teardrop shape, translucent, two eyes, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_bat",
-      "size": 32,
-      "prompt": "dark bat monster, spread wings, red eyes, fangs, cave dwelling creature"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single dark purple bat, large spread leather wings, pointed ears, glowing red eyes, small fangs, flying pose",
+      "prompt_xl": "single dark purple vampire bat creature, large outstretched leathery membranous wings with visible bone structure, soft fuzzy fur on small round body, tall pointed ears, glowing menacing red eyes, small white fangs, mid-flight hovering pose, detailed wing membrane texture",
+      "prompt_hq": "single purple bat, large spread wings, red eyes, sharp fangs, flying pose",
+      "prompt_pixelsprite": "dark purple vampire bat, large spread leather wings, glowing red eyes, small fangs, flying pose, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_goblin",
-      "size": 32,
-      "prompt": "small goblin, green skin, ragged clothes, crude dagger, sneaky expression"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single small green goblin, large pointed ears, yellow eyes, holding wooden club, ragged loincloth, hunched pose",
+      "prompt_xl": "single small mischievous green goblin creature, oversized pointed ears, cunning yellow eyes with slit pupils, warty textured skin, holding crude wooden spiked club, wearing ragged brown loincloth, hunched aggressive stance, sharp teeth in wide grin, JRPG enemy",
+      "prompt_hq": "single green goblin, pointy ears, yellow eyes, holding wooden club, ragged cloth",
+      "prompt_pixelsprite": "small green goblin creature, large pointed ears, yellow eyes, wooden club, ragged cloth, hunched pose, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_snake",
-      "size": 32,
-      "prompt": "venomous snake, coiled body, forked tongue, green scales, dangerous"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single coiled cobra snake, green and yellow scales, raised hood, forked tongue, venomous fangs",
+      "prompt_xl": "single large coiled cobra serpent, iridescent green and golden yellow scales with diamond pattern, raised threatening hood spread wide, flickering red forked tongue, dripping venomous fangs, hypnotic slit-pupil eyes, muscular coiled body, detailed scale texture",
+      "prompt_pixelsprite": "coiled cobra serpent, green yellow scales, raised hood, forked tongue, venomous fangs, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_wolf",
-      "size": 32,
-      "prompt": "wild wolf, grey fur, bared fangs, glowing yellow eyes, aggressive stance"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single snarling grey wolf, bristled fur, bared fangs, glowing yellow eyes, aggressive stance",
+      "prompt_xl": "single fierce snarling grey dire wolf, thick bristled silver-grey fur coat, bared sharp white fangs, glowing fierce yellow eyes, muscular powerful body in aggressive attack stance, raised hackles, bushy tail, detailed fur texture, wild and dangerous",
+      "prompt_hq": "single grey wolf, thick fur, bared fangs, yellow eyes, aggressive stance",
+      "prompt_pixelsprite": "fierce grey dire wolf, thick bristled fur, bared sharp fangs, glowing yellow eyes, aggressive stance, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_skeleton",
-      "size": 32,
-      "prompt": "skeleton warrior, bone armor, rusty sword, glowing eye sockets, undead soldier"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single skeleton warrior, white bones, holding rusty sword, tattered armor, glowing blue eye sockets",
+      "prompt_xl": "single undead skeleton warrior, bleached white weathered bones, visible ribcage and joints, holding rusty notched iron sword, remnants of tattered chain mail armor, eerie glowing blue-purple light in hollow eye sockets, battle-ready stance, fragments of ancient equipment",
+      "prompt_hq": "single skeleton warrior, white bones, glowing eye sockets, rusty sword, tattered armor",
+      "prompt_pixelsprite": "undead skeleton warrior, white bones, rusty sword, tattered armor, glowing blue eye sockets, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_spider",
-      "size": 32,
-      "prompt": "giant black spider, eight legs, red eyes, web strands, venomous fangs"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single giant black spider, eight hairy legs, cluster of red eyes, large venom fangs, web strands",
+      "prompt_xl": "single giant black widow spider, shiny black exoskeleton with subtle purple sheen, eight articulated hairy legs with sharp tips, cluster of eight glowing red eyes, large dripping venom chelicerae fangs, wispy web silk strands, terrifying arachnid creature",
+      "prompt_hq": "single giant spider, eight hairy legs, red eyes, large fangs, dark body",
+      "prompt_pixelsprite": "giant black spider, eight hairy legs, cluster of red eyes, large venom fangs, web strands, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_ghost",
-      "size": 32,
-      "prompt": "floating ghost spirit, translucent white, ethereal glow, haunting expression"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single floating ghost spirit, translucent white wispy body, hollow dark eyes, wailing mouth, spectral robes, humanoid silhouette, no face features",
+      "prompt_xl": "single floating ethereal ghost spirit, translucent white-blue wispy body fading at the bottom, hollow pitch-black empty eye sockets, wide wailing oval mouth, flowing tattered spectral robes, eerie supernatural glow, humanoid upper body dissolving into mist below, haunting otherworldly presence",
+      "negative_prompt": "cat, animal, furry, mammal, face, portrait",
+      "prompt_hq": "single white ghost, translucent wispy body, dark eye sockets, fading tail, eerie glow",
+      "prompt_pixelsprite": "white ghost, floating phantom with wispy tail, dark hollow eyes, open wailing mouth, glowing aura, JRPG undead enemy, centered, black background"
     },
     {
       "name": "mon_flower",
-      "size": 32,
-      "prompt": "carnivorous flower monster, venus flytrap, thorny vines, purple petals, plant creature"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single carnivorous plant monster, giant venus flytrap head with teeth, thorny stem, red purple petals",
+      "prompt_xl": "single carnivorous plant monster, massive venus flytrap head with rows of sharp white teeth, dark red-purple layered petals, thick thorny green stem, writhing vine tendrils, dripping digestive fluid, small angry eyes on the flower head, dangerous predatory plant creature",
+      "prompt_hq": "single plant monster, red venus flytrap head, sharp teeth, green thorny stem, vines",
+      "prompt_pixelsprite": "carnivorous plant monster, venus flytrap head with teeth, red petals, thorny green stem, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_treant",
-      "size": 32,
-      "prompt": "dark treant monster, gnarled bark face, twisted branches, angry tree creature"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single evil walking tree monster, gnarled bark body, angry face in wood, twisted branch arms, red eyes",
+      "prompt_xl": "single ancient evil treant monster, massive gnarled bark-covered body with deep wood grain texture, angry scowling face formed in the twisted wood, glowing red sap eyes, long twisted branch arms with sharp twig fingers, moss and fungus growing on body, corrupted nature spirit",
+      "prompt_pixelsprite": "evil walking tree monster, gnarled bark body, angry face in wood, twisted branch arms, glowing red eyes, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_mushroom",
-      "size": 32,
-      "prompt": "mushroom creature, spotted cap, spore cloud, stubby legs, fungus monster"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single mushroom creature, large red spotted cap, angry eyes, stubby legs, green toxic spore cloud",
+      "prompt_xl": "single angry mushroom creature, large bright red cap with white polka-dot spots like Amanita muscaria, thick stubby stem body with tiny legs, squinting angry eyes, puffing clouds of green toxic spores, cute but dangerous fungal monster, JRPG style",
+      "prompt_pixelsprite": "angry mushroom creature, red spotted cap, white polka dots, stubby legs, angry eyes, toxic spores, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_lion",
-      "size": 32,
-      "prompt": "prairie lion beast, golden mane, powerful claws, fierce roar, savanna predator"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single fierce golden lion, flowing thick mane, muscular body, sharp claws, roaring open mouth",
+      "prompt_xl": "single majestic fierce golden lion beast, magnificent flowing thick tawny mane, powerful muscular feline body, razor sharp extended claws, wide open roaring mouth showing large fangs, intense golden eyes, regal but deadly predator, fantasy beast",
+      "prompt_pixelsprite": "fierce golden lion, flowing thick mane, muscular body, sharp claws, roaring mouth, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_scorpion",
-      "size": 32,
-      "prompt": "giant desert scorpion, curved tail stinger, armored shell, pincers, sand creature"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single giant scorpion, curved venomous tail stinger, large crushing pincers, dark brown exoskeleton",
+      "prompt_xl": "single giant desert scorpion, menacing curved segmented tail with dripping venomous stinger raised high, massive crushing lobster-like pincers, dark brown chitinous armored exoskeleton, eight jointed legs, beady black eyes, armored arachnid predator",
+      "prompt_pixelsprite": "giant scorpion, curved venomous tail stinger, large pincers, dark brown exoskeleton, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_jellyfish",
-      "size": 32,
-      "prompt": "deep sea jellyfish monster, glowing tentacles, translucent bell, electric sparks"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 20,
+      "guidance_xl": 7.0,
+      "prompt": "single glowing jellyfish, blue translucent dome bell, trailing stinging tentacles, bioluminescent sparks",
+      "prompt_xl": "single ethereal glowing jellyfish creature, beautiful translucent blue-violet dome bell body with internal organs visible, long trailing stinging tentacles flowing downward, mesmerizing bioluminescent sparks and light particles, deep sea magical creature, otherworldly beauty",
+      "prompt_hq": "single blue jellyfish, transparent bell dome, trailing tentacles, bioluminescent glow",
+      "prompt_pixelsprite": "blue jellyfish, round dome head, long dangling tentacles, glowing bioluminescent, ocean creature, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_shark",
-      "size": 48,
-      "prompt": "shadow shark monster, dark fins, glowing red eyes, razor teeth, underwater predator"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 22,
+      "guidance_xl": 7.0,
+      "prompt": "single dark grey shark, tall dorsal fin, glowing red eyes, gaping jaws with razor teeth, aggressive pose",
+      "prompt_xl": "single massive great white shark, sleek dark grey body with white underbelly, tall triangular dorsal fin, supernaturally glowing red eyes, wide gaping jaws revealing rows of razor-sharp serrated teeth, powerful streamlined predator body, oceanic terror",
+      "prompt_hq": "single grey shark, dorsal fin, rows of sharp teeth, streamlined body, red eyes",
+      "prompt_pixelsprite": "great white shark, open jaws with sharp teeth, grey body, tall dorsal fin, red eyes, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_golem",
-      "size": 48,
-      "prompt": "stone golem, massive rock body, glowing rune markings, clenched fists, ancient construct"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 22,
+      "guidance_xl": 7.0,
+      "prompt": "single massive stone golem, rocky boulder body, glowing orange rune markings, heavy stone fists raised",
+      "prompt_xl": "single towering stone golem construct, massive body made of rough grey boulders and rock slabs, glowing orange-gold magical rune inscriptions across body, huge heavy raised stone fists, ancient clay and moss between stone segments, magically animated guardian",
+      "prompt_pixelsprite": "massive stone golem, rocky boulder body, glowing orange rune markings, heavy stone fists, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_dragon_young",
-      "size": 48,
-      "prompt": "young dragon, small wings, fire breath, green scales, fierce baby dragon"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 22,
+      "guidance_xl": 7.0,
+      "prompt": "single young fire dragon, red bat wings, breathing fire, green scales, yellow underbelly, sharp claws",
+      "prompt_xl": "single young fire dragon, large outstretched red leathery bat-like wings, breathing stream of orange fire, emerald green overlapping scales covering body, golden yellow armored underbelly plates, sharp ivory claws and horns, fierce but youthful dragon face, powerful fantasy creature",
+      "prompt_pixelsprite": "young fire dragon, red bat wings, green scales, breathing fire, sharp claws, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_demon_soldier",
-      "size": 48,
-      "prompt": "demon soldier, dark armor, horns, red eyes, demonic sword, hell warrior"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 22,
+      "guidance_xl": 7.0,
+      "prompt": "single demon soldier, dark spiked black armor, curved horns, red eyes, wielding jagged dark sword",
+      "prompt_xl": "single intimidating demon soldier, full dark spiked black iron armor with crimson trim, curved ram-like horns protruding from helmet, blazing red eyes glowing from within visor, wielding cruel jagged serrated dark sword, hellish warrior from the abyss, menacing battle stance",
+      "prompt_pixelsprite": "demon soldier, dark spiked black armor, curved horns, red eyes, jagged dark sword, JRPG enemy, centered, black background"
     },
     {
       "name": "mon_dark_knight",
-      "size": 48,
-      "prompt": "dark knight, black full plate armor, glowing purple sword, menacing helmet visor"
+      "size": 192,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 22,
+      "guidance_xl": 7.0,
+      "prompt": "single dark death knight, full black plate armor, purple glowing visor, wielding purple greatsword, dark cape",
+      "prompt_xl": "single terrifying dark death knight, imposing full black ornate plate armor with skull motifs, haunting purple-violet glowing light from behind closed visor, wielding massive purple energy-infused greatsword, flowing tattered dark cape, undead fallen paladin, corrupted holy warrior",
+      "prompt_pixelsprite": "dark death knight, black plate armor, purple glowing visor, purple greatsword, dark cape, JRPG enemy, centered, black background"
     },
-
     {
       "name": "mon_boss_guardian",
-      "size": 64,
-      "prompt": "fallen guardian boss, corrupted paladin, broken holy armor, dark aura, large imposing figure"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single corrupted paladin boss, massive armored figure, cracked golden armor stained dark, red eyes, wielding huge greatsword, threatening pose",
+      "prompt_xl": "single corrupted holy paladin boss monster, towering imposing armored figure, once-magnificent golden plate armor now cracked and stained with dark corruption spreading across surface, blazing vengeful red eyes through damaged helm, wielding enormous ornate greatsword crackling with dark energy, tattered sacred cape, fallen champion, dramatic threatening battle pose",
+      "prompt_pixelsprite": "corrupted paladin boss, massive armored figure, cracked golden armor, red eyes, huge greatsword, JRPG boss, centered, black background"
     },
     {
       "name": "mon_boss_elf_king",
-      "size": 64,
-      "prompt": "corrupted elf king boss, dark crown, twisted features, nature magic gone wrong, thorny vines"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single corrupted elf king boss, tall regal figure, dark thorned crown, twisted elven features, dark vines wrapping body, wielding gnarled staff",
+      "prompt_xl": "single corrupted ancient elf king boss monster, impossibly tall regal elven figure, ornate dark thorned crown of twisted black wood, once-beautiful elven features now gaunt and corrupted with dark veins, dark parasitic vines wrapping and constricting body, wielding massive gnarled living staff pulsing with dark green energy, tattered royal robes, fallen woodland sovereign",
+      "prompt_pixelsprite": "dark elf king boss, tall armored warrior, crown of thorns, long pointed ears, dark magic staff, glowing green eyes, JRPG boss monster, centered, black background"
     },
     {
       "name": "mon_boss_ancient_tree",
-      "size": 64,
-      "prompt": "ancient corrupted tree boss, massive gnarled trunk, glowing red sap, dark roots"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single ancient corrupted treant boss, massive gnarled trunk body, twisted branch arms, angry bark face, glowing red sap eyes",
+      "prompt_xl": "single ancient corrupted world-tree boss monster, enormous gnarled trunk body as thick as a tower, deeply furrowed bark with dark rot spreading, massive twisted branch arms reaching outward with claw-like twig fingers, terrifying angry face carved into wood with glowing crimson sap leaking from eye hollows, parasitic mushrooms and dark moss covering body, apocalyptic forest guardian gone mad",
+      "prompt_pixelsprite": "ancient corrupted treant boss, massive gnarled trunk body, twisted branch arms, angry bark face, glowing red eyes, JRPG boss, centered, black background"
     },
     {
       "name": "mon_boss_beast_general",
-      "size": 64,
-      "prompt": "beast general boss, massive minotaur, war armor, giant battle axe, muscular"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single minotaur boss, massive muscular bull-headed warrior, dark spiked armor, wielding battle axe, curved horns, red eyes",
+      "prompt_xl": "single fearsome minotaur beast general boss monster, massively muscular humanoid body with powerful bull head, thick curved horns tipped with iron caps, dark spiked battle armor with tribal markings, wielding enormous double-headed battle axe, flaring nostrils with steam, blazing wrathful red eyes, war-scarred veteran beast warrior, dominant intimidating stance",
+      "prompt_pixelsprite": "minotaur boss, muscular bull-headed warrior, curved horns, spiked armor, battle axe, JRPG boss, centered, black background"
     },
     {
       "name": "mon_boss_sea_dragon",
-      "size": 64,
-      "prompt": "deep sea dragon boss, colossal sea serpent, water magic, coral crown, tsunami waves"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single sea dragon boss, long serpentine body, blue-green scales, coral crown, sharp fins and claws, water magic aura",
+      "prompt_xl": "single majestic sea dragon leviathan boss monster, long sinuous serpentine body, beautiful iridescent blue-green-teal overlapping scales, regal crown of living coral and pearls, sharp translucent fin crests along spine, powerful webbed claws, swirling water magic aura with floating water orbs, ancient ocean deity, elegant yet terrifying aquatic dragon",
+      "prompt_pixelsprite": "sea serpent dragon boss, long coiling blue body, sharp fins, fanged mouth, ocean water scales, JRPG boss monster, centered, black background"
     },
     {
       "name": "mon_boss_mountain_king",
-      "size": 64,
-      "prompt": "mountain demon king boss, stone giant, crystal embedded, earthquake power"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single mountain giant king boss, massive stone crystal body, blue crystal growths, wielding stone hammer, towering figure",
+      "prompt_xl": "single colossal mountain giant king boss monster, towering figure made of rough grey mountain stone and earth, brilliant blue crystal formations growing from shoulders and back, ancient rune carvings glowing across stone body, wielding impossibly large stone war hammer, earthquake-causing footsteps, primordial earth elemental sovereign, living mountain incarnate",
+      "prompt_pixelsprite": "mountain giant king boss, massive stone body, blue crystal growths, glowing runes, stone hammer, earth elemental, JRPG boss, centered, black background"
     },
     {
       "name": "mon_boss_forge_master",
-      "size": 64,
-      "prompt": "forge demon boss, molten metal body, fire hammer, volcanic forge, lava dripping"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single forge demon boss, body of molten magma, dark rock crust, orange fire cracks, wielding burning hammer, lava dripping",
+      "prompt_xl": "single apocalyptic forge demon boss monster, massive body of flowing molten magma barely contained within cracking dark volcanic rock crust, brilliant orange-white fire visible through spreading cracks, wielding enormous burning war hammer wreathed in flames, dripping lava from joints, volcanic eruption energy, infernal blacksmith of the underworld, heat distortion aura",
+      "prompt_pixelsprite": "fire demon blacksmith boss, dark stone body with glowing lava cracks, massive burning hammer, orange molten eyes, JRPG boss monster, centered, black background"
     },
     {
       "name": "mon_boss_death_lord",
-      "size": 64,
-      "prompt": "undead death lord boss, skeletal king, dark crown, soul magic, ghostly cape, necromancer"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 28,
+      "guidance_xl": 7.5,
+      "prompt": "single undead lich boss, skeletal king in dark robes, bone crown with purple gems, wielding dark scythe, floating skulls",
+      "prompt_xl": "single terrifying undead lich death lord boss monster, ancient skeletal king draped in flowing dark tattered purple-black necromancer robes, ornate bone crown studded with glowing purple soul gems, wielding massive dark scythe dripping with necrotic energy, orbiting floating skulls with green fire in eye sockets, dark magic aura, supreme undead overlord",
+      "prompt_pixelsprite": "skeleton lich king boss, dark purple robes, bone crown, glowing purple eyes, large scythe weapon, JRPG boss monster, centered, black background"
     },
     {
       "name": "mon_boss_demon_lord",
-      "size": 96,
-      "prompt": "great demon lord final boss, massive dark wings, horned crown, hellfire, ultimate evil, throne of darkness"
+      "size": 256,
+      "steps": 8,
+      "guidance": 2.0,
+      "steps_xl": 30,
+      "guidance_xl": 8.0,
+      "prompt": "single great demon lord boss, massive dark winged figure, curved horns, hellfire eyes, spiked armor, wielding flaming blade, menacing",
+      "prompt_xl": "single ultimate great demon lord final boss, impossibly massive dark winged figure dominating the frame, enormous curved ram horns wreathed in hellfire, blazing infernal eyes burning with malevolent intelligence, full ornate spiked obsidian armor with glowing red rune inscriptions, wielding colossal flaming demonic greatsword, six dark feathered wings spread wide, dark energy vortex swirling around, absolute evil incarnate, lord of the abyss, final boss of a JRPG",
+      "prompt_pixelsprite": "demon lord boss, dark horned figure, large bat wings, red glowing eyes, black spiked armor, flaming sword, JRPG final boss monster, centered, black background"
     }
   ],
-
   "decorations": [
     {
       "name": "deco_tree_green",
       "size": 32,
-      "prompt": "green oak tree, lush foliage, thick trunk, top-down RPG decoration"
+      "prompt": "green oak tree, lush foliage, thick trunk, top-down RPG decoration",
+      "prompt_xl": "lush green oak tree, dense round canopy of rich green foliage with varied leaf tones, thick gnarled brown trunk, dappled light through leaves"
     },
     {
       "name": "deco_tree_autumn",
       "size": 32,
-      "prompt": "autumn tree, orange and red leaves, falling leaves, top-down RPG decoration"
+      "prompt": "autumn tree, orange and red leaves, falling leaves, top-down RPG decoration",
+      "prompt_xl": "beautiful autumn tree, canopy of brilliant orange red and golden yellow leaves, some leaves gently falling, warm seasonal colors, brown trunk"
     },
     {
       "name": "deco_tree_dead",
       "size": 32,
-      "prompt": "dead tree, bare branches, dark bark, spooky, top-down RPG decoration"
+      "prompt": "dead tree, bare branches, dark bark, spooky, top-down RPG decoration",
+      "prompt_xl": "spooky dead leafless tree, twisted bare dark branches reaching upward, cracked dark grey bark, eerie silhouette, haunted atmosphere"
     },
     {
       "name": "deco_tree_snow",
       "size": 32,
-      "prompt": "snow covered pine tree, white snow on branches, winter, top-down RPG decoration"
+      "prompt": "snow covered pine tree, white snow on branches, winter, top-down RPG decoration",
+      "prompt_xl": "snow-laden evergreen pine tree, thick white snow covering dark green branches, winter frost, icicles hanging from needles, conifer shape"
     },
     {
       "name": "deco_rock",
       "size": 32,
-      "prompt": "stone boulder, grey rock, moss covered, natural formation, top-down RPG decoration"
+      "prompt": "stone boulder, grey rock, moss covered, natural formation, top-down RPG decoration",
+      "prompt_xl": "large natural stone boulder, rough grey rock surface, green moss patches and lichen growing on sides, natural erosion cracks"
     },
     {
       "name": "deco_flowers",
       "size": 32,
-      "prompt": "flower patch, colorful wildflowers, meadow flowers, top-down RPG decoration"
+      "prompt": "flower patch, colorful wildflowers, meadow flowers, top-down RPG decoration",
+      "prompt_xl": "cheerful wildflower patch, mix of red poppies yellow buttercups blue cornflowers and white daisies, green stems and leaves, meadow garden"
     },
     {
       "name": "deco_well",
       "size": 32,
-      "prompt": "medieval stone well, wooden bucket, rope, village well, top-down RPG decoration"
+      "prompt": "medieval stone well, wooden bucket, rope, village well, top-down RPG decoration",
+      "prompt_xl": "medieval village stone well, circular rough stone wall, wooden bucket hanging on rope and winch, mossy stones, clear water visible below"
     },
     {
       "name": "deco_fountain",
       "size": 32,
-      "prompt": "stone fountain, water spout, circular basin, town square, top-down RPG decoration"
+      "prompt": "stone fountain, water spout, circular basin, town square, top-down RPG decoration",
+      "prompt_xl": "ornate stone fountain, carved stone basin with tiered water spout, sparkling water streams, mossy aged stone, town square centerpiece"
     }
   ]
 }

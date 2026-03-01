@@ -121,25 +121,31 @@ export class FieldScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-M', () => { if (!this.inChestDialogue) this.openMenu(); });
     this.input.keyboard?.on('keydown-B', () => { if (!this.inChestDialogue) this.triggerBoss(); });
 
-    // Boss marker on map
+    // Boss marker on map + minimap
     const boss = getBossForRegion(this.regionId);
     if (boss && !gameState.isRegionLiberated(this.regionId)) {
       const bossX = Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
-      const bossY = 3 * TILE_SIZE + TILE_SIZE / 2;
+      const bossY = 6 * TILE_SIZE + TILE_SIZE / 2;
 
       // Generate boss texture and use it as marker
       const bossTexKey = MonsterRenderer.getTextureKey(boss.name, boss.id, true);
       MonsterRenderer.generateForMonster(this, bossTexKey, boss.name, boss.spriteColor, true);
       const bossMarker = this.add.image(bossX, bossY, bossTexKey).setDepth(DEPTH.characters);
 
-      this.add.text(bossX, bossY - 52, 'BOSS', {
+      this.add.text(bossX, bossY - 104, 'BOSS', {
         fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ff4444',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setDepth(DEPTH.characters + 1);
 
       // Pulse effect
       this.tweens.add({ targets: bossMarker, scale: { from: 1, to: 1.15 }, duration: 800, yoyo: true, repeat: -1 });
+
+      // Red dot on minimap for boss location
+      this.minimap.setBossPosition(bossX, bossY);
     }
+
+    // Landing animation — expanding ring to help locate player spawn
+    this.spawnLandingEffect(spawnX, spawnY);
 
     // Environment particles
     BattleEffects.spawnEnvironmentParticles(this, this.regionId, bounds);
@@ -401,6 +407,47 @@ export class FieldScene extends Phaser.Scene {
     ctx.fillRect(4, Math.round(S * 0.40), S - 8, 2);
 
     this.textures.addCanvas('deco_chest_open', canvas);
+  }
+
+  // ─── Landing Effect ───
+
+  private spawnLandingEffect(x: number, y: number): void {
+    // Downward arrow indicator above player
+    const arrow = this.add.triangle(x, y - 80, 0, 20, 12, 0, 24, 20, 0xffdd44)
+      .setDepth(DEPTH.ui - 1);
+    this.tweens.add({
+      targets: arrow, y: y - 56, alpha: { from: 1, to: 0 },
+      duration: 1200, ease: 'Bounce.easeOut',
+      onComplete: () => arrow.destroy(),
+    });
+
+    // Expanding ring at feet
+    const ring = this.add.circle(x, y + 16, 8, 0xffffff, 0)
+      .setStrokeStyle(2, 0x44ccff)
+      .setDepth(DEPTH.player - 1);
+    this.tweens.add({
+      targets: ring,
+      scale: { from: 0.5, to: 3 },
+      alpha: { from: 0.8, to: 0 },
+      duration: 800,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    // Second ring with slight delay
+    const ring2 = this.add.circle(x, y + 16, 8, 0xffffff, 0)
+      .setStrokeStyle(2, 0x44ccff).setAlpha(0)
+      .setDepth(DEPTH.player - 1);
+    this.time.delayedCall(200, () => {
+      this.tweens.add({
+        targets: ring2,
+        scale: { from: 0.5, to: 3 },
+        alpha: { from: 0.6, to: 0 },
+        duration: 800,
+        ease: 'Cubic.easeOut',
+        onComplete: () => ring2.destroy(),
+      });
+    });
   }
 
   // ─── Encounters & Navigation ───

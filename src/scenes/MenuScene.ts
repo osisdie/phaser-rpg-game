@@ -17,9 +17,9 @@ import { ItemIconRenderer } from '../art/ui/ItemIconRenderer';
 type MenuTab = 'main' | 'items' | 'equipment' | 'party' | 'skills' | 'save' | 'system';
 
 // ─── Grid Item Page Constants ───
-const GRID_CELL_W = 72;
-const GRID_CELL_H = 76;
-const GRID_COLS = 10;
+const GRID_CELL_W = 80;
+const GRID_CELL_H = 90;
+const GRID_COLS = 8;
 const GRID_START_X = 80;
 const GRID_START_Y = 80;
 const GRID_GAP = 4;
@@ -252,7 +252,7 @@ export class MenuScene extends Phaser.Scene {
         // Icon (centered at top of cell)
         const iconKey = ItemIconRenderer.getIconKey(entry.item.id);
         if (this.textures.exists(iconKey)) {
-          const icon = this.add.image(cx + GRID_CELL_W / 2, cy + 20, iconKey);
+          const icon = this.add.image(cx + GRID_CELL_W / 2, cy + 32, iconKey);
           gridContainer.add(icon);
           cellIcons.push(icon);
         }
@@ -269,7 +269,7 @@ export class MenuScene extends Phaser.Scene {
         }
 
         // Item name (bottom of cell, 2 lines max)
-        const name = this.add.text(cx + GRID_CELL_W / 2, cy + 42, entry.item.name, {
+        const name = this.add.text(cx + GRID_CELL_W / 2, cy + 66, entry.item.name, {
           fontFamily: FONT_FAMILY, fontSize: '12px', color: isSelected ? COLORS.textHighlight : '#eeeeff',
           stroke: '#000000', strokeThickness: 2,
           wordWrap: { width: GRID_CELL_W - 2 }, align: 'center',
@@ -464,7 +464,7 @@ export class MenuScene extends Phaser.Scene {
       const slotIconKey = equipped ? ItemIconRenderer.getIconKey(equipped.id) : null;
       if (slotIconKey && this.textures.exists(slotIconKey)) {
         this.contentContainer.add(
-          this.add.image(95, y + 12, slotIconKey).setScale(0.75)
+          this.add.image(95, y + 12, slotIconKey).setScale(0.5)
         );
       }
 
@@ -581,7 +581,7 @@ export class MenuScene extends Phaser.Scene {
         const iconKey = ItemIconRenderer.getIconKey(item.id);
         if (this.textures.exists(iconKey)) {
           this.contentContainer.add(
-            this.add.image(112, y + 10, iconKey).setScale(0.75)
+            this.add.image(112, y + 10, iconKey).setScale(0.5)
           );
         }
 
@@ -706,7 +706,7 @@ export class MenuScene extends Phaser.Scene {
         const iconKey = ItemIconRenderer.getSkillIconKey(skill.element, skill.type);
         if (this.textures.exists(iconKey)) {
           this.contentContainer.add(
-            this.add.image(x + 10, y + 9, iconKey).setScale(0.55)
+            this.add.image(x + 10, y + 9, iconKey).setScale(0.35)
           );
         }
 

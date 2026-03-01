@@ -12,6 +12,7 @@ import {
 } from '../utils/formulas';
 import { getSkillById } from '../data/skills/index';
 import { getItemById } from '../data/items/index';
+import { getRegionById } from '../data/regions/index';
 
 export type BattlePhase = 'start' | 'player_turn' | 'enemy_turn' | 'action_execute' | 'victory' | 'defeat' | 'fled';
 
@@ -248,7 +249,11 @@ export class CombatSystem {
       case 'flee': {
         const partyAvgAgi = this.avgStat(this.state.party, 'agi');
         const enemyAvgAgi = this.avgStat(this.state.enemies, 'agi');
-        const chance = calculateFleeChance(partyAvgAgi, enemyAvgAgi);
+        // Low-level regions grant flee bonus (region_hero ≈ +0.16, scales to 0 by level 35+)
+        const region = getRegionById(gameState.getState().currentRegion);
+        const regionMaxLv = region?.levelRange[1] ?? 50;
+        const regionBonus = 0.2 * Math.max(0, 1 - regionMaxLv / 35);
+        const chance = calculateFleeChance(partyAvgAgi, enemyAvgAgi, regionBonus);
         if (Math.random() < chance) {
           this.state.phase = 'fled';
           results.push('成功逃跑了！');
@@ -370,6 +375,9 @@ export class CombatSystem {
   }
 
   checkBattleEnd(): boolean {
+    // Fled — no further actions should execute
+    if (this.state.phase === 'fled') return true;
+
     const partyAlive = this.state.party.some(c => c.stats.hp > 0);
     const enemiesAlive = this.state.enemies.some(c => c.stats.hp > 0);
 

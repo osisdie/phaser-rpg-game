@@ -22,56 +22,16 @@ export class TitleScene extends Phaser.Scene {
     this.selectedIndex = 0;
     this.bgmStarted = false;
 
-    // Dark sky background
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
-
-    // Stars
-    for (let i = 0; i < 60; i++) {
-      const x = Math.random() * GAME_WIDTH;
-      const y = Math.random() * GAME_HEIGHT * 0.6;
-      const star = this.add.circle(x, y, Math.random() * 2 + 0.5, 0xffffff, Math.random() * 0.5 + 0.3);
-      this.tweens.add({
-        targets: star, alpha: { from: star.alpha, to: 0.1 },
-        duration: 1000 + Math.random() * 2000, yoyo: true, repeat: -1,
-      });
-    }
-
-    // Castle silhouette (if texture exists)
-    if (this.textures.exists('title_castle')) {
-      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT - 160, 'title_castle')
-        .setAlpha(0.7);
-    }
-
-    // Ground silhouette
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 40, GAME_WIDTH, 80, 0x0a0a0a);
-
-    // Torch-like glow effects on sides
-    for (const tx of [GAME_WIDTH * 0.2, GAME_WIDTH * 0.8]) {
-      const glow = this.add.circle(tx, GAME_HEIGHT - 100, 40, 0xff8844, 0.15);
-      this.tweens.add({
-        targets: glow, alpha: { from: 0.15, to: 0.08 }, scale: { from: 1, to: 1.2 },
-        duration: 800 + Math.random() * 400, yoyo: true, repeat: -1,
-      });
-    }
-
-    // Title
-    this.add.text(GAME_WIDTH / 2, 160, t('title.game_name'), {
-      fontFamily: FONT_FAMILY, fontSize: '56px', color: COLORS.textHighlight,
-      stroke: '#000000', strokeThickness: 6,
-    }).setOrigin(0.5);
-
-    this.add.text(GAME_WIDTH / 2, 220, t('title.subtitle'), {
-      fontFamily: FONT_FAMILY, fontSize: '20px', color: COLORS.textSecondary,
-    }).setOrigin(0.5);
+    // ── HD Background ──
+    this.drawHDBackground();
 
     // Version
     this.add.text(GAME_WIDTH - 10, GAME_HEIGHT - 10, 'v0.1.0', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#666666',
     }).setOrigin(1, 1);
 
-    // Menu container (swapped between main menu and settings)
+    // Menu container
     this.menuContainer = this.add.container(0, 0);
-
     this.showMainMenu();
 
     // Fade in
@@ -80,6 +40,226 @@ export class TitleScene extends Phaser.Scene {
     // Start BGM on first user interaction (browser autoplay policy)
     this.input.on('pointerdown', () => this.ensureBgm());
     this.input.keyboard?.on('keydown', () => this.ensureBgm());
+  }
+
+  // ─── HD Background ───
+
+  private drawHDBackground(): void {
+    // ── Multi-layer gradient sky ──
+    // Deep space at top → dark blue → purple → warm amber at horizon
+    const skyCanvas = document.createElement('canvas');
+    skyCanvas.width = GAME_WIDTH;
+    skyCanvas.height = GAME_HEIGHT;
+    const skyCtx = skyCanvas.getContext('2d')!;
+
+    const skyGrad = skyCtx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    skyGrad.addColorStop(0, '#050510');     // deep space
+    skyGrad.addColorStop(0.2, '#0a0a2e');   // dark blue
+    skyGrad.addColorStop(0.45, '#151540');   // midnight blue
+    skyGrad.addColorStop(0.65, '#2a1a3a');   // dark purple
+    skyGrad.addColorStop(0.82, '#3a2030');   // warm purple
+    skyGrad.addColorStop(0.92, '#4a2a28');   // warm amber
+    skyGrad.addColorStop(1, '#0a0a0a');      // dark ground
+    skyCtx.fillStyle = skyGrad;
+    skyCtx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // ── Aurora / nebula color patches ──
+    const nebulae = [
+      { x: 200, y: 120, rx: 180, ry: 60, color: '40,80,120', alpha: 0.06 },
+      { x: 700, y: 80, rx: 150, ry: 50, color: '60,30,80', alpha: 0.05 },
+      { x: 400, y: 200, rx: 200, ry: 40, color: '30,50,100', alpha: 0.04 },
+      { x: 150, y: 300, rx: 120, ry: 80, color: '50,20,60', alpha: 0.04 },
+    ];
+    for (const n of nebulae) {
+      const ng = skyCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.rx);
+      ng.addColorStop(0, `rgba(${n.color},${n.alpha})`);
+      ng.addColorStop(1, `rgba(${n.color},0)`);
+      skyCtx.fillStyle = ng;
+      skyCtx.fillRect(n.x - n.rx, n.y - n.ry, n.rx * 2, n.ry * 2);
+    }
+
+    // ── Moon ──
+    const moonX = 780, moonY = 100, moonR = 35;
+    // Moon glow
+    const moonGlow = skyCtx.createRadialGradient(moonX, moonY, moonR * 0.5, moonX, moonY, moonR * 3);
+    moonGlow.addColorStop(0, 'rgba(200,210,240,0.12)');
+    moonGlow.addColorStop(0.5, 'rgba(150,160,200,0.04)');
+    moonGlow.addColorStop(1, 'rgba(100,100,150,0)');
+    skyCtx.fillStyle = moonGlow;
+    skyCtx.fillRect(moonX - moonR * 3, moonY - moonR * 3, moonR * 6, moonR * 6);
+    // Moon body
+    skyCtx.fillStyle = '#dde0f0';
+    skyCtx.beginPath();
+    skyCtx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+    skyCtx.fill();
+    // Moon craters (subtle)
+    skyCtx.fillStyle = 'rgba(180,185,210,0.5)';
+    skyCtx.beginPath();
+    skyCtx.arc(moonX - 8, moonY - 5, 8, 0, Math.PI * 2);
+    skyCtx.fill();
+    skyCtx.beginPath();
+    skyCtx.arc(moonX + 10, moonY + 8, 5, 0, Math.PI * 2);
+    skyCtx.fill();
+    skyCtx.beginPath();
+    skyCtx.arc(moonX + 2, moonY - 12, 4, 0, Math.PI * 2);
+    skyCtx.fill();
+
+    // ── Distant mountains (layered silhouettes) ──
+    // Far mountains (lighter)
+    skyCtx.fillStyle = '#12102a';
+    this.drawMountainRange(skyCtx, GAME_HEIGHT - 260, 0.4, 80, 60);
+    // Mid mountains (darker)
+    skyCtx.fillStyle = '#0e0c22';
+    this.drawMountainRange(skyCtx, GAME_HEIGHT - 210, 0.6, 100, 70);
+    // Near mountains (darkest)
+    skyCtx.fillStyle = '#0a0a1a';
+    this.drawMountainRange(skyCtx, GAME_HEIGHT - 170, 0.8, 120, 50);
+
+    // ── Horizon glow (beneath mountains) ──
+    const horizonGlow = skyCtx.createLinearGradient(0, GAME_HEIGHT - 200, 0, GAME_HEIGHT - 130);
+    horizonGlow.addColorStop(0, 'rgba(180,100,60,0)');
+    horizonGlow.addColorStop(0.5, 'rgba(180,100,60,0.05)');
+    horizonGlow.addColorStop(1, 'rgba(180,100,60,0)');
+    skyCtx.fillStyle = horizonGlow;
+    skyCtx.fillRect(0, GAME_HEIGHT - 200, GAME_WIDTH, 70);
+
+    // Register and display the sky texture
+    if (!this.textures.exists('title_sky_bg')) {
+      const tex = this.textures.addCanvas('title_sky_bg', skyCanvas);
+      tex?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+    this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'title_sky_bg');
+
+    // ── Stars (layered: many dim, some medium, few bright) ──
+    // Dim stars
+    for (let i = 0; i < 100; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = Math.random() * GAME_HEIGHT * 0.55;
+      const size = Math.random() * 1.2 + 0.3;
+      const alpha = Math.random() * 0.3 + 0.15;
+      const star = this.add.circle(x, y, size, 0xffffff, alpha);
+      this.tweens.add({
+        targets: star, alpha: { from: alpha, to: alpha * 0.3 },
+        duration: 1500 + Math.random() * 3000, yoyo: true, repeat: -1,
+      });
+    }
+    // Bright stars (with glow)
+    for (let i = 0; i < 8; i++) {
+      const x = Math.random() * GAME_WIDTH;
+      const y = Math.random() * GAME_HEIGHT * 0.4;
+      // Glow halo
+      this.add.circle(x, y, 4, 0xaabbff, 0.08);
+      // Star core
+      const star = this.add.circle(x, y, 1.5, 0xffffff, 0.7 + Math.random() * 0.3);
+      this.tweens.add({
+        targets: star, alpha: { from: star.alpha, to: 0.3 },
+        duration: 800 + Math.random() * 1500, yoyo: true, repeat: -1,
+      });
+    }
+
+    // ── Castle silhouette (HD version) ──
+    if (this.textures.exists('title_castle')) {
+      const castle = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT - 175, 'title_castle').setAlpha(0.85);
+      castle.setScale(1.0);
+    }
+
+    // ── Foreground ground with grass detail ──
+    const ground = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 25, GAME_WIDTH, 50, 0x0a0a0a);
+    ground.setAlpha(1);
+
+    // Grass tufts along the ground line
+    for (let i = 0; i < 80; i++) {
+      const gx = Math.random() * GAME_WIDTH;
+      const gy = GAME_HEIGHT - 48 - Math.random() * 8;
+      const gh = 3 + Math.random() * 6;
+      const grass = this.add.rectangle(gx, gy, 1, gh, 0x0a0a0a, 0.7);
+      grass.setOrigin(0.5, 1);
+    }
+
+    // ── Torch / fire glow effects on sides ──
+    for (const tx of [GAME_WIDTH * 0.15, GAME_WIDTH * 0.85]) {
+      // Wide ambient glow
+      const ambientGlow = this.add.circle(tx, GAME_HEIGHT - 120, 60, 0xff8844, 0.06);
+      this.tweens.add({
+        targets: ambientGlow, alpha: { from: 0.06, to: 0.03 }, scale: { from: 1, to: 1.15 },
+        duration: 700 + Math.random() * 400, yoyo: true, repeat: -1,
+      });
+      // Tight bright glow
+      const coreGlow = this.add.circle(tx, GAME_HEIGHT - 120, 20, 0xffcc66, 0.12);
+      this.tweens.add({
+        targets: coreGlow, alpha: { from: 0.12, to: 0.06 }, scale: { from: 1, to: 0.85 },
+        duration: 500 + Math.random() * 300, yoyo: true, repeat: -1,
+      });
+    }
+
+    // ── Floating particles (fireflies / dust motes) ──
+    for (let i = 0; i < 20; i++) {
+      const px = Math.random() * GAME_WIDTH;
+      const py = GAME_HEIGHT * 0.35 + Math.random() * GAME_HEIGHT * 0.45;
+      const size = Math.random() * 1.5 + 0.5;
+      const color = Math.random() > 0.5 ? 0xffdd88 : 0xaaccff;
+      const particle = this.add.circle(px, py, size, color, 0);
+      this.tweens.add({
+        targets: particle,
+        alpha: { from: 0, to: 0.15 + Math.random() * 0.15 },
+        x: px + (Math.random() - 0.5) * 40,
+        y: py - 10 - Math.random() * 20,
+        duration: 3000 + Math.random() * 4000,
+        yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
+    // ── Title text ──
+    // Title glow (behind text)
+    this.add.text(GAME_WIDTH / 2, 161, t('title.game_name'), {
+      fontFamily: FONT_FAMILY, fontSize: '56px', color: '#332200',
+      stroke: '#000000', strokeThickness: 12,
+    }).setOrigin(0.5).setAlpha(0.3);
+
+    // Title text
+    const titleText = this.add.text(GAME_WIDTH / 2, 160, t('title.game_name'), {
+      fontFamily: FONT_FAMILY, fontSize: '56px', color: '#ffeedd',
+      stroke: '#000000', strokeThickness: 6,
+    }).setOrigin(0.5);
+
+    // Gentle floating animation on title
+    this.tweens.add({
+      targets: titleText, y: 158,
+      duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+
+    // Subtitle
+    this.add.text(GAME_WIDTH / 2, 220, t('title.subtitle'), {
+      fontFamily: FONT_FAMILY, fontSize: '20px', color: '#8888aa',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5);
+  }
+
+  /** Draw a procedural mountain range silhouette */
+  private drawMountainRange(
+    ctx: CanvasRenderingContext2D, baseY: number, roughness: number,
+    maxPeakH: number, spacing: number,
+  ): void {
+    ctx.beginPath();
+    ctx.moveTo(0, GAME_HEIGHT);
+
+    let x = 0;
+    while (x < GAME_WIDTH) {
+      const peakH = maxPeakH * (0.4 + Math.random() * 0.6) * roughness;
+      const peakX = x + spacing * (0.5 + Math.random() * 0.5);
+      const nextX = peakX + spacing * (0.5 + Math.random() * 0.5);
+
+      ctx.lineTo(x, baseY);
+      ctx.lineTo(peakX, baseY - peakH);
+      ctx.lineTo(nextX, baseY - peakH * (0.2 + Math.random() * 0.3));
+
+      x = nextX;
+    }
+    ctx.lineTo(GAME_WIDTH, baseY);
+    ctx.lineTo(GAME_WIDTH, GAME_HEIGHT);
+    ctx.closePath();
+    ctx.fill();
   }
 
   private ensureBgm(): void {
@@ -108,6 +288,7 @@ export class TitleScene extends Phaser.Scene {
       const y = 350 + i * 50;
       const text = this.add.text(GAME_WIDTH / 2, y, `  ${item.label}`, {
         fontFamily: FONT_FAMILY, fontSize: '24px', color: COLORS.textPrimary,
+        stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5);
       text.setInteractive({ useHandCursor: true });
       text.on('pointerover', () => { this.selectedIndex = i; this.updateMenuHighlight(); });
@@ -118,7 +299,7 @@ export class TitleScene extends Phaser.Scene {
 
     this.updateMenuHighlight();
 
-    // Keyboard (delay to prevent key bleed-through from previous scene transitions)
+    // Keyboard
     this.time.delayedCall(200, () => {
       this.input.keyboard?.on('keydown-UP', () => {
         this.selectedIndex = (this.selectedIndex - 1 + this.menuItems.length) % this.menuItems.length;
@@ -372,7 +553,6 @@ export class TitleScene extends Phaser.Scene {
       const save = allSaves[selectedIdx];
       SaveLoadSystem.deleteByKey(save.storageKey);
       hideDeleteConfirm();
-      // Refresh the save list
       this.loadGame();
     };
 

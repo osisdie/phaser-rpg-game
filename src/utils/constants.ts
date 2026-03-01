@@ -1,6 +1,6 @@
 export const SAVE_VERSION = 1;
 export const MAX_SAVE_SLOTS = 3;
-export const MAX_PARTY_SIZE = 3;
+export const MAX_PARTY_SIZE = 4;
 export const MAX_LEVEL = 70;
 
 export const BASE_ENCOUNTER_STEPS = 30;

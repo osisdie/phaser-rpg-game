@@ -12,7 +12,7 @@ export class PanelRenderer {
     // Menu panel (880×580)
     this.generatePanel(scene, 'ui_panel_menu', 880, 580);
     // Battle menu (150×170)
-    this.generatePanel(scene, 'ui_panel_battle_menu', 150, 170);
+    this.generatePanel(scene, 'ui_panel_battle_menu', 180, 200);
     // Skill/item select (300×250)
     this.generatePanel(scene, 'ui_panel_select', 300, 250);
     // Small panel (200×200)
@@ -34,7 +34,7 @@ export class PanelRenderer {
   private static generatePanel(scene: Phaser.Scene, key: string, w: number, h: number): void {
     if (scene.textures.exists(key)) return;
     const { canvas, ctx } = ArtRegistry.createCanvas(w, h);
-    const borderW = 6;
+    const borderW = 10;
 
     // Parchment background
     for (let y = borderW; y < h - borderW; y++) {
@@ -85,7 +85,7 @@ export class PanelRenderer {
 
     // Corner decorations (gold rivets)
     const corners = [
-      [3, 3], [w - 5, 3], [3, h - 5], [w - 5, h - 5],
+      [5, 5], [w - 8, 5], [5, h - 8], [w - 8, h - 8],
     ];
     for (const [cx, cy] of corners) {
       ctx.fillStyle = MEDIEVAL.gold;

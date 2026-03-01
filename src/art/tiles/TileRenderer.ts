@@ -107,8 +107,8 @@ export class TileRenderer {
 
     // Occasional flower (on variant 2)
     if (variant === 2 && !pal.id.includes('merfolk') && !pal.id.includes('undead') && !pal.id.includes('demon')) {
-      const fx = 8 + Math.floor(Math.random() * 16);
-      const fy = 8 + Math.floor(Math.random() * 16);
+      const fx = Math.round(S * 0.25) + Math.floor(Math.random() * Math.round(S * 0.5));
+      const fy = Math.round(S * 0.25) + Math.floor(Math.random() * Math.round(S * 0.5));
       const flowerColors = [MEDIEVAL.flowerRed, MEDIEVAL.flowerYellow, MEDIEVAL.flowerWhite, MEDIEVAL.flowerPurple];
       ctx.fillStyle = flowerColors[Math.floor(Math.random() * flowerColors.length)];
       ctx.fillRect(fx, fy, 2, 2);
@@ -124,7 +124,7 @@ export class TileRenderer {
     const [dark, mid, light] = pal.wall;
 
     // Brick/stone pattern
-    const brickH = 8;
+    const brickH = Math.round(S / 4);
     const rows = Math.ceil(S / brickH);
 
     for (let row = 0; row < rows; row++) {
@@ -171,12 +171,14 @@ export class TileRenderer {
 
   private static drawStoneFloor(ctx: CanvasRenderingContext2D, dark: string, mid: string, light: string): void {
     const S = TILE_SIZE;
+    const f = S / 32;
+    const r = (v: number) => Math.round(v * f);
 
     // Base
     ctx.fillStyle = mid;
     ctx.fillRect(0, 0, S, S);
 
-    // Large stone blocks
+    // Large stone blocks (coordinates in 32px design units, scaled at render)
     const stones = [
       { x: 1, y: 1, w: 14, h: 10 },
       { x: 17, y: 1, w: 14, h: 14 },
@@ -188,32 +190,35 @@ export class TileRenderer {
     ];
 
     for (const s of stones) {
+      const sx = r(s.x), sy = r(s.y), sw = r(s.w), sh = r(s.h);
       ctx.fillStyle = varyColor(mid, 15);
-      ctx.fillRect(s.x, s.y, s.w, s.h);
+      ctx.fillRect(sx, sy, sw, sh);
       // Top-left highlight
       ctx.fillStyle = varyColor(light, 8);
-      ctx.fillRect(s.x, s.y, s.w, 1);
-      ctx.fillRect(s.x, s.y, 1, s.h);
+      ctx.fillRect(sx, sy, sw, 1);
+      ctx.fillRect(sx, sy, 1, sh);
       // Bottom-right shadow
       ctx.fillStyle = varyColor(dark, 8);
-      ctx.fillRect(s.x, s.y + s.h - 1, s.w, 1);
-      ctx.fillRect(s.x + s.w - 1, s.y, 1, s.h);
+      ctx.fillRect(sx, sy + sh - 1, sw, 1);
+      ctx.fillRect(sx + sw - 1, sy, 1, sh);
     }
 
     // Mortar gaps
     ctx.fillStyle = darken(dark, 0.15);
-    ctx.fillRect(0, 12, S, 1);
-    ctx.fillRect(0, 22, S, 1);
-    ctx.fillRect(16, 0, 1, S);
-    ctx.fillRect(12, 12, 1, 10);
-    ctx.fillRect(22, 12, 1, S - 12);
+    ctx.fillRect(0, r(12), S, 1);
+    ctx.fillRect(0, r(22), S, 1);
+    ctx.fillRect(r(16), 0, 1, S);
+    ctx.fillRect(r(12), r(12), 1, r(10));
+    ctx.fillRect(r(22), r(12), 1, S - r(12));
   }
 
   // ─── Wood floor ───────────────────────────────────────────────────
 
   private static drawWoodFloor(ctx: CanvasRenderingContext2D): void {
     const S = TILE_SIZE;
-    const plankH = 8;
+    const f = S / 32;
+    const r = (v: number) => Math.round(v * f);
+    const plankH = Math.round(S / 4);
     const rows = S / plankH;
 
     for (let row = 0; row < rows; row++) {
@@ -228,7 +233,7 @@ export class TileRenderer {
 
       // Grain lines (subtle horizontal)
       for (let g = 0; g < 2; g++) {
-        const gy = y + 2 + g * 3;
+        const gy = y + r(2) + g * r(3);
         ctx.fillStyle = varyColor(MEDIEVAL.woodGrain, 5);
         ctx.fillRect(0, gy, S, 1);
       }
@@ -239,10 +244,10 @@ export class TileRenderer {
 
       // Occasional knot
       if (Math.random() < 0.3) {
-        const kx = 4 + Math.floor(Math.random() * 24);
-        const ky = y + 2 + Math.floor(Math.random() * 4);
+        const kx = r(4) + Math.floor(Math.random() * r(24));
+        const ky = y + r(2) + Math.floor(Math.random() * r(4));
         ctx.fillStyle = darken(MEDIEVAL.woodMedium, 0.2);
-        ctx.fillRect(kx, ky, 3, 3);
+        ctx.fillRect(kx, ky, r(3), r(3));
         ctx.fillStyle = darken(MEDIEVAL.woodMedium, 0.3);
         ctx.fillRect(kx + 1, ky + 1, 1, 1);
       }
@@ -253,13 +258,15 @@ export class TileRenderer {
 
   private static drawPath(ctx: CanvasRenderingContext2D, pal: RegionPalette): void {
     const S = TILE_SIZE;
+    const f = S / 32;
+    const r = (v: number) => Math.round(v * f);
     const [stoneCol, mortarCol] = pal.path;
 
     // Base mortar color
     ctx.fillStyle = darken(mortarCol, 0.15);
     ctx.fillRect(0, 0, S, S);
 
-    // Cobblestones — irregular rounded shapes
+    // Cobblestones — irregular rounded shapes (coordinates in 32px design units)
     const stones = [
       { x: 2, y: 2, w: 7, h: 6 },
       { x: 11, y: 1, w: 8, h: 7 },
@@ -276,17 +283,18 @@ export class TileRenderer {
     ];
 
     for (const s of stones) {
+      const sx = r(s.x), sy = r(s.y), sw = r(s.w), sh = r(s.h);
       const col = varyColor(stoneCol, 15);
       ctx.fillStyle = col;
       // Rounded rectangle approximation
-      ctx.fillRect(s.x + 1, s.y, s.w - 2, s.h);
-      ctx.fillRect(s.x, s.y + 1, s.w, s.h - 2);
+      ctx.fillRect(sx + 1, sy, sw - 2, sh);
+      ctx.fillRect(sx, sy + 1, sw, sh - 2);
       // Highlight top-left
       ctx.fillStyle = lighten(col, 0.15);
-      ctx.fillRect(s.x + 1, s.y, s.w - 2, 1);
+      ctx.fillRect(sx + 1, sy, sw - 2, 1);
       // Shadow bottom-right
       ctx.fillStyle = darken(col, 0.15);
-      ctx.fillRect(s.x + 1, s.y + s.h - 1, s.w - 2, 1);
+      ctx.fillRect(sx + 1, sy + sh - 1, sw - 2, 1);
     }
   }
 
@@ -309,7 +317,7 @@ export class TileRenderer {
 
     // Wave lines
     for (let row = 0; row < 4; row++) {
-      const baseY = 4 + row * 8;
+      const baseY = Math.round(S * 0.125) + row * Math.round(S * 0.25);
       ctx.fillStyle = lighten(tint, 0.2);
       for (let x = 0; x < S; x++) {
         const wy = baseY + Math.round(Math.sin((x + row * 5) * 0.5) * 1.5);

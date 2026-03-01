@@ -12,72 +12,219 @@ export class WorldMapRenderer {
     this.generateCastleSilhouette(scene);
   }
 
-  /** Full-screen parchment background for world map */
+  // ─── Parchment Background (HD) ──────────────────────────────────────
+
+  /** Full-screen parchment background with aged paper, ink terrain, and ornate border */
   private static generateParchmentBg(scene: Phaser.Scene): void {
     const key = 'worldmap_bg';
     if (scene.textures.exists(key)) return;
     const W = GAME_WIDTH, H = GAME_HEIGHT;
     const { canvas, ctx } = ArtRegistry.createCanvas(W, H);
 
-    // Base parchment
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        // Edge darkening
-        const edgeDist = Math.min(x, y, W - x, H - y);
-        const edgeFactor = Math.min(1, edgeDist / 60);
-        const base = edgeFactor > 0.8 ? MEDIEVAL.parchment : MEDIEVAL.parchmentDark;
-        ctx.fillStyle = varyColor(base, 4);
-        ctx.fillRect(x, y, 1, 1);
+    // ── Base parchment with radial gradient ──
+    const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
+    grad.addColorStop(0, MEDIEVAL.parchmentLight);
+    grad.addColorStop(0.6, MEDIEVAL.parchment);
+    grad.addColorStop(1, MEDIEVAL.parchmentDark);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // ── Paper fiber texture (noise) ──
+    for (let y = 0; y < H; y += 2) {
+      for (let x = 0; x < W; x += 2) {
+        const noise = (Math.random() - 0.5) * 12;
+        ctx.fillStyle = `rgba(${noise > 0 ? 255 : 0},${noise > 0 ? 255 : 0},${noise > 0 ? 255 : 0},${Math.abs(noise) / 255})`;
+        ctx.fillRect(x, y, 2, 2);
       }
     }
 
-    // Stain marks (aged paper effect)
-    for (let i = 0; i < 20; i++) {
-      const sx = Math.floor(Math.random() * W);
-      const sy = Math.floor(Math.random() * H);
-      const sr = 20 + Math.floor(Math.random() * 40);
-      ctx.fillStyle = darken(MEDIEVAL.parchmentDark, 0.05);
-      ctx.globalAlpha = 0.15;
-      for (let py = sy - sr; py < sy + sr; py++) {
-        for (let px = sx - sr; px < sx + sr; px++) {
-          if (px < 0 || py < 0 || px >= W || py >= H) continue;
-          const d = Math.sqrt((px - sx) ** 2 + (py - sy) ** 2);
-          if (d < sr) ctx.fillRect(px, py, 1, 1);
-        }
+    // ── Edge darkening (vignette) ──
+    ctx.save();
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.7);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(60,40,20,0.35)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    // ── Stain marks (coffee-ring-style aged spots) ──
+    for (let i = 0; i < 30; i++) {
+      const sx = 40 + Math.random() * (W - 80);
+      const sy = 40 + Math.random() * (H - 80);
+      const sr = 15 + Math.random() * 50;
+      const ringGrad = ctx.createRadialGradient(sx, sy, sr * 0.6, sx, sy, sr);
+      ringGrad.addColorStop(0, 'rgba(120,90,50,0)');
+      ringGrad.addColorStop(0.7, `rgba(120,90,50,${0.02 + Math.random() * 0.06})`);
+      ringGrad.addColorStop(1, 'rgba(120,90,50,0)');
+      ctx.fillStyle = ringGrad;
+      ctx.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+    }
+
+    // ── Fold/crease lines ──
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = '#5a4a30';
+    ctx.lineWidth = 1;
+    // Horizontal fold
+    ctx.beginPath();
+    ctx.moveTo(30, H * 0.5 + Math.random() * 10);
+    ctx.lineTo(W - 30, H * 0.5 - Math.random() * 10);
+    ctx.stroke();
+    // Vertical fold
+    ctx.beginPath();
+    ctx.moveTo(W * 0.5 + Math.random() * 10, 30);
+    ctx.lineTo(W * 0.5 - Math.random() * 10, H - 30);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // ── Ocean edges (water around the parchment content) ──
+    const oceanInset = 24;
+    // Top ocean
+    for (let y = oceanInset; y < oceanInset + 35; y++) {
+      const fade = (y - oceanInset) / 35;
+      ctx.globalAlpha = (1 - fade) * 0.12;
+      for (let x = oceanInset; x < W - oceanInset; x += 3) {
+        const wave = Math.sin(x * 0.03 + y * 0.1) * 3;
+        ctx.fillStyle = varyColor('#4466aa', 8 + Math.round(wave));
+        ctx.fillRect(x, y, 3, 1);
+      }
+    }
+    // Bottom ocean
+    for (let y = H - oceanInset - 35; y < H - oceanInset; y++) {
+      const fade = (H - oceanInset - y) / 35;
+      ctx.globalAlpha = (1 - fade) * 0.12;
+      for (let x = oceanInset; x < W - oceanInset; x += 3) {
+        const wave = Math.sin(x * 0.03 + y * 0.1) * 3;
+        ctx.fillStyle = varyColor('#4466aa', 8 + Math.round(wave));
+        ctx.fillRect(x, y, 3, 1);
       }
     }
     ctx.globalAlpha = 1;
 
-    // Border decoration (ornate frame)
-    const bw = 8;
-    // Top/bottom borders
+    // ── Ornate border frame (layered wood + gold) ──
+    const bw = 14; // border width
+    // Outer dark wood
     for (let x = 0; x < W; x++) {
-      ctx.fillStyle = varyColor(MEDIEVAL.woodDark, 3);
-      ctx.fillRect(x, 0, 1, bw);
-      ctx.fillRect(x, H - bw, 1, bw);
+      for (let t = 0; t < bw; t++) {
+        const shade = t / bw;
+        ctx.fillStyle = varyColor(shade < 0.3 ? MEDIEVAL.woodDark : MEDIEVAL.woodMedium, 3);
+        ctx.fillRect(x, t, 1, 1);
+        ctx.fillRect(x, H - 1 - t, 1, 1);
+      }
     }
-    // Left/right borders
     for (let y = 0; y < H; y++) {
-      ctx.fillStyle = varyColor(MEDIEVAL.woodDark, 3);
-      ctx.fillRect(0, y, bw, 1);
-      ctx.fillRect(W - bw, y, bw, 1);
+      for (let t = 0; t < bw; t++) {
+        const shade = t / bw;
+        ctx.fillStyle = varyColor(shade < 0.3 ? MEDIEVAL.woodDark : MEDIEVAL.woodMedium, 3);
+        ctx.fillRect(t, y, 1, 1);
+        ctx.fillRect(W - 1 - t, y, 1, 1);
+      }
     }
-    // Gold inner line
+
+    // Inner gold border lines (double)
     ctx.fillStyle = MEDIEVAL.goldDark;
-    ctx.fillRect(bw, bw, W - bw * 2, 1);
-    ctx.fillRect(bw, H - bw - 1, W - bw * 2, 1);
-    ctx.fillRect(bw, bw, 1, H - bw * 2);
-    ctx.fillRect(W - bw - 1, bw, 1, H - bw * 2);
-    // Corner ornaments
-    for (const [cx, cy] of [[bw + 2, bw + 2], [W - bw - 6, bw + 2], [bw + 2, H - bw - 6], [W - bw - 6, H - bw - 6]]) {
-      ctx.fillStyle = MEDIEVAL.gold;
-      ctx.fillRect(cx, cy, 5, 5);
+    ctx.fillRect(bw, bw, W - bw * 2, 2);
+    ctx.fillRect(bw, H - bw - 2, W - bw * 2, 2);
+    ctx.fillRect(bw, bw, 2, H - bw * 2);
+    ctx.fillRect(W - bw - 2, bw, 2, H - bw * 2);
+    // Second gold line (thinner, inside)
+    ctx.fillStyle = MEDIEVAL.gold;
+    ctx.fillRect(bw + 4, bw + 4, W - (bw + 4) * 2, 1);
+    ctx.fillRect(bw + 4, H - bw - 5, W - (bw + 4) * 2, 1);
+    ctx.fillRect(bw + 4, bw + 4, 1, H - (bw + 4) * 2);
+    ctx.fillRect(W - bw - 5, bw + 4, 1, H - (bw + 4) * 2);
+
+    // ── Corner ornaments (medieval fleur-de-lis style) ──
+    const corners: [number, number][] = [
+      [bw + 2, bw + 2], [W - bw - 20, bw + 2],
+      [bw + 2, H - bw - 20], [W - bw - 20, H - bw - 20],
+    ];
+    for (const [cx, cy] of corners) {
+      // Diamond
+      ctx.fillStyle = MEDIEVAL.goldBright;
+      ctx.fillRect(cx + 7, cy + 2, 4, 4);
+      ctx.fillRect(cx + 5, cy + 4, 8, 4);
+      ctx.fillRect(cx + 3, cy + 6, 12, 4);
+      ctx.fillRect(cx + 5, cy + 10, 8, 4);
+      ctx.fillRect(cx + 7, cy + 14, 4, 4);
+      // Center jewel
+      ctx.fillStyle = '#cc2222';
+      ctx.fillRect(cx + 7, cy + 7, 4, 4);
+      // Highlight
       ctx.fillStyle = MEDIEVAL.goldLight;
-      ctx.fillRect(cx + 1, cy + 1, 3, 3);
+      ctx.fillRect(cx + 8, cy + 3, 2, 2);
     }
+
+    // ── Compass rose (bottom-right corner) ──
+    this.drawCompassRose(ctx, W - 80, H - 80, 32);
+
+    // ── Map title cartouche (top center, subtle) ──
+    ctx.fillStyle = 'rgba(80,60,30,0.08)';
+    ctx.fillRect(W / 2 - 120, bw + 8, 240, 28);
+    ctx.fillStyle = MEDIEVAL.goldDark;
+    ctx.fillRect(W / 2 - 120, bw + 8, 240, 1);
+    ctx.fillRect(W / 2 - 120, bw + 35, 240, 1);
 
     ArtRegistry.registerTexture(scene, key, canvas);
   }
+
+  /** Draw a compass rose at (cx, cy) with given radius */
+  private static drawCompassRose(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+    ctx.save();
+
+    // Outer circle
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = MEDIEVAL.goldDark;
+    for (let a = 0; a < Math.PI * 2; a += 0.05) {
+      ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1);
+      ctx.fillRect(Math.round(cx + Math.cos(a) * (r - 1)), Math.round(cy + Math.sin(a) * (r - 1)), 1, 1);
+    }
+
+    ctx.globalAlpha = 0.3;
+
+    // Cardinal points (N, S, E, W) — long narrow triangles
+    const dirs = [
+      { angle: -Math.PI / 2, len: r * 0.9 },  // N
+      { angle: Math.PI / 2, len: r * 0.9 },    // S
+      { angle: 0, len: r * 0.9 },               // E
+      { angle: Math.PI, len: r * 0.9 },         // W
+    ];
+    for (const { angle, len } of dirs) {
+      const tipX = cx + Math.cos(angle) * len;
+      const tipY = cy + Math.sin(angle) * len;
+      const leftAngle = angle + Math.PI / 2;
+      const lx = cx + Math.cos(leftAngle) * 3;
+      const ly = cy + Math.sin(leftAngle) * 3;
+      const rx = cx - Math.cos(leftAngle) * 3;
+      const ry = cy - Math.sin(leftAngle) * 3;
+      ctx.fillStyle = angle === -Math.PI / 2 ? '#cc2222' : MEDIEVAL.goldDark;
+      fillTriangle(ctx, tipX, tipY, lx, ly, rx, ry);
+    }
+
+    // Ordinal points (shorter)
+    const ordinals = [Math.PI * -0.25, Math.PI * 0.25, Math.PI * 0.75, Math.PI * -0.75];
+    ctx.fillStyle = MEDIEVAL.goldDark;
+    ctx.globalAlpha = 0.2;
+    for (const angle of ordinals) {
+      const len = r * 0.55;
+      const tipX = cx + Math.cos(angle) * len;
+      const tipY = cy + Math.sin(angle) * len;
+      const leftAngle = angle + Math.PI / 2;
+      const lx = cx + Math.cos(leftAngle) * 2;
+      const ly = cy + Math.sin(leftAngle) * 2;
+      const rx = cx - Math.cos(leftAngle) * 2;
+      const ry = cy - Math.sin(leftAngle) * 2;
+      fillTriangle(ctx, tipX, tipY, lx, ly, rx, ry);
+    }
+
+    // Center dot
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = MEDIEVAL.goldBright;
+    ctx.fillRect(cx - 1, cy - 1, 3, 3);
+
+    ctx.restore();
+  }
+
+  // ─── Node Icons ──────────────────────────────────────────────────────
 
   /** Region node icons: castle, forest, mountain, volcano, etc. */
   private static generateNodeIcons(scene: Phaser.Scene): void {
@@ -109,7 +256,6 @@ export class WorldMapRenderer {
 
     // Forest icon
     this.generateNodeIcon(scene, 'node_forest', (ctx, s) => {
-      // Trees
       const treePositions = [[s * 0.2, s * 0.5], [s * 0.5, s * 0.35], [s * 0.75, s * 0.55]];
       for (const [tx, ty] of treePositions) {
         ctx.fillStyle = '#5a3a1a';
@@ -127,7 +273,6 @@ export class WorldMapRenderer {
       fillTriangle(ctx, s * 0.5, s * 0.1, s * 0.15, s * 0.8, s * 0.85, s * 0.8);
       ctx.fillStyle = '#999aaa';
       fillTriangle(ctx, s * 0.3, s * 0.35, s * 0.05, s * 0.8, s * 0.55, s * 0.8);
-      // Snow cap
       ctx.fillStyle = '#eeeeff';
       fillTriangle(ctx, s * 0.5, s * 0.1, s * 0.4, s * 0.3, s * 0.6, s * 0.3);
     });
@@ -136,10 +281,8 @@ export class WorldMapRenderer {
     this.generateNodeIcon(scene, 'node_volcano', (ctx, s) => {
       ctx.fillStyle = '#554433';
       fillTriangle(ctx, s * 0.5, s * 0.15, s * 0.1, s * 0.85, s * 0.9, s * 0.85);
-      // Crater
       ctx.fillStyle = '#332211';
       ctx.fillRect(Math.round(s * 0.35), Math.round(s * 0.15), Math.round(s * 0.3), Math.round(s * 0.1));
-      // Lava
       ctx.fillStyle = '#ff4422';
       ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.12), Math.round(s * 0.2), Math.round(s * 0.08));
       ctx.fillStyle = '#ff8844';
@@ -148,7 +291,6 @@ export class WorldMapRenderer {
 
     // Water/cave icon
     this.generateNodeIcon(scene, 'node_water', (ctx, s) => {
-      // Waves
       ctx.fillStyle = '#3366aa';
       for (let i = 0; i < 3; i++) {
         const wy = s * 0.3 + i * s * 0.15;
@@ -157,7 +299,6 @@ export class WorldMapRenderer {
           ctx.fillRect(Math.round(s * 0.1 + x * 0.8), Math.round(y), 1, Math.round(s * 0.08));
         }
       }
-      // Highlight
       ctx.fillStyle = '#5588cc';
       ctx.fillRect(Math.round(s * 0.3), Math.round(s * 0.35), Math.round(s * 0.2), 1);
     });
@@ -167,13 +308,10 @@ export class WorldMapRenderer {
       ctx.fillStyle = '#ccccbb';
       fillOval(ctx, s * 0.25, s * 0.15, s * 0.5, s * 0.45);
       ctx.fillRect(Math.round(s * 0.35), Math.round(s * 0.55), Math.round(s * 0.3), Math.round(s * 0.15));
-      // Eye sockets
       ctx.fillStyle = '#000000';
       fillOval(ctx, s * 0.3, s * 0.3, s * 0.15, s * 0.12);
       fillOval(ctx, s * 0.55, s * 0.3, s * 0.15, s * 0.12);
-      // Nose
       fillTriangle(ctx, s * 0.5, s * 0.42, s * 0.45, s * 0.5, s * 0.55, s * 0.5);
-      // Teeth
       ctx.fillStyle = '#ccccbb';
       for (let i = 0; i < 4; i++) {
         ctx.fillRect(Math.round(s * 0.38 + i * s * 0.06), Math.round(s * 0.58), Math.round(s * 0.04), Math.round(s * 0.08));
@@ -186,72 +324,57 @@ export class WorldMapRenderer {
       ctx.fillRect(Math.round(s * 0.3), Math.round(s * 0.2), Math.round(s * 0.4), Math.round(s * 0.6));
       ctx.fillRect(Math.round(s * 0.1), Math.round(s * 0.3), Math.round(s * 0.2), Math.round(s * 0.5));
       ctx.fillRect(Math.round(s * 0.7), Math.round(s * 0.3), Math.round(s * 0.2), Math.round(s * 0.5));
-      // Spires
       fillTriangle(ctx, s * 0.2, s * 0.3, s * 0.15, s * 0.1, s * 0.25, s * 0.1);
       fillTriangle(ctx, s * 0.8, s * 0.3, s * 0.75, s * 0.1, s * 0.85, s * 0.1);
       fillTriangle(ctx, s * 0.5, s * 0.2, s * 0.42, s * 0.02, s * 0.58, s * 0.02);
-      // Glowing eyes
       ctx.fillStyle = '#ff2222';
       ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.4), 2, 2);
       ctx.fillRect(Math.round(s * 0.55), Math.round(s * 0.4), 2, 2);
     });
 
-    // Treant icon (ancient tree — thicker trunk + spreading canopy, distinct from forest)
+    // Treant icon
     this.generateNodeIcon(scene, 'node_treant', (ctx, s) => {
-      // Thick trunk
       ctx.fillStyle = '#4a2a0a';
       ctx.fillRect(Math.round(s * 0.35), Math.round(s * 0.4), Math.round(s * 0.3), Math.round(s * 0.45));
-      // Roots
       ctx.fillRect(Math.round(s * 0.25), Math.round(s * 0.75), Math.round(s * 0.12), Math.round(s * 0.1));
       ctx.fillRect(Math.round(s * 0.63), Math.round(s * 0.75), Math.round(s * 0.12), Math.round(s * 0.1));
-      // Branches
       ctx.fillStyle = '#3a1a00';
       ctx.fillRect(Math.round(s * 0.2), Math.round(s * 0.35), Math.round(s * 0.15), Math.round(s * 0.06));
       ctx.fillRect(Math.round(s * 0.65), Math.round(s * 0.35), Math.round(s * 0.15), Math.round(s * 0.06));
-      // Large canopy
       ctx.fillStyle = '#1a5a1a';
       fillOval(ctx, s * 0.1, s * 0.05, s * 0.8, s * 0.4);
       ctx.fillStyle = '#2a7a2a';
       fillOval(ctx, s * 0.15, s * 0.1, s * 0.7, s * 0.3);
-      // Face on trunk (treant is alive!)
       ctx.fillStyle = '#2a1a00';
       ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.5), 2, 2);
       ctx.fillRect(Math.round(s * 0.55), Math.round(s * 0.5), 2, 2);
       ctx.fillRect(Math.round(s * 0.44), Math.round(s * 0.58), Math.round(s * 0.12), 1);
     });
 
-    // Peak icon (tall multi-peak mountain with larger snow caps, distinct from mountain)
+    // Peak icon
     this.generateNodeIcon(scene, 'node_peak', (ctx, s) => {
-      // Back peak (left)
       ctx.fillStyle = '#8888aa';
       fillTriangle(ctx, s * 0.3, s * 0.2, s * 0.05, s * 0.85, s * 0.55, s * 0.85);
-      // Main peak (center, tallest)
       ctx.fillStyle = '#666688';
       fillTriangle(ctx, s * 0.55, s * 0.05, s * 0.25, s * 0.85, s * 0.85, s * 0.85);
-      // Right peak
       ctx.fillStyle = '#777799';
       fillTriangle(ctx, s * 0.75, s * 0.25, s * 0.55, s * 0.85, s * 0.95, s * 0.85);
-      // Snow caps
       ctx.fillStyle = '#eeeeff';
       fillTriangle(ctx, s * 0.3, s * 0.2, s * 0.2, s * 0.38, s * 0.4, s * 0.38);
       fillTriangle(ctx, s * 0.55, s * 0.05, s * 0.42, s * 0.28, s * 0.68, s * 0.28);
       fillTriangle(ctx, s * 0.75, s * 0.25, s * 0.65, s * 0.4, s * 0.85, s * 0.4);
     });
 
-    // Hotspring icon (pool + steam rising)
+    // Hotspring icon
     this.generateNodeIcon(scene, 'node_hotspring', (ctx, s) => {
-      // Pool base
       ctx.fillStyle = '#4488bb';
       fillOval(ctx, s * 0.15, s * 0.5, s * 0.7, s * 0.35);
-      // Pool highlight
       ctx.fillStyle = '#66aadd';
       fillOval(ctx, s * 0.25, s * 0.55, s * 0.5, s * 0.2);
-      // Rocks around pool
       ctx.fillStyle = '#887766';
       fillOval(ctx, s * 0.08, s * 0.6, s * 0.15, s * 0.12);
       fillOval(ctx, s * 0.75, s * 0.55, s * 0.15, s * 0.14);
       fillOval(ctx, s * 0.35, s * 0.72, s * 0.12, s * 0.1);
-      // Steam lines (3 wavy columns)
       ctx.fillStyle = '#ccddee';
       for (let col = 0; col < 3; col++) {
         const baseX = s * 0.28 + col * s * 0.18;
@@ -265,29 +388,21 @@ export class WorldMapRenderer {
       ctx.globalAlpha = 1;
     });
 
-    // Dwarf fortress icon (squat building + anvil symbol)
+    // Dwarf fortress icon
     this.generateNodeIcon(scene, 'node_dwarf', (ctx, s) => {
-      // Mountain/cave entrance background
       ctx.fillStyle = '#665544';
       fillTriangle(ctx, s * 0.5, s * 0.1, s * 0.05, s * 0.8, s * 0.95, s * 0.8);
-      // Fortress door (wide, low)
       ctx.fillStyle = '#554433';
       ctx.fillRect(Math.round(s * 0.25), Math.round(s * 0.35), Math.round(s * 0.5), Math.round(s * 0.45));
-      // Door arch
       ctx.fillStyle = '#776655';
       ctx.fillRect(Math.round(s * 0.25), Math.round(s * 0.33), Math.round(s * 0.5), Math.round(s * 0.05));
-      // Dark entrance
       ctx.fillStyle = '#221100';
       ctx.fillRect(Math.round(s * 0.35), Math.round(s * 0.45), Math.round(s * 0.3), Math.round(s * 0.35));
-      // Anvil symbol (inside entrance)
       ctx.fillStyle = '#aaaaaa';
-      // Anvil top
       ctx.fillRect(Math.round(s * 0.4), Math.round(s * 0.55), Math.round(s * 0.2), Math.round(s * 0.04));
-      // Anvil base
       ctx.fillRect(Math.round(s * 0.42), Math.round(s * 0.59), Math.round(s * 0.16), Math.round(s * 0.04));
       ctx.fillRect(Math.round(s * 0.46), Math.round(s * 0.63), Math.round(s * 0.08), Math.round(s * 0.06));
       ctx.fillRect(Math.round(s * 0.42), Math.round(s * 0.69), Math.round(s * 0.16), Math.round(s * 0.03));
-      // Torch flames on either side
       ctx.fillStyle = '#ffaa22';
       ctx.fillRect(Math.round(s * 0.28), Math.round(s * 0.38), 2, 3);
       ctx.fillRect(Math.round(s * 0.68), Math.round(s * 0.38), 2, 3);
@@ -306,44 +421,140 @@ export class WorldMapRenderer {
     ArtRegistry.registerTexture(scene, key, canvas);
   }
 
-  /** Castle silhouette for title screen (wide) */
+  // ─── Castle Silhouette (HD) ──────────────────────────────────────────
+
+  /** Castle silhouette for title screen — grand and atmospheric */
   private static generateCastleSilhouette(scene: Phaser.Scene): void {
     const key = 'title_castle';
     if (scene.textures.exists(key)) return;
-    const W = 400, H = 200;
+    const W = 700, H = 350;
     const { canvas, ctx } = ArtRegistry.createCanvas(W, H);
+    const c = '#0e0e1e'; // silhouette color
+    const cLight = '#151528'; // slightly lighter shade for depth
 
-    ctx.fillStyle = '#111122';
-    // Ground line
-    ctx.fillRect(0, H - 20, W, 20);
-    // Main castle body
-    ctx.fillRect(100, 60, 200, H - 80);
-    // Towers
-    ctx.fillRect(80, 40, 40, H - 60);
-    ctx.fillRect(280, 40, 40, H - 60);
-    // Center tower (tall)
-    ctx.fillRect(170, 20, 60, H - 40);
-    // Battlements
-    for (let i = 0; i < 8; i++) {
-      const bx = 100 + i * 25;
-      ctx.fillRect(bx, 55, 12, 10);
+    // ── Distant mountains (background layer) ──
+    ctx.fillStyle = '#0c0c18';
+    fillTriangle(ctx, 60, 120, -60, H, 180, H);
+    fillTriangle(ctx, 250, 100, 130, H, 370, H);
+    fillTriangle(ctx, 500, 110, 380, H, 620, H);
+    fillTriangle(ctx, 650, 130, 550, H, W + 50, H);
+
+    // ── Ground ──
+    ctx.fillStyle = c;
+    ctx.fillRect(0, H - 50, W, 50);
+    // Gentle hill
+    for (let x = 0; x < W; x++) {
+      const hillH = 15 + Math.sin(x * 0.008) * 12 + Math.sin(x * 0.025) * 6;
+      ctx.fillRect(x, H - 50 - Math.round(hillH), 1, Math.round(hillH));
     }
-    // Spires
-    fillTriangle(ctx, 100, 40, 85, 15, 115, 15);
-    fillTriangle(ctx, 300, 40, 285, 15, 315, 15);
-    fillTriangle(ctx, 200, 20, 180, -10, 220, -10);
-    // Windows (glowing)
+
+    // ── Castle body (complex multi-section) ──
+    const baseY = H - 50;
+
+    // Main keep (center)
+    ctx.fillStyle = c;
+    ctx.fillRect(250, baseY - 160, 200, 160);
+
+    // Left wing
+    ctx.fillRect(140, baseY - 120, 115, 120);
+    // Right wing
+    ctx.fillRect(445, baseY - 120, 115, 120);
+
+    // ── Towers (6 towers at different heights) ──
+    // Far-left tower
+    ctx.fillRect(110, baseY - 170, 35, 170);
+    fillTriangle(ctx, 127, baseY - 195, 105, baseY - 170, 150, baseY - 170);
+    // Left-main tower
+    ctx.fillRect(240, baseY - 200, 40, 200);
+    fillTriangle(ctx, 260, baseY - 230, 235, baseY - 200, 285, baseY - 200);
+    // Center tower (tallest — the keep)
+    ctx.fillRect(320, baseY - 240, 55, 240);
+    fillTriangle(ctx, 347, baseY - 280, 315, baseY - 240, 380, baseY - 240);
+    // Right-main tower
+    ctx.fillRect(420, baseY - 200, 40, 200);
+    fillTriangle(ctx, 440, baseY - 230, 415, baseY - 200, 465, baseY - 200);
+    // Far-right tower
+    ctx.fillRect(555, baseY - 170, 35, 170);
+    fillTriangle(ctx, 572, baseY - 195, 550, baseY - 170, 595, baseY - 170);
+    // Outer watchtower (left)
+    ctx.fillRect(60, baseY - 130, 28, 130);
+    fillTriangle(ctx, 74, baseY - 150, 56, baseY - 130, 92, baseY - 130);
+    // Outer watchtower (right)
+    ctx.fillRect(610, baseY - 130, 28, 130);
+    fillTriangle(ctx, 624, baseY - 150, 606, baseY - 130, 642, baseY - 130);
+
+    // ── Battlements ──
+    ctx.fillStyle = c;
+    // Main wall battlements
+    for (let x = 145; x < 240; x += 10) ctx.fillRect(x, baseY - 125, 6, 8);
+    for (let x = 455; x < 555; x += 10) ctx.fillRect(x, baseY - 125, 6, 8);
+    // Keep battlements
+    for (let x = 255; x < 420; x += 10) ctx.fillRect(x, baseY - 165, 6, 8);
+    // Tower-top battlements
+    for (let x = 112; x < 143; x += 8) ctx.fillRect(x, baseY - 174, 4, 6);
+    for (let x = 557; x < 588; x += 8) ctx.fillRect(x, baseY - 174, 4, 6);
+
+    // ── Flags on tower spires ──
+    ctx.fillStyle = '#331122';
+    ctx.fillRect(347, baseY - 280, 1, 12);
+    ctx.fillRect(348, baseY - 280, 14, 6);
+    ctx.fillRect(348, baseY - 274, 12, 1);
+    ctx.fillRect(260, baseY - 230, 1, 10);
+    ctx.fillRect(261, baseY - 230, 10, 5);
+    ctx.fillRect(440, baseY - 230, 1, 10);
+    ctx.fillRect(441, baseY - 230, 10, 5);
+
+    // ── Windows (warm glow) ──
     ctx.fillStyle = '#ffaa44';
-    ctx.globalAlpha = 0.6;
-    ctx.fillRect(140, 90, 8, 12);
-    ctx.fillRect(180, 90, 8, 12);
-    ctx.fillRect(220, 90, 8, 12);
-    ctx.fillRect(260, 90, 8, 12);
-    ctx.fillRect(190, 40, 6, 10);
-    ctx.fillRect(210, 40, 6, 10);
-    // Door
-    ctx.fillRect(188, H - 50, 24, 30);
+    ctx.globalAlpha = 0.7;
+    // Keep windows (2 rows)
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(270 + i * 30, baseY - 140, 8, 14);
+      if (i < 4) ctx.fillRect(280 + i * 30, baseY - 100, 6, 10);
+    }
+    // Left wing windows
+    for (let i = 0; i < 3; i++) ctx.fillRect(155 + i * 30, baseY - 95, 6, 10);
+    // Right wing windows
+    for (let i = 0; i < 3; i++) ctx.fillRect(460 + i * 30, baseY - 95, 6, 10);
+    // Tower windows
+    ctx.fillRect(335, baseY - 220, 6, 12);
+    ctx.fillRect(350, baseY - 220, 6, 12);
+    ctx.fillRect(255, baseY - 180, 5, 10);
+    ctx.fillRect(430, baseY - 180, 5, 10);
+    ctx.fillRect(120, baseY - 150, 4, 8);
+    ctx.fillRect(565, baseY - 150, 4, 8);
+
+    // ── Grand gate with warm light ──
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#ffcc66';
+    ctx.fillRect(330, baseY - 50, 35, 50);
+    // Gate arch
+    ctx.fillStyle = c;
+    fillTriangle(ctx, 347, baseY - 58, 328, baseY - 50, 367, baseY - 50);
+    // Light spill on ground
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#ffaa44';
+    fillTriangle(ctx, 347, baseY - 10, 310, baseY + 20, 385, baseY + 20);
+
     ctx.globalAlpha = 1;
+
+    // ── Flanking trees (silhouette) ──
+    ctx.fillStyle = '#0a0a16';
+    // Left trees
+    fillOval(ctx, -15, baseY - 90, 60, 70);
+    ctx.fillRect(10, baseY - 30, 8, 30);
+    fillOval(ctx, 25, baseY - 80, 50, 55);
+    ctx.fillRect(42, baseY - 30, 7, 30);
+    // Right trees
+    fillOval(ctx, W - 50, baseY - 85, 55, 65);
+    ctx.fillRect(W - 30, baseY - 25, 8, 25);
+    fillOval(ctx, W - 80, baseY - 70, 50, 50);
+    ctx.fillRect(W - 60, baseY - 25, 7, 25);
+
+    // ── Faint wall connector lines ──
+    ctx.fillStyle = c;
+    ctx.fillRect(90, baseY - 70, 50, 10); // left wall to watchtower
+    ctx.fillRect(560, baseY - 70, 50, 10); // right wall to watchtower
 
     ArtRegistry.registerTexture(scene, key, canvas);
   }

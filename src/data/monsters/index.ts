@@ -133,14 +133,14 @@ const heroBoss: MonsterData = {
 
 // ─── Region 2: 精靈王國 (Lv 7-14) ───
 const elfMonsters = generateRegionMonsters('r2', 7,
-  ['毒花', '樹精靈', '森林狼', '巨型蜜蜂', '蘑菇怪', '藤蔓蛇', '迷霧幽靈', '暗影鹿', '腐化精靈', '森林巨蜘蛛'],
+  ['毒史萊姆', '樹精靈', '森林狼', '巨型蜜蜂', '森林史萊姆', '藤蔓蛇', '迷霧幽靈', '暗影鹿', '腐化精靈', '森林巨蜘蛛'],
   0x228822, 'earth'
 );
 const elfBoss = generateBoss('r2', '腐化精靈王', 18, 0x226622, 'earth');
 
 // ─── Region 3: 樹人王國 (Lv 14-21) ───
 const treantMonsters = generateRegionMonsters('r3', 14,
-  ['枯木怪', '苔蘚蟲', '腐根獸', '寄生花', '毒孢子', '泥沼蛙', '朽木兵', '蟲巢母', '黑藤蔓', '暗影樹靈'],
+  ['枯木怪', '苔蘚蟲', '腐根獸', '寄生花', '毒孢子', '泥沼史萊姆', '朽木兵', '蟲巢母', '黑藤蔓', '暗影樹靈'],
   0x336633, 'earth'
 );
 const treantBoss = generateBoss('r3', '腐朽古樹', 25, 0x445500, 'earth');
@@ -154,7 +154,7 @@ const beastBoss = generateBoss('r4', '魔獸將軍', 32, 0x884400);
 
 // ─── Region 5: 人魚王國 (Lv 28-35) ───
 const merfolkMonsters = generateRegionMonsters('r5', 28,
-  ['水母', '利齒魚', '海蛇', '珊瑚怪', '水元素', '深海章魚', '幽靈船員', '海馬騎兵', '毒水母', '暗影鯊'],
+  ['海水史萊姆', '利齒魚', '海蛇', '珊瑚怪', '水元素', '深海章魚', '幽靈船員', '海馬騎兵', '毒水母', '暗影鯊'],
   0x4488cc, 'water'
 );
 const merfolkBoss = generateBoss('r5', '深海魔龍', 39, 0x224488, 'water');
@@ -168,7 +168,7 @@ const giantBoss = generateBoss('r6', '山嶽魔王', 46, 0x666666, 'earth');
 
 // ─── Region 7: 矮人王國 (Lv 42-49) ───
 const dwarfMonsters = generateRegionMonsters('r7', 42,
-  ['地底蟲', '礦石蟲', '火焰蜥蜴', '機關人偶', '毒氣菇', '鋼鐵蝙蝠', '熔岩蛇', '水晶魔像', '暗金鼠', '暗影工匠'],
+  ['地底蟲', '礦石蟲', '火焰蜥蜴', '機關人偶', '毒氣菇', '鋼鐵蝙蝠', '熔岩蛇', '金屬史萊姆', '暗金鼠', '暗影工匠'],
   0xcc6644, 'fire'
 );
 const dwarfBoss = generateBoss('r7', '鑄造魔將', 53, 0xaa4422, 'fire');
@@ -182,7 +182,7 @@ const undeadBoss = generateBoss('r8', '不死魔將', 60, 0x442266, 'dark');
 
 // ─── Region 9-11: 支線 ───
 const volcanoMonsters = generateRegionMonsters('r9', 30,
-  ['火焰蜥蜴', '熔岩蟲', '火山蝙蝠', '炎魔', '灰燼鳥', '岩漿蛇', '火焰巨人', '煉獄犬', '火山龜', '暗影火靈'],
+  ['火焰蜥蜴', '熔岩蟲', '火山蝙蝠', '炎魔', '灰燼鳥', '火史萊姆', '火焰巨人', '煉獄犬', '火山龜', '暗影火靈'],
   0xff4422, 'fire'
 );
 const volcanoBoss = generateBoss('r9', '火山之主', 42, 0xcc2200, 'fire');
@@ -194,7 +194,7 @@ const hotspringMonsters = generateRegionMonsters('r10', 40,
 const hotspringBoss = generateBoss('r10', '溫泉守護者', 52, 0x22aaaa, 'water');
 
 const mountainMonsters = generateRegionMonsters('r11', 50,
-  ['雪狼', '冰晶蟲', '雪原鷹', '冰霜元素', '雪人', '極地熊', '冰龍幼體', '暴風鳥', '水晶蛇', '暗影冰靈'],
+  ['雪狼', '冰史萊姆', '雪原鷹', '冰霜元素', '雪人', '極地熊', '冰龍幼體', '暴風鳥', '水晶蛇', '暗影冰靈'],
   0xccccee, 'wind'
 );
 const mountainBoss = generateBoss('r11', '冰峰之王', 62, 0x8888cc, 'wind');

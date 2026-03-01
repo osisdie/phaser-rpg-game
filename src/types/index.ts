@@ -307,7 +307,7 @@ export interface NPCData {
   y: number;
   spriteColor: number;
   dialogueId: string;
-  type: 'quest' | 'shop' | 'info' | 'save' | 'inn';
+  type: 'quest' | 'shop' | 'info' | 'save' | 'inn' | 'guard';
   /** NPC behavior: idle (default), wander (random walk near home), patrol (back-and-forth) */
   behavior?: 'idle' | 'wander';
 }

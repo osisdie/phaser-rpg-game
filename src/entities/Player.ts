@@ -25,8 +25,8 @@ export class Player extends Phaser.GameObjects.Sprite {
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
     // Adjust body size to be slightly smaller than visual
-    body.setSize(16, 16);
-    body.setOffset(8, 30); // centered in 32×48 sprite: (32-16)/2=8, 48-16-2=30
+    body.setSize(32, 32);
+    body.setOffset(16, 60); // centered in 64×96 sprite: (64-32)/2=16, 96-32-4=60
 
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
