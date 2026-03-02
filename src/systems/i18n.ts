@@ -129,6 +129,14 @@ const strings: Record<string, string> = {
   'battle.near_death': '瀕死',
   'battle.auto_attack': '自動攻擊中',
   'battle.auto_cancel': 'ESC 取消',
+  'battle.status_poison': '中毒',
+  'battle.status_paralysis': '麻痺',
+  'battle.status_confusion': '混亂',
+  'battle.poison_tick': '{0} 受到毒素傷害！',
+  'battle.paralysis_skip': '{0} 因麻痺無法行動！',
+  'battle.confusion_attack': '{0} 在混亂中攻擊了 {1}！',
+  'battle.status_recover': '{0} 的{1}已恢復！',
+  'battle.status_applied': '{0} {1}了！',
 
   // ─── 寶箱 ───
   'chest.found': '發現了寶箱！',

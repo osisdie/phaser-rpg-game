@@ -767,7 +767,7 @@ class AudioManagerClass {
   }
 
   // ─── SFX (improved) ───
-  playSfx(type: 'select' | 'cancel' | 'hit' | 'magic' | 'heal' | 'levelup' | 'fanfare' | 'step' | 'equip' | 'fail' | 'warning'): void {
+  playSfx(type: 'select' | 'cancel' | 'hit' | 'magic' | 'heal' | 'levelup' | 'fanfare' | 'step' | 'equip' | 'fail' | 'warning' | 'clash'): void {
     // AI first: check for pre-recorded SFX
     const aiKey = `sfx_${type}`;
     const buffer = this.preRecorded.get(aiKey);
@@ -832,6 +832,18 @@ class AudioManagerClass {
           { f: 520, d: 0.1 }, { f: 380, d: 0.15 },
           { f: 520, d: 0.1 }, { f: 380, d: 0.2 },
         ], 'square', 0.15);
+        break;
+      case 'clash':
+        // Metallic noise burst (high-freq)
+        this.playNoiseBurst(ctx, 3000, 0.06, 0.25);
+        // Resonant ring — descending sine tones
+        this.playToneSequence(ctx, [
+          { f: 2000, d: 0.06 }, { f: 1200, d: 0.06 }, { f: 800, d: 0.08 }, { f: 600, d: 0.12 },
+        ], 'sine', 0.2);
+        // Secondary shimmer — triangle overtones
+        this.playToneSequence(ctx, [
+          { f: 3000, d: 0.05 }, { f: 2400, d: 0.05 }, { f: 1800, d: 0.08 },
+        ], 'triangle', 0.08);
         break;
     }
   }

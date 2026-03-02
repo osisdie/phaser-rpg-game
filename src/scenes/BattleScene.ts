@@ -3,7 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from '../config';
 import { COLORS, DEPTH, FONT_FAMILY } from '../utils/constants';
 import { t } from '../systems/i18n';
 import { gameState } from '../systems/GameStateManager';
-import { CombatSystem } from '../systems/CombatSystem';
+import { CombatSystem, type StatusTickResult } from '../systems/CombatSystem';
 import type { MonsterData, BattleAction, SkillData, CombatantState } from '../types';
 import { BattleHUD } from '../ui/BattleHUD';
 import { BattleMenu, type MenuAction } from '../ui/BattleMenu';
@@ -23,6 +23,54 @@ import { getCompanionForRegion } from '../data/characters/index';
 import { getRegionById } from '../data/regions/index';
 
 type BattlePhaseUI = 'intro' | 'menu' | 'target_select' | 'skill_select' | 'item_select' | 'executing' | 'result';
+
+interface FormationSlot { x: number; y: number; scale: number; depthOffset: number; facing?: number; }
+
+// Diagonal formations: party bottom-left crescent vs enemies top-right crescent
+// Crescent (弧形) with convex side toward opponent; hero at front-center of arc
+interface PartyFormation { slots: FormationSlot[]; heroSlot: number; }
+// Direction indices: 0=down, 1=left, 2=right, 3=up, 4=down_left, 5=down_right, 6=up_left, 7=up_right
+const FACING_NAMES = ['down', 'left', 'right', 'up', 'down_left', 'down_right', 'up_left', 'up_right'];
+const PARTY_FORMATIONS: Record<number, PartyFormation> = {
+  1: { heroSlot: 0, slots: [
+    { x: 300, y: 420, scale: 1.0, depthOffset: 0, facing: 5 },
+  ]},
+  2: { heroSlot: 0, slots: [
+    { x: 310, y: 380, scale: 1.0, depthOffset: 1, facing: 5 },   // hero: forward-center
+    { x: 195, y: 470, scale: 0.85, depthOffset: 0, facing: 5 },  // behind on arc
+  ]},
+  3: { heroSlot: 0, slots: [
+    { x: 310, y: 370, scale: 1.0, depthOffset: 1, facing: 5 },   // hero: center of crescent front
+    { x: 190, y: 430, scale: 0.82, depthOffset: 0, facing: 5 },  // upper arc wing
+    { x: 240, y: 500, scale: 0.82, depthOffset: 0, facing: 5 },  // lower arc wing
+  ]},
+  4: { heroSlot: 0, slots: [
+    { x: 315, y: 355, scale: 1.0, depthOffset: 2, facing: 5 },   // hero: front-center of crescent
+    { x: 210, y: 405, scale: 0.88, depthOffset: 1, facing: 5 },  // upper-inner arc
+    { x: 145, y: 485, scale: 0.75, depthOffset: 0, facing: 5 },  // upper-outer arc (far end)
+    { x: 260, y: 480, scale: 0.80, depthOffset: 0, facing: 5 },  // lower arc wing
+  ]},
+};
+
+const ENEMY_FORMATIONS: Record<number, FormationSlot[]> = {
+  1: [{ x: 700, y: 220, scale: 1.0, depthOffset: 0 }],
+  2: [
+    { x: 690, y: 240, scale: 0.90, depthOffset: 1 },    // forward-center
+    { x: 810, y: 175, scale: 0.85, depthOffset: 0 },    // behind on arc
+  ],
+  3: [
+    { x: 680, y: 240, scale: 0.85, depthOffset: 1 },    // center of crescent front
+    { x: 800, y: 185, scale: 0.80, depthOffset: 0 },    // upper arc wing
+    { x: 760, y: 145, scale: 0.78, depthOffset: 0 },    // lower(upper-screen) arc wing
+  ],
+  4: [
+    { x: 680, y: 250, scale: 0.85, depthOffset: 2 },    // front-center of crescent
+    { x: 785, y: 200, scale: 0.80, depthOffset: 1 },    // inner arc
+    { x: 870, y: 145, scale: 0.72, depthOffset: 0 },    // outer arc (far end)
+    { x: 740, y: 150, scale: 0.75, depthOffset: 0 },    // upper arc wing
+  ],
+};
+const BOSS_FORMATION: FormationSlot = { x: 720, y: 210, scale: 1.3, depthOffset: 0 };
 
 export class BattleScene extends Phaser.Scene {
   private combat!: CombatSystem;
@@ -57,6 +105,13 @@ export class BattleScene extends Phaser.Scene {
   private autoAttackLabel?: Phaser.GameObjects.Text;
   private autoAttackCancelLabel?: Phaser.GameObjects.Text;
 
+  // Floating HP bars (above enemy and party sprites)
+  private enemyHpBars: { bg: Phaser.GameObjects.Rectangle; fill: Phaser.GameObjects.Rectangle }[] = [];
+  private partyHpBars: { bg: Phaser.GameObjects.Rectangle; fill: Phaser.GameObjects.Rectangle }[] = [];
+
+  // Status effect icons (above sprites)
+  private statusIcons: Phaser.GameObjects.Text[][] = []; // [combatantGlobalIdx][statusIdx]
+
   // Battle log panel (scrollable, auto-append)
   private battleLogEntries: string[] = [];
   private battleLogBg!: Phaser.GameObjects.Rectangle;
@@ -81,55 +136,94 @@ export class BattleScene extends Phaser.Scene {
     this.combat = new CombatSystem(party, this.monsters);
     this.combat.startTurn();
 
-    // Battle background — use region-specific texture if available
-    const bgKey = `battle_bg_${this.regionId}`;
+    // Battle background — use boss variant when applicable
+    const bgKey = this.isBoss ? `battle_bg_${this.regionId}_boss` : `battle_bg_${this.regionId}`;
     if (this.textures.exists(bgKey)) {
       this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey);
     } else {
       this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x1a1a2e);
     }
 
-    // Ground divider (between enemies and party)
-    this.add.rectangle(GAME_WIDTH / 2, 360, GAME_WIDTH, 2, 0x333366, 0.3);
+    // Boss: pulsing dark vignette overlay for dramatic effect
+    if (this.isBoss) {
+      const vignette = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.0)
+        .setDepth(DEPTH.ground + 1);
+      this.tweens.add({
+        targets: vignette,
+        alpha: { from: 0, to: 0.15 },
+        duration: 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
 
-    // Draw enemy sprites (top center) — classic JRPG layout
+    // ─── Enemy sprites (TOP area, facing down) — horizontal spread ───
     const state = this.combat.getState();
     this.enemySprites = [];
-    const enemySpacing = Math.min(220, (GAME_WIDTH - 300) / Math.max(1, state.enemies.length));
-    const enemyTotalW = (state.enemies.length - 1) * enemySpacing;
+    const isSoloBoss = state.enemies.length === 1 && state.enemies[0].id.includes('boss');
+    const enemyFormation = ENEMY_FORMATIONS[state.enemies.length] ?? ENEMY_FORMATIONS[4]!;
     state.enemies.forEach((enemy, i) => {
-      const x = GAME_WIDTH / 2 - enemyTotalW / 2 + i * enemySpacing;
-      const y = this.isBoss ? 160 : 200;
       const isBossEnemy = enemy.id.includes('boss');
+      const slot = isSoloBoss ? BOSS_FORMATION : (enemyFormation[i] ?? enemyFormation[enemyFormation.length - 1]);
+      const x = slot.x;
+      const y = slot.y;
 
       // Generate monster textures: overworld (small) + battle (high-res, no scale)
       const texKey = MonsterRenderer.getTextureKey(enemy.name, enemy.id, isBossEnemy);
       MonsterRenderer.generateForMonster(this, texKey, enemy.name, this.monsters[i]?.spriteColor ?? 0xff4444, isBossEnemy);
       const battleTexKey = MonsterRenderer.generateForBattle(this, texKey, enemy.name, this.monsters[i]?.spriteColor ?? 0xff4444, isBossEnemy);
 
-      const sprite = this.add.sprite(x, y, battleTexKey).setDepth(DEPTH.characters);
+      const sprite = this.add.sprite(x, y, battleTexKey)
+        .setScale(slot.scale)
+        .setDepth(DEPTH.characters + slot.depthOffset);
+      // Flip right-facing procedural monsters so they face the party (lower-left)
+      if (MonsterRenderer.needsFlipForBattle(enemy.name)) {
+        sprite.setFlipX(true);
+      }
       sprite.setData('homeX', x);
       sprite.setData('homeY', y);
+      sprite.setData('homeScale', slot.scale);
       this.enemySprites.push(sprite);
 
-      this.add.text(x, y + (isBossEnemy ? 140 : 110), enemy.name, {
+      this.add.text(x, y + sprite.displayHeight / 2 + 14, enemy.name, {
         fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(0.5, 0).setDepth(DEPTH.characters + 1);
+      }).setOrigin(0.5, 0).setDepth(DEPTH.characters + slot.depthOffset + 1);
     });
 
-    // Direction indices for diagonal battle facing (matches DIRECTIONS array in CharacterRenderer)
-    const DIR_DOWN_LEFT = 4;
-    const DIR_DOWN = 0;
-    const DIR_DOWN_RIGHT = 5;
+    // ─── Enemy HP bars (centered above each enemy sprite) ───
+    this.enemyHpBars = [];
+    const HP_BAR_W = 60;
+    const HP_BAR_H = 5;
+    this.enemySprites.forEach(sprite => {
+      const barX = sprite.x;
+      const barY = sprite.y - sprite.displayHeight / 2 - 8;
+      const bg = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, 0x333333)
+        .setDepth(DEPTH.characters + 10);
+      const fill = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, COLORS.hpBar)
+        .setDepth(DEPTH.characters + 10);
+      this.enemyHpBars.push({ bg, fill });
+    });
 
-    // Draw party sprites (bottom center) — classic JRPG layout
+    // ─── Party sprites (BOTTOM area, 3/4 diagonal facing) — crescent formation ───
+    // Hero always at front-center (heroSlot); companions fill remaining arc slots
     this.partySprites = [];
-    const partySpacing = Math.min(200, (GAME_WIDTH - 300) / Math.max(1, state.party.length));
-    const partyTotalW = (state.party.length - 1) * partySpacing;
+    const partyFormation = PARTY_FORMATIONS[state.party.length] ?? PARTY_FORMATIONS[4]!;
+    const slotMap: number[] = []; // slotMap[partyIndex] = formationSlotIndex
+    const heroSlotIdx = partyFormation.heroSlot;
+    slotMap[0] = heroSlotIdx; // hero → V-tip
+    let companionSlot = 0;
+    for (let ci = 1; ci < state.party.length; ci++) {
+      if (companionSlot === heroSlotIdx) companionSlot++; // skip hero's slot
+      slotMap[ci] = companionSlot;
+      companionSlot++;
+    }
+
     state.party.forEach((member, i) => {
-      const x = GAME_WIDTH / 2 - partyTotalW / 2 + i * partySpacing;
-      const y = 450;
+      const slot = partyFormation.slots[slotMap[i]] ?? partyFormation.slots[partyFormation.slots.length - 1];
+      const x = slot.x;
+      const y = slot.y;
 
       // Determine texture key — hero or companion
       let texKey = 'char_hero';
@@ -140,33 +234,50 @@ export class BattleScene extends Phaser.Scene {
         }
       }
 
-      // Choose diagonal facing based on screen position (3/4 view toward enemies)
-      const relX = (x - GAME_WIDTH / 2) / (GAME_WIDTH / 2);
-      const dirName = relX < -0.15 ? 'down_right' : relX > 0.15 ? 'down_left' : 'down';
-      const dirIdx = relX < -0.15 ? DIR_DOWN_RIGHT : relX > 0.15 ? DIR_DOWN_LEFT : DIR_DOWN;
+      // 3/4 diagonal facing — shows face while implying upward gaze toward enemies
+      const dirIdx = slot.facing ?? 5; // default: down_right
+      const dirName = FACING_NAMES[dirIdx];
       const idleFrame = dirIdx * 4 + 1; // 4 frames/dir, frame 1 = neutral idle
 
       // Use battle-resolution texture if available (3× native, no scale needed)
       const battleTexKey = `${texKey}_battle`;
       const useBattleTex = this.textures.exists(battleTexKey);
       const actualTexKey = useBattleTex ? battleTexKey : texKey;
-      const sprite = this.add.sprite(x, y, actualTexKey, idleFrame).setDepth(DEPTH.characters);
-      if (!useBattleTex) sprite.setScale(2.5); // fallback for missing battle textures
+      const spriteScale = useBattleTex ? slot.scale : 2.5 * slot.scale;
+      const sprite = this.add.sprite(x, y, actualTexKey, idleFrame)
+        .setScale(spriteScale)
+        .setDepth(DEPTH.characters + slot.depthOffset);
 
-      // Play idle animation with cape flutter (2-frame loop)
+      // Play idle animation in diagonal direction
       const idleAnimKey = `${actualTexKey}_idle_${dirName}`;
       if (this.anims.exists(idleAnimKey)) {
         sprite.play(idleAnimKey);
       }
       sprite.setData('homeX', x);
       sprite.setData('homeY', y);
+      sprite.setData('homeScale', spriteScale);
       this.partySprites.push(sprite);
 
-      this.add.text(x, y + 110, member.name, {
+      this.add.text(x, y + sprite.displayHeight / 2 + 14, member.name, {
         fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(0.5, 0).setDepth(DEPTH.characters + 1);
+      }).setOrigin(0.5, 0).setDepth(DEPTH.characters + slot.depthOffset + 1);
     });
+
+    // ─── Party HP bars (centered above each party sprite) ───
+    this.partyHpBars = [];
+    this.partySprites.forEach(sprite => {
+      const barX = sprite.x;
+      const barY = sprite.y - sprite.displayHeight / 2 - 8;
+      const bg = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, 0x333333)
+        .setDepth(DEPTH.characters + 10);
+      const fill = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, COLORS.hpBar)
+        .setDepth(DEPTH.characters + 10);
+      this.partyHpBars.push({ bg, fill });
+    });
+
+    // Spawn region-specific ambient particles (fireflies, snow, bubbles, etc.)
+    BattleEffects.spawnEnvironmentParticles(this, this.regionId, { width: GAME_WIDTH, height: GAME_HEIGHT });
 
     // Near-death labels & pulse tracking (hidden initially)
     this.nearDeathLabels = [];
@@ -174,7 +285,7 @@ export class BattleScene extends Phaser.Scene {
     this.wasNearDeath = [];
     state.party.forEach((_member, i) => {
       const sprite = this.partySprites[i];
-      const label = this.add.text(sprite.x, sprite.y - 110, t('battle.near_death'), {
+      const label = this.add.text(sprite.x, sprite.y - sprite.displayHeight / 2 - 14, t('battle.near_death'), {
         fontFamily: FONT_FAMILY, fontSize: '10px', color: '#ff4444',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setDepth(DEPTH.characters + 2).setVisible(false);
@@ -213,19 +324,14 @@ export class BattleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH.ui + 10).setVisible(false);
 
-    // Start with intro message
+    // Start with sword-crossing intro → then encounter textbox
     this.uiPhase = 'intro';
     this.currentPartyIndex = 0;
     this.partyActions = [];
 
     const monsterNames = [...new Set(this.monsters.map(m => m.name))].join('、');
-    this.textBox.show('', t('battle.encounter', monsterNames), () => {
-      this.uiPhase = 'menu';
-      this.textBox.hide();
-      this.showMenuForCurrentMember();
-    });
 
-    // Keys for advancing text
+    // Keys for advancing text (registered early so they work during textbox)
     this.input.keyboard?.on('keydown-ENTER', () => this.handleConfirm());
     this.input.keyboard?.on('keydown-SPACE', () => this.handleConfirm());
     this.input.keyboard?.on('keydown-Z', () => this.handleConfirm());
@@ -237,6 +343,17 @@ export class BattleScene extends Phaser.Scene {
     });
 
     TransitionEffect.fadeIn(this, 300);
+
+    // Sword-crossing intro plays during fade-in, then encounter textbox appears
+    this.time.delayedCall(200, () => {
+      this.playSwordCrossingIntro(() => {
+        this.textBox.show('', t('battle.encounter', monsterNames), () => {
+          this.uiPhase = 'menu';
+          this.textBox.hide();
+          this.showMenuForCurrentMember();
+        });
+      });
+    });
     audioManager.playBgm(this.isBoss ? 'boss' : 'battle', this.regionId);
   }
 
@@ -246,9 +363,9 @@ export class BattleScene extends Phaser.Scene {
     this.battleLogEntries = [];
     this.battleLogScrollY = 0;
 
-    const logX = 195;
+    const logX = 320;
     const logY = GAME_HEIGHT - 168;
-    const logW = 500;
+    const logW = 370;
     const logH = 138;
 
     // Semi-transparent background
@@ -302,6 +419,87 @@ export class BattleScene extends Phaser.Scene {
     this.battleLogText.setY(logY + 4 - this.battleLogScrollY);
   }
 
+  // ─── Sword-Crossing Intro Animation ───
+
+  private playSwordCrossingIntro(onComplete: () => void): void {
+    const cx = GAME_WIDTH / 2;  // 512
+    const cy = GAME_HEIGHT / 2; // 384
+
+    // Two swords fly in from opposing corners
+    const sword1 = this.add.image(-80, GAME_HEIGHT + 80, 'fx_intro_sword')
+      .setDepth(DEPTH.ui + 20).setAngle(-45).setAlpha(0.9);
+    const sword2 = this.add.image(GAME_WIDTH + 80, -80, 'fx_intro_sword')
+      .setDepth(DEPTH.ui + 20).setAngle(135).setAlpha(0.9);
+
+    // Impact point (slightly offset for crossed swords look)
+    const impactX1 = cx - 30;
+    const impactY1 = cy - 20;
+    const impactX2 = cx + 30;
+    const impactY2 = cy - 40;
+
+    // Swords fly in (300ms, eased)
+    this.tweens.add({
+      targets: sword1,
+      x: impactX1, y: impactY1,
+      duration: 300,
+      ease: 'Power3',
+    });
+    this.tweens.add({
+      targets: sword2,
+      x: impactX2, y: impactY2,
+      duration: 300,
+      ease: 'Power3',
+      onComplete: () => {
+        // === Impact! ===
+        audioManager.playSfx('clash');
+
+        // White screen flash
+        const flash = this.add.rectangle(cx, cy, GAME_WIDTH, GAME_HEIGHT, 0xffffff)
+          .setDepth(DEPTH.ui + 25).setAlpha(0.7);
+        this.tweens.add({
+          targets: flash, alpha: 0, duration: 150,
+          onComplete: () => flash.destroy(),
+        });
+
+        // 12 sparks radiate outward from impact center
+        const sparkCx = (impactX1 + impactX2) / 2;
+        const sparkCy = (impactY1 + impactY2) / 2;
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+          const dist = 60 + Math.random() * 80;
+          const spark = this.add.image(sparkCx, sparkCy, 'fx_intro_spark')
+            .setDepth(DEPTH.ui + 22).setAlpha(1).setScale(1 + Math.random() * 0.5);
+
+          this.tweens.add({
+            targets: spark,
+            x: sparkCx + Math.cos(angle) * dist,
+            y: sparkCy + Math.sin(angle) * dist,
+            alpha: 0,
+            scale: 0,
+            duration: 300 + Math.random() * 200,
+            ease: 'Power2',
+            onComplete: () => spark.destroy(),
+          });
+        }
+
+        // Hold 200ms, then swords fade out
+        this.time.delayedCall(200, () => {
+          this.tweens.add({
+            targets: [sword1, sword2],
+            alpha: 0,
+            scale: 1.5,
+            duration: 200,
+            onComplete: () => {
+              sword1.destroy();
+              sword2.destroy();
+              onComplete();
+            },
+          });
+        });
+      },
+    });
+  }
+
   // ─── Update & Input ───
 
   update(time: number, delta: number): void {
@@ -311,10 +509,29 @@ export class BattleScene extends Phaser.Scene {
     const state = this.combat.getState();
     this.hud.updateDisplay(state.party, state.enemies, state.turn);
 
-    // Update sprite visibility for dead combatants
+    // Update sprite visibility for dead combatants + enemy HP bars
     state.enemies.forEach((e, i) => {
       if (this.enemySprites[i]) {
         this.enemySprites[i].setAlpha(e.stats.hp > 0 ? 1 : 0.2);
+      }
+      // Update floating HP bar position & fill (centered above sprite)
+      const bar = this.enemyHpBars[i];
+      const sprite = this.enemySprites[i];
+      if (bar && sprite) {
+        const barX = sprite.x;
+        const barY = sprite.y - sprite.displayHeight / 2 - 8;
+        bar.bg.setPosition(barX, barY);
+        if (e.stats.hp > 0) {
+          const ratio = e.stats.hp / e.stats.maxHP;
+          const fillW = 60 * ratio;
+          bar.fill.setSize(fillW, 5);
+          bar.fill.setPosition(barX - (60 - fillW) / 2, barY);
+          bar.fill.setAlpha(1);
+          bar.bg.setAlpha(1);
+        } else {
+          bar.fill.setAlpha(0);
+          bar.bg.setAlpha(0.2);
+        }
       }
     });
     state.party.forEach((p, i) => {
@@ -344,7 +561,29 @@ export class BattleScene extends Phaser.Scene {
       if (this.nearDeathLabels[i]) {
         this.nearDeathLabels[i].setVisible(isNearDeath);
       }
+      // Update floating party HP bar position & fill
+      const bar = this.partyHpBars[i];
+      const sprite = this.partySprites[i];
+      if (bar && sprite) {
+        const barX = sprite.x;
+        const barY = sprite.y - sprite.displayHeight / 2 - 8;
+        bar.bg.setPosition(barX, barY);
+        if (p.stats.hp > 0) {
+          const ratio = p.stats.hp / p.stats.maxHP;
+          const fillW = 60 * ratio;
+          bar.fill.setSize(fillW, 5);
+          bar.fill.setPosition(barX - (60 - fillW) / 2, barY);
+          bar.fill.setAlpha(1);
+          bar.bg.setAlpha(1);
+        } else {
+          bar.fill.setAlpha(0);
+          bar.bg.setAlpha(0.2);
+        }
+      }
     });
+
+    // Update status icons
+    this.updateStatusIcons();
 
     // Idle breathing bob — subtle vertical oscillation with unique freq per sprite
     // Enemies use offset 0, party uses offset 4 so they never share the same freq/phase
@@ -388,6 +627,84 @@ export class BattleScene extends Phaser.Scene {
       this.nearDeathTweens[index] = null;
     }
     this.wasNearDeath[index] = false;
+  }
+
+  /** Update status effect icons above sprites */
+  private updateStatusIcons(): void {
+    const state = this.combat.getState();
+    const statusSymbols: Record<string, string> = { poison: '☠', paralysis: '⚡', confusion: '💫' };
+    const statusColors: Record<string, string> = { poison: '#cc66ff', paralysis: '#ffee44', confusion: '#ff88cc' };
+
+    // Clean up old icons
+    for (const icons of this.statusIcons) {
+      for (const icon of icons) icon.destroy();
+    }
+    this.statusIcons = [];
+
+    const allCombatants = [...state.party, ...state.enemies];
+    const allSprites = [...this.partySprites, ...this.enemySprites];
+
+    allCombatants.forEach((c, gi) => {
+      const sprite = allSprites[gi];
+      if (!sprite || c.stats.hp <= 0) {
+        this.statusIcons.push([]);
+        return;
+      }
+      const icons: Phaser.GameObjects.Text[] = [];
+      c.statusEffects.forEach((eff, si) => {
+        const sym = statusSymbols[eff.type] ?? '?';
+        const col = statusColors[eff.type] ?? '#ffffff';
+        const icon = this.add.text(
+          sprite.x - 15 + si * 18,
+          sprite.y - sprite.displayHeight / 2 - 2,
+          sym,
+          { fontFamily: FONT_FAMILY, fontSize: '14px', color: col, stroke: '#000000', strokeThickness: 2 }
+        ).setOrigin(0.5).setDepth(DEPTH.characters + 3);
+        icons.push(icon);
+      });
+      this.statusIcons.push(icons);
+    });
+  }
+
+  /** Animate status tick results before showing menu */
+  private animateStatusTicks(ticks: StatusTickResult[], index: number, onComplete: () => void): void {
+    if (index >= ticks.length) { onComplete(); return; }
+
+    const tick = ticks[index];
+    const state = this.combat.getState();
+    const sprite = tick.combatant.isEnemy
+      ? this.enemySprites[tick.combatant.index]
+      : this.partySprites[tick.combatant.index];
+
+    if (!sprite) {
+      this.addBattleLogMessage(tick.message);
+      this.animateStatusTicks(ticks, index + 1, onComplete);
+      return;
+    }
+
+    this.addBattleLogMessage(tick.message);
+
+    switch (tick.type) {
+      case 'damage': {
+        // Poison tick: purple particles + damage number
+        BattleEffects.playPoisonEffect(this, sprite.x, sprite.y);
+        showDamageNumber(this, sprite.x, sprite.y - sprite.displayHeight / 2 - 10, tick.value ?? 0, 'damage');
+        this.time.delayedCall(400, () => this.animateStatusTicks(ticks, index + 1, onComplete));
+        break;
+      }
+      case 'recover': {
+        // Recovery: green flash + message
+        sprite.setTint(0x44ff44);
+        showDamageNumber(this, sprite.x, sprite.y - sprite.displayHeight / 2 - 10, '恢復！', 'status');
+        this.time.delayedCall(400, () => {
+          sprite.clearTint();
+          this.animateStatusTicks(ticks, index + 1, onComplete);
+        });
+        break;
+      }
+      default:
+        this.time.delayedCall(300, () => this.animateStatusTicks(ticks, index + 1, onComplete));
+    }
   }
 
   private handleConfirm(): void {
@@ -546,27 +863,35 @@ export class BattleScene extends Phaser.Scene {
     const updateCursor = () => {
       const sprite = sprites[selectedIdx];
       if (sprite) {
-        this.targetCursor?.setPosition(sprite.x, sprite.y - 85).setVisible(true);
+        // Cursor above enemies, below allies (DQ-style top-bottom)
+        const cursorY = isAlly
+          ? sprite.y + sprite.displayHeight / 2 + 20   // below ally
+          : sprite.y - sprite.displayHeight / 2 - 20;  // above enemy
+        this.targetCursor?.setPosition(sprite.x, cursorY).setVisible(true);
+        this.targetCursor?.setAngle(isAlly ? 180 : 0);  // point down for allies, up for enemies
       }
     };
     updateCursor();
 
     const cleanup = () => {
       this.targetCursor?.setVisible(false);
-      this.input.keyboard?.off('keydown-LEFT', onLeft);
-      this.input.keyboard?.off('keydown-RIGHT', onRight);
+      this.targetCursor?.setAngle(0);
+      this.input.keyboard?.off('keydown-UP', onPrev);
+      this.input.keyboard?.off('keydown-DOWN', onNext);
+      this.input.keyboard?.off('keydown-LEFT', onPrev);
+      this.input.keyboard?.off('keydown-RIGHT', onNext);
       this.input.keyboard?.off('keydown-ENTER', onConfirm);
       this.input.keyboard?.off('keydown-SPACE', onConfirm);
       this.input.keyboard?.off('keydown-Z', onConfirm);
     };
 
-    const onLeft = () => {
+    const onPrev = () => {
       do { selectedIdx = (selectedIdx - 1 + targets.length) % targets.length; }
       while (targets[selectedIdx].stats.hp <= 0);
       updateCursor();
       audioManager.playSfx('select');
     };
-    const onRight = () => {
+    const onNext = () => {
       do { selectedIdx = (selectedIdx + 1) % targets.length; }
       while (targets[selectedIdx].stats.hp <= 0);
       updateCursor();
@@ -577,8 +902,11 @@ export class BattleScene extends Phaser.Scene {
       onSelect(selectedIdx);
     };
 
-    this.input.keyboard?.on('keydown-LEFT', onLeft);
-    this.input.keyboard?.on('keydown-RIGHT', onRight);
+    // UP/DOWN for vertical navigation (primary), LEFT/RIGHT as aliases
+    this.input.keyboard?.on('keydown-UP', onPrev);
+    this.input.keyboard?.on('keydown-DOWN', onNext);
+    this.input.keyboard?.on('keydown-LEFT', onPrev);
+    this.input.keyboard?.on('keydown-RIGHT', onNext);
     this.input.keyboard?.on('keydown-ENTER', onConfirm);
     this.input.keyboard?.on('keydown-SPACE', onConfirm);
     this.input.keyboard?.on('keydown-Z', onConfirm);
@@ -864,13 +1192,14 @@ export class BattleScene extends Phaser.Scene {
           return;
         }
 
-        // Rush toward target (enemies rush down, party rushes up)
+        // Rush toward target (diagonal: party upper-right, enemies lower-left)
         actorSprite.setData('inAction', true);
-        const rushOffsetY = action.isEnemy ? -40 : 40;
+        const rushX = action.isEnemy ? targetSprite.x - 40 : targetSprite.x + 40;
+        const rushY = action.isEnemy ? targetSprite.y + 40 : targetSprite.y - 40;
         this.tweens.add({
           targets: actorSprite,
-          x: targetSprite.x,
-          y: targetSprite.y + rushOffsetY,
+          x: rushX,
+          y: rushY,
           duration: 250,
           ease: 'Power3',
           onComplete: () => {
@@ -881,10 +1210,11 @@ export class BattleScene extends Phaser.Scene {
             // Add messages to battle log
             for (const msg of msgs) this.addBattleLogMessage(msg);
 
-            // Flash + shake target
+            // Flash + shake target (diagonal shake)
             this.tweens.add({
               targets: targetSprite,
-              x: targetSprite.x + 6,
+              x: targetSprite.x + 4,
+              y: targetSprite.y + 4,
               alpha: 0.3,
               duration: 60,
               yoyo: true,
@@ -912,12 +1242,13 @@ export class BattleScene extends Phaser.Scene {
 
       case 'skill': {
         const skill = action.skillId ? getSkillById(action.skillId) : null;
-        // Step forward slightly
+        // Step forward slightly (diagonal)
         actorSprite.setData('inAction', true);
+        const stepX = action.isEnemy ? homeX - 25 : homeX + 25;
         const stepY = action.isEnemy ? homeY + 25 : homeY - 25;
         this.tweens.add({
           targets: actorSprite,
-          y: stepY,
+          x: stepX, y: stepY,
           duration: 150,
           onComplete: () => {
             // Play appropriate SFX based on skill type
@@ -951,10 +1282,10 @@ export class BattleScene extends Phaser.Scene {
             for (const msg of msgs) this.addBattleLogMessage(msg);
 
             this.time.delayedCall(350, () => {
-              // Return to home
+              // Return to home (diagonal)
               this.tweens.add({
                 targets: actorSprite,
-                y: homeY,
+                x: homeX, y: homeY,
                 duration: 150,
                 onComplete: () => {
                   actorSprite.setData('inAction', false);
@@ -1063,7 +1394,7 @@ export class BattleScene extends Phaser.Scene {
           const ally = state.party.find(p => p.name === name);
           const sprite = enemy ? this.enemySprites[enemy.index] : ally ? this.partySprites[ally.index] : null;
           if (sprite) {
-            showDamageNumber(this, sprite.x, sprite.y - 70, parseInt(dmgMatch[1]), 'damage');
+            showDamageNumber(this, sprite.x, sprite.y - sprite.displayHeight / 2 - 10, parseInt(dmgMatch[1]), 'damage');
           }
         }
       }
@@ -1073,8 +1404,25 @@ export class BattleScene extends Phaser.Scene {
         if (healTarget) {
           const p = state.party.find(p => p.name === healTarget[1]);
           if (p && this.partySprites[p.index]) {
-            showDamageNumber(this, this.partySprites[p.index].x, this.partySprites[p.index].y - 70, parseInt(healMatch[1]), 'heal');
+            showDamageNumber(this, this.partySprites[p.index].x, this.partySprites[p.index].y - this.partySprites[p.index].displayHeight / 2 - 10, parseInt(healMatch[1]), 'heal');
           }
+        }
+      }
+
+      // Status application — show floating text and effect
+      const statusMatch = msg.match(/(.+?) (中毒|麻痺|混亂)了！/);
+      if (statusMatch) {
+        const targetName = statusMatch[1];
+        const statusText = statusMatch[2] + '!';
+        const enemy = state.enemies.find(e => e.name === targetName);
+        const ally = state.party.find(p => p.name === targetName);
+        const sprite = enemy ? this.enemySprites[enemy.index] : ally ? this.partySprites[ally.index] : null;
+        if (sprite) {
+          showDamageNumber(this, sprite.x, sprite.y - sprite.displayHeight / 2 - 25, statusText, 'status');
+          // Play corresponding effect
+          if (statusMatch[2] === '中毒') BattleEffects.playPoisonEffect(this, sprite.x, sprite.y);
+          else if (statusMatch[2] === '麻痺') BattleEffects.playParalysisEffect(this, sprite.x, sprite.y);
+          else if (statusMatch[2] === '混亂') BattleEffects.playConfusionEffect(this, sprite.x, sprite.y);
         }
       }
     }
@@ -1096,16 +1444,33 @@ export class BattleScene extends Phaser.Scene {
         this.time.delayedCall(600, () => this.returnToField());
       }
     } else {
-      // Next turn
-      this.combat.startTurn();
+      // Next turn — process status ticks with animation
+      const tickResults = this.combat.startTurn();
       this.currentPartyIndex = 0;
       this.partyActions = [];
-      this.uiPhase = 'menu';
-      // Small delay before auto-attack continues (so player can see results)
-      if (this.autoAttackMode) {
-        this.time.delayedCall(200, () => this.showMenuForCurrentMember());
+
+      if (tickResults.length > 0) {
+        // Animate status ticks before showing menu
+        this.animateStatusTicks(tickResults, 0, () => {
+          // Check if status ticks killed someone
+          if (this.combat.checkBattleEnd()) {
+            this.checkBattleResult();
+            return;
+          }
+          this.uiPhase = 'menu';
+          if (this.autoAttackMode) {
+            this.time.delayedCall(200, () => this.showMenuForCurrentMember());
+          } else {
+            this.showMenuForCurrentMember();
+          }
+        });
       } else {
-        this.showMenuForCurrentMember();
+        this.uiPhase = 'menu';
+        if (this.autoAttackMode) {
+          this.time.delayedCall(200, () => this.showMenuForCurrentMember());
+        } else {
+          this.showMenuForCurrentMember();
+        }
       }
     }
   }

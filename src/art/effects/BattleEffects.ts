@@ -14,6 +14,8 @@ export class BattleEffects {
     this.generateLightningParticle(scene);
     this.generateHitSpark(scene);
     this.generateEnvironmentParticles(scene);
+    this.generateStatusParticles(scene);
+    this.generateSwordIntro(scene);
   }
 
   private static generateSlashEffect(scene: Phaser.Scene): void {
@@ -190,6 +192,65 @@ export class BattleEffects {
     ArtRegistry.registerTexture(scene, key, canvas);
   }
 
+  // ─── Sword intro textures ──────────────
+
+  private static generateSwordIntro(scene: Phaser.Scene): void {
+    // Sword: 16×48 design space → 32×96 rendered
+    if (!scene.textures.exists('fx_intro_sword')) {
+      const DW = 16, DH = 48;
+      const { canvas, ctx } = ArtRegistry.createCanvas(DW * 2, DH * 2);
+      ctx.scale(2, 2);
+      // Blade (steel gradient)
+      ctx.fillStyle = '#ccccdd';
+      ctx.fillRect(6, 0, 4, 32);
+      ctx.fillStyle = '#e0e0ee';
+      ctx.fillRect(7, 0, 2, 30);
+      // Blade tip
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(7, 0, 2, 2);
+      // Blade edge highlight
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(6, 2, 1, 20);
+      // Crossguard (gold)
+      ctx.fillStyle = '#ddaa33';
+      ctx.fillRect(3, 32, 10, 3);
+      ctx.fillStyle = '#ffcc44';
+      ctx.fillRect(3, 32, 10, 1);
+      // Handle (brown wrapped)
+      ctx.fillStyle = '#664422';
+      ctx.fillRect(6, 35, 4, 10);
+      ctx.fillStyle = '#885533';
+      ctx.fillRect(7, 36, 2, 2);
+      ctx.fillRect(7, 40, 2, 2);
+      // Pommel (gold)
+      ctx.fillStyle = '#ddaa33';
+      ctx.fillRect(5, 45, 6, 3);
+      ctx.fillStyle = '#ffcc44';
+      ctx.fillRect(6, 45, 4, 1);
+      ArtRegistry.registerTexture(scene, 'fx_intro_sword', canvas);
+    }
+
+    // Spark: 6×6 design space → 12×12 rendered (4-pointed star)
+    if (!scene.textures.exists('fx_intro_spark')) {
+      const DS = 6;
+      const { canvas, ctx } = ArtRegistry.createCanvas(DS * 2, DS * 2);
+      ctx.scale(2, 2);
+      // 4-pointed white/gold star
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(2, 0, 2, 6); // vertical
+      ctx.fillRect(0, 2, 6, 2); // horizontal
+      ctx.fillStyle = '#ffdd66';
+      ctx.fillRect(1, 1, 1, 1);
+      ctx.fillRect(4, 1, 1, 1);
+      ctx.fillRect(1, 4, 1, 1);
+      ctx.fillRect(4, 4, 1, 1);
+      // Bright center
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(2, 2, 2, 2);
+      ArtRegistry.registerTexture(scene, 'fx_intro_spark', canvas);
+    }
+  }
+
   // ─── Runtime effect methods (called from BattleScene) ──────────────
 
   /** Play a physical attack effect on the target sprite */
@@ -269,6 +330,138 @@ export class BattleEffects {
         duration: 600 + Math.random() * 300,
         delay: i * 80,
         onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  // ─── Status effect textures ──────────────
+  private static generateStatusParticles(scene: Phaser.Scene): void {
+    // Poison bubble (purple)
+    if (!scene.textures.exists('fx_poison')) {
+      const S = 8;
+      const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+      ctx.scale(2, 2);
+      ctx.fillStyle = '#9944cc';
+      ctx.beginPath();
+      ctx.arc(4, 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#cc66ff';
+      ctx.beginPath();
+      ctx.arc(3, 3, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(2, 2, 1, 1);
+      ArtRegistry.registerTexture(scene, 'fx_poison', canvas);
+    }
+
+    // Paralysis spark (yellow)
+    if (!scene.textures.exists('fx_paralysis')) {
+      const S = 8;
+      const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+      ctx.scale(2, 2);
+      ctx.fillStyle = '#ffee44';
+      ctx.fillRect(3, 0, 2, 8);
+      ctx.fillRect(0, 3, 8, 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(3, 3, 2, 2);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillRect(1, 1, 2, 1);
+      ctx.fillRect(5, 6, 2, 1);
+      ArtRegistry.registerTexture(scene, 'fx_paralysis', canvas);
+    }
+
+    // Confusion star (pink/yellow)
+    if (!scene.textures.exists('fx_confusion')) {
+      const S = 10;
+      const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S * 2);
+      ctx.scale(2, 2);
+      ctx.fillStyle = '#ffcc44';
+      // 4-pointed star
+      ctx.fillRect(4, 0, 2, 10);
+      ctx.fillRect(0, 4, 10, 2);
+      ctx.fillStyle = '#ff88cc';
+      ctx.fillRect(2, 2, 2, 2);
+      ctx.fillRect(6, 2, 2, 2);
+      ctx.fillRect(2, 6, 2, 2);
+      ctx.fillRect(6, 6, 2, 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(4, 4, 2, 2);
+      ArtRegistry.registerTexture(scene, 'fx_confusion', canvas);
+    }
+  }
+
+  /** Play poison effect — purple bubbles rising */
+  static playPoisonEffect(scene: Phaser.Scene, x: number, y: number): void {
+    for (let i = 0; i < 6; i++) {
+      const px = x + (Math.random() - 0.5) * 30;
+      const py = y + 10;
+      const particle = scene.add.image(px, py, 'fx_poison')
+        .setDepth(200).setAlpha(0.85);
+
+      scene.tweens.add({
+        targets: particle,
+        y: py - 40 - Math.random() * 25,
+        x: px + (Math.random() - 0.5) * 15,
+        alpha: 0,
+        scale: { from: 1, to: 0.4 },
+        duration: 600 + Math.random() * 400,
+        delay: i * 80,
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /** Play paralysis effect — yellow sparks around target */
+  static playParalysisEffect(scene: Phaser.Scene, x: number, y: number): void {
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const radius = 25 + Math.random() * 15;
+      const px = x + Math.cos(angle) * radius;
+      const py = y + Math.sin(angle) * radius * 0.6;
+      const particle = scene.add.image(px, py, 'fx_paralysis')
+        .setDepth(200).setAlpha(0.9).setAngle(Math.random() * 360);
+
+      scene.tweens.add({
+        targets: particle,
+        x: px + (Math.random() - 0.5) * 20,
+        y: py + (Math.random() - 0.5) * 20,
+        alpha: 0,
+        scale: { from: 1.2, to: 0 },
+        angle: particle.angle + 180,
+        duration: 300 + Math.random() * 200,
+        delay: i * 50,
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /** Play confusion effect — spinning stars above head */
+  static playConfusionEffect(scene: Phaser.Scene, x: number, y: number): void {
+    for (let i = 0; i < 3; i++) {
+      const startAngle = (i / 3) * Math.PI * 2;
+      const star = scene.add.image(x, y - 60, 'fx_confusion')
+        .setDepth(200).setAlpha(0.9).setScale(0.8);
+
+      // Orbit animation
+      const radius = 20;
+      let t = startAngle;
+      const timer = scene.time.addEvent({
+        delay: 30,
+        callback: () => {
+          t += 0.15;
+          star.x = x + Math.cos(t) * radius;
+          star.y = (y - 60) + Math.sin(t) * radius * 0.4;
+          star.angle += 8;
+        },
+        repeat: 30,
+      });
+
+      scene.tweens.add({
+        targets: star,
+        alpha: 0,
+        duration: 900,
+        delay: 100,
+        onComplete: () => { timer.destroy(); star.destroy(); },
       });
     }
   }

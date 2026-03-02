@@ -14,6 +14,11 @@ export type MonsterShape =
   | 'goblin' | 'ghost' | 'elemental' | 'gargoyle' | 'dragon'
   | 'insect' | 'fish' | 'bird' | 'bear' | 'turtle' | 'crab' | 'plant';
 
+/** Shapes whose heads/eyes face RIGHT in canvas space — need flipX in diagonal battle layout */
+export const RIGHT_FACING_SHAPES = new Set<MonsterShape>([
+  'wolf', 'dragon', 'fish', 'bird', 'turtle',
+]);
+
 /** Monster visual config */
 export interface MonsterVisual {
   shape: MonsterShape;
@@ -67,36 +72,46 @@ export function drawMonsterShape(
 
 function drawSlime(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, base: string, accent: string, variant: number = 0): void {
   const cx = ox + w / 2;
-  const dropTop = oy + h * 0.08;
-  const dropBot = oy + h * 0.92;
-  const dropH = dropBot - dropTop;
-  const maxR = w * 0.4;
+  // Pudgy dome — 矮胖型 (short & fat, not teardrop)
+  const bodyTop = oy + h * 0.22;
+  const bodyBot = oy + h * 0.92;
+  const bodyH = bodyBot - bodyTop;
+  const maxR = w * 0.46;
 
-  const eyeHalf = variant === 0 ? 0.095 : variant === 1 ? 0.08 : 0.11;
-  const hlOffsetX = variant === 0 ? 0.25 : variant === 1 ? 0.2 : 0.3;
-  const hlOffsetY = variant === 0 ? 0.22 : variant === 1 ? 0.28 : 0.18;
+  const eyeHalf = variant === 0 ? 0.11 : variant === 1 ? 0.095 : 0.13;
+  const hlOffsetX = variant === 0 ? 0.28 : variant === 1 ? 0.22 : 0.32;
+  const hlOffsetY = variant === 0 ? 0.18 : variant === 1 ? 0.22 : 0.15;
   const mouthW = variant === 0 ? 0.12 : variant === 1 ? 0.1 : 0.14;
 
-  // Water-drop body (scanline teardrop with enhanced gradient)
-  for (let py = Math.floor(dropTop); py <= Math.ceil(dropBot); py++) {
-    const t = (py - dropTop) / dropH;
+  // Scanline pudgy dome body
+  for (let py = Math.floor(bodyTop); py <= Math.ceil(bodyBot); py++) {
+    const t = (py - bodyTop) / bodyH;
     let r: number;
-    if (t < 0.7) {
-      r = maxR * Math.pow(t / 0.7, 0.5);
+    if (t < 0.05) {
+      // Tiny tip at very top
+      r = maxR * 0.08 + maxR * 0.12 * (t / 0.05);
+    } else if (t < 0.3) {
+      // Rapid dome expansion (sqrt curve for rounded top)
+      const dt = (t - 0.05) / 0.25;
+      r = maxR * (0.2 + 0.8 * Math.pow(dt, 0.45));
+    } else if (t < 0.88) {
+      // Wide belly — full width
+      r = maxR;
     } else {
-      const bt = (t - 0.7) / 0.3;
-      r = maxR * Math.cos(bt * Math.PI / 2);
+      // Bottom — very gentle inward curve
+      const bt = (t - 0.88) / 0.12;
+      r = maxR * (1 - bt * 0.06);
     }
     if (r < 0.5) continue;
 
     // Enhanced gradient: 3-zone shading (highlight → base → shadow)
     let shade: string;
-    if (t < 0.3) {
-      shade = lighten(base, 0.2 * (1 - t / 0.3));
-    } else if (t < 0.65) {
+    if (t < 0.25) {
+      shade = lighten(base, 0.2 * (1 - t / 0.25));
+    } else if (t < 0.6) {
       shade = base;
     } else {
-      shade = darken(base, 0.15 * ((t - 0.65) / 0.35));
+      shade = darken(base, 0.15 * ((t - 0.6) / 0.4));
     }
 
     // Horizontal sub-gradient: lighter in center, darker at edges
@@ -115,7 +130,7 @@ function drawSlime(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: num
     }
     ctx.fillRect(x1, py, rw, 1);
 
-    // Dark outline edges (2px for volume)
+    // Dark outline edges
     if (r > 3) {
       ctx.fillStyle = darken(base, 0.35);
       ctx.fillRect(x1, py, 1, 1);
@@ -123,21 +138,21 @@ function drawSlime(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: num
     }
   }
 
-  // Top outline (dark point)
+  // Top outline (tiny tip)
   ctx.fillStyle = darken(base, 0.35);
-  const topPx = Math.round(dropTop + dropH * 0.03);
-  ctx.fillRect(Math.round(cx), topPx, 1, 1);
+  const topPx = Math.round(bodyTop + bodyH * 0.01);
+  ctx.fillRect(Math.round(cx), topPx, 1, 2);
 
-  // Large specular highlight (position varies by variant)
+  // Specular highlight (larger for pudgy body)
   const hlX = cx - maxR * hlOffsetX;
-  const hlY = dropTop + dropH * hlOffsetY;
-  addHighlight(ctx, hlX, hlY, w * 0.12, 0.55);
+  const hlY = bodyTop + bodyH * hlOffsetY;
+  addHighlight(ctx, hlX, hlY, w * 0.14, 0.55);
   // Small bright dot inside highlight
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
   ctx.fillRect(Math.round(hlX - w * 0.015), Math.round(hlY - h * 0.015), Math.max(2, w * 0.04), Math.max(2, h * 0.03));
 
-  // Eyes
-  const eyeY = dropTop + dropH * 0.5;
+  // Eyes — in the wide belly zone
+  const eyeY = bodyTop + bodyH * 0.48;
   const eyeL = cx - w * eyeHalf;
   const eyeR = cx + w * eyeHalf;
   const eyeSize = w * 0.1;
@@ -146,7 +161,7 @@ function drawSlime(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: num
 
   // Mouth (curved smile)
   ctx.fillStyle = darken(base, 0.35);
-  const mouthY = eyeY + h * 0.13;
+  const mouthY = eyeY + h * 0.1;
   const mw = w * mouthW;
   ctx.fillRect(Math.round(cx - mw / 2), Math.round(mouthY), Math.max(2, Math.round(mw)), 1);
   ctx.fillRect(Math.round(cx - mw / 2 - 1), Math.round(mouthY - 1), 1, 1);
@@ -257,43 +272,55 @@ function drawWolf(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: numb
 function drawSnake(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, base: string, accent: string): void {
   const cx = ox + w / 2;
 
-  // Coiled body with gradient per segment
-  for (let i = 7; i >= 0; i--) {
-    const sx = ox + w * 0.3 + Math.sin(i * 0.8) * w * 0.2;
-    const sy = oy + h * 0.3 + i * h * 0.07;
-    const segW = Math.max(3, w * 0.28);
-    const segH = Math.max(3, h * 0.11);
-    const segColor = i % 2 === 0 ? base : darken(base, 0.08);
-    fillGradientOval(ctx, sx, sy, segW, segH, segColor, { lightOff: 0.2 });
+  // Thick coiled body — 矮胖型, wide overlapping segments (bottom-up)
+  // Minimal horizontal oscillation avoids the bow-tie pinch
+  const coils = 5;
+  for (let i = coils - 1; i >= 0; i--) {
+    const offset = Math.sin(i * 1.2) * w * 0.04;
+    const sy = oy + h * 0.42 + i * h * 0.1;
+    const segW = w * 0.48;
+    const segH = h * 0.13;
+    const segColor = i % 2 === 0 ? base : darken(base, 0.06);
+    fillGradientOval(ctx, cx - segW / 2 + offset, sy, segW, segH, segColor, { lightOff: 0.15 });
   }
 
-  // Scale pattern
-  for (let i = 0; i < 7; i++) {
-    const sx = ox + w * 0.35 + Math.sin(i * 0.8) * w * 0.2;
-    const sy = oy + h * 0.32 + i * h * 0.07;
-    drawTexture(ctx, sx, sy, w * 0.2, h * 0.08, 'scales', base, 0.5);
+  // Scale pattern on coils
+  for (let i = 0; i < coils; i++) {
+    const offset = Math.sin(i * 1.2) * w * 0.04;
+    const sy = oy + h * 0.44 + i * h * 0.1;
+    drawTexture(ctx, cx - w * 0.15 + offset, sy, w * 0.3, h * 0.08, 'scales', base, 0.45);
   }
 
-  // Neck (raised)
-  fillGradientRect(ctx, ox + w * 0.42, oy + h * 0.15, w * 0.1, h * 0.18, base);
+  // Tail tip curving out from bottom coil
+  ctx.strokeStyle = darken(base, 0.1);
+  ctx.lineWidth = Math.max(2, w * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(cx + w * 0.2, oy + h * 0.88);
+  ctx.quadraticCurveTo(cx + w * 0.32, oy + h * 0.92, cx + w * 0.38, oy + h * 0.86);
+  ctx.stroke();
 
-  // Head
-  fillGradientOval(ctx, ox + w * 0.35, oy + h * 0.06, w * 0.28, h * 0.2, darken(base, 0.05));
+  // Neck rising from top coil
+  fillGradientRect(ctx, cx - w * 0.06, oy + h * 0.2, w * 0.12, h * 0.24, base);
+
+  // Head (cobra)
+  fillGradientOval(ctx, cx - w * 0.14, oy + h * 0.06, w * 0.28, h * 0.2, darken(base, 0.05));
 
   // Hood (cobra spread)
-  fillGradientOval(ctx, ox + w * 0.3, oy + h * 0.12, w * 0.35, h * 0.12, lighten(base, 0.05), { lightOff: 0.1 });
+  fillGradientOval(ctx, cx - w * 0.18, oy + h * 0.12, w * 0.36, h * 0.12, lighten(base, 0.05), { lightOff: 0.1 });
 
-  // Eyes
-  drawEye(ctx, ox + w * 0.42, oy + h * 0.12, w * 0.05, accent);
-  drawEye(ctx, ox + w * 0.52, oy + h * 0.12, w * 0.05, accent);
+  // Eyes (centered)
+  drawEye(ctx, cx - w * 0.06, oy + h * 0.12, w * 0.05, accent);
+  drawEye(ctx, cx + w * 0.06, oy + h * 0.12, w * 0.05, accent);
 
-  // Tongue
+  // Forked tongue
   ctx.fillStyle = '#cc2222';
-  ctx.fillRect(Math.round(ox + w * 0.57), Math.round(oy + h * 0.18), Math.max(3, w * 0.06), 1);
-  ctx.fillRect(Math.round(ox + w * 0.62), Math.round(oy + h * 0.17), 2, 1);
-  ctx.fillRect(Math.round(ox + w * 0.62), Math.round(oy + h * 0.19), 2, 1);
+  const tongueX = Math.round(cx + w * 0.1);
+  const tongueY = Math.round(oy + h * 0.18);
+  ctx.fillRect(tongueX, tongueY, Math.max(3, Math.round(w * 0.06)), 1);
+  ctx.fillRect(tongueX + Math.max(3, Math.round(w * 0.05)), tongueY - 1, 2, 1);
+  ctx.fillRect(tongueX + Math.max(3, Math.round(w * 0.05)), tongueY + 1, 2, 1);
 
-  addHighlight(ctx, ox + w * 0.4, oy + h * 0.1, w * 0.06, 0.3);
+  addHighlight(ctx, cx - w * 0.06, oy + h * 0.1, w * 0.06, 0.3);
 }
 
 function drawSpider(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, base: string, accent: string): void {
@@ -1043,7 +1070,7 @@ function drawPlant(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: num
 
 // ─── Feature overlays ──────────────────────────────────────────────
 
-function drawFeature(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, feat: string, accent: string): void {
+export function drawFeature(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, feat: string, accent: string): void {
   if (feat === 'horns') {
     fillGradientTriangle(ctx, ox + w * 0.2, oy + h * 0.15, ox + w * 0.1, oy - h * 0.05, ox + w * 0.25, oy + h * 0.05, darken(accent, 0.3));
     fillGradientTriangle(ctx, ox + w * 0.7, oy + h * 0.15, ox + w * 0.75, oy - h * 0.05, ox + w * 0.85, oy + h * 0.05, darken(accent, 0.3));

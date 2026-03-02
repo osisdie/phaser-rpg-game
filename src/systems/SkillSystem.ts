@@ -1,4 +1,4 @@
-import type { SkillData, CharacterData, CombatantState } from '../types';
+import type { SkillData, CharacterData, CombatantState, StatusType } from '../types';
 import { getSkillById } from '../data/skills/index';
 import { calculateSkillDamage, calculateHeal } from '../utils/formulas';
 
@@ -13,9 +13,9 @@ export class SkillSystem {
     skill: SkillData,
     user: CombatantState,
     targets: CombatantState[]
-  ): { target: CombatantState; value: number; type: 'damage' | 'heal' }[] {
+  ): { target: CombatantState; value: number; type: 'damage' | 'heal'; statusApplied?: StatusType }[] {
     user.stats.mp -= skill.mpCost;
-    const results: { target: CombatantState; value: number; type: 'damage' | 'heal' }[] = [];
+    const results: { target: CombatantState; value: number; type: 'damage' | 'heal'; statusApplied?: StatusType }[] = [];
 
     const userLevel = user.level ?? 1;
     for (const target of targets) {

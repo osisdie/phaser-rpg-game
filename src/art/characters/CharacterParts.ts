@@ -15,7 +15,7 @@ export interface CharacterAppearance {
 }
 
 /** Direction for sprite facing (includes diagonal 3/4 views for battle) */
-export type Direction = 'down' | 'left' | 'right' | 'up' | 'down_left' | 'down_right';
+export type Direction = 'down' | 'left' | 'right' | 'up' | 'down_left' | 'down_right' | 'up_left' | 'up_right';
 
 /** Walk animation frame (0=left-step, 1=neutral-pass, 2=right-step, 3=neutral-pass) */
 export type WalkFrame = 0 | 1 | 2 | 3;

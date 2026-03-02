@@ -18,6 +18,9 @@ const DESIGN_H = 48;
 /** Directions in spritesheet order (6 directions: 4 cardinal + 2 diagonal for battle) */
 const DIRECTIONS: Direction[] = ['down', 'left', 'right', 'up', 'down_left', 'down_right'];
 
+/** Battle-only directions: adds back-diagonal (3/4 rear) views for dramatic cape display */
+const BATTLE_DIRECTIONS: Direction[] = [...DIRECTIONS, 'up_left', 'up_right'];
+
 /**
  * CharacterRenderer — Generates character spritesheets using Canvas 2D.
  * Each spritesheet = 4 cols (walk frames) × 6 rows (directions) = 24 frames
@@ -83,7 +86,7 @@ export class CharacterRenderer {
     ArtRegistry.registerSpriteSheet(scene, key, canvas, CHAR_W, CHAR_H);
   }
 
-  /** Generate a 2× resolution battle spritesheet (128×192 per frame, pixel-perfect) */
+  /** Generate a 2× resolution battle spritesheet (128×192 per frame, 8 directions including back-diagonal) */
   static generateBattleSheet(scene: Phaser.Scene, key: string, appearance: CharacterAppearance): void {
     const battleKey = `${key}_battle`;
     if (scene.textures.exists(battleKey)) return;
@@ -92,11 +95,11 @@ export class CharacterRenderer {
     const bw = CHAR_W * S;
     const bh = CHAR_H * S;
     const sheetW = bw * 4;
-    const sheetH = bh * DIRECTIONS.length;
+    const sheetH = bh * BATTLE_DIRECTIONS.length;
     const { canvas, ctx } = ArtRegistry.createCanvas(sheetW, sheetH);
 
-    for (let dirIdx = 0; dirIdx < DIRECTIONS.length; dirIdx++) {
-      const dir = DIRECTIONS[dirIdx];
+    for (let dirIdx = 0; dirIdx < BATTLE_DIRECTIONS.length; dirIdx++) {
+      const dir = BATTLE_DIRECTIONS[dirIdx];
       for (let frame = 0; frame < 4; frame++) {
         ctx.save();
         ctx.translate(frame * bw, dirIdx * bh);
@@ -124,6 +127,12 @@ export class CharacterRenderer {
     // Diagonal directions share base logic with 'down' but asymmetric
     if (dir === 'down_left' || dir === 'down_right') {
       this.drawCharacterDiagonal(ctx, ox, oy, app, dir, bounce, legOffset, armSwing, capeWave);
+      return;
+    }
+
+    // Back-diagonal: 3/4 rear view with dramatic cape — battle only
+    if (dir === 'up_left' || dir === 'up_right') {
+      this.drawCharacterBackDiagonal(ctx, ox, oy, app, dir, bounce, legOffset, armSwing, capeWave);
       return;
     }
 
@@ -561,11 +570,36 @@ export class CharacterRenderer {
 
       ctx.fillStyle = app.weaponColor;
       if (app.weapon === 'sword') {
-        ctx.fillRect(wpnX, wpnY, 3, 15);
+        // Diagonal sword pointing toward enemies (upper-right for down_right, upper-left for down_left)
+        const swordDir = m ? 1 : -1;
+        const bladeLen = 12;
+        const handX = wpnX + 1;
+        const handY = wpnY + 4;
+
+        // Blade (diagonal staircase, 2px wide per step)
+        ctx.fillStyle = app.weaponColor;
+        for (let i = 0; i < bladeLen; i++) {
+          ctx.fillRect(handX + swordDir * i, handY - i, 2, 2);
+        }
+        // Blade edge highlight
+        ctx.fillStyle = lighten(app.weaponColor, 0.3);
+        for (let i = 0; i < bladeLen; i++) {
+          ctx.fillRect(handX + swordDir * i, handY - i, 1, 1);
+        }
+        // Tip (pointed)
+        ctx.fillStyle = lighten(app.weaponColor, 0.2);
+        ctx.fillRect(handX + swordDir * bladeLen, handY - bladeLen, 1, 1);
+
+        // Crossguard (perpendicular to blade at hand position)
         ctx.fillStyle = darken(app.weaponColor, 0.2);
-        ctx.fillRect(wpnX - 1, wpnY + 12, 5, 3);
+        ctx.fillRect(handX - 1, handY + 1, 1, 3);
+        ctx.fillRect(handX + swordDir * 1 + 1, handY - 1, 1, 3);
+
+        // Handle (continues diagonal past hand, shorter)
         ctx.fillStyle = MEDIEVAL.woodMedium;
-        ctx.fillRect(wpnX, wpnY + 15, 3, 4);
+        for (let i = 1; i <= 3; i++) {
+          ctx.fillRect(handX - swordDir * i, handY + i, 2, 2);
+        }
       } else if (app.weapon === 'staff') {
         ctx.fillRect(wpnX, wpnY - 6, 3, 27);
         ctx.fillStyle = lighten(app.weaponColor, 0.3);
@@ -581,6 +615,223 @@ export class CharacterRenderer {
         ctx.fillRect(wpnX - 3, wpnY, 5, 6);
       } else if (app.weapon === 'dagger') {
         ctx.fillRect(wpnX, wpnY + 3, 3, 9);
+      } else if (app.weapon === 'hammer') {
+        ctx.fillRect(wpnX, wpnY, 3, 18);
+        ctx.fillStyle = MEDIEVAL.ironDark;
+        ctx.fillRect(wpnX - 3, wpnY - 3, 8, 6);
+      }
+    }
+  }
+
+  /**
+   * Draw a back-diagonal (3/4 rear view) character frame — battle only.
+   * up_right = facing away-right, cape dominates; up_left = mirror.
+   * Cape is ~22px body + ~28px flare (vs 13/16 in front-diagonal) — covers 80% of view.
+   */
+  private static drawCharacterBackDiagonal(
+    ctx: CanvasRenderingContext2D, ox: number, oy: number,
+    app: CharacterAppearance, dir: 'up_left' | 'up_right',
+    bounce: number, legOffset: number, armSwing: number, capeWave: number,
+  ): void {
+    // Mirror helper: up_right mirrors the same way as down_right
+    const m = dir === 'up_right';
+    const mRect = (x: number, w: number) => m ? (DESIGN_W - x - w) : x;
+
+    // ── Legs ──
+    const legY = oy + 36 + bounce;
+    ctx.fillStyle = darken(app.bodyColor, 0.25);
+    // Near leg
+    ctx.fillRect(ox + mRect(10, 4) + legOffset, legY, 4, 10);
+    ctx.fillStyle = darken(app.bodyColor, 0.4);
+    ctx.fillRect(ox + mRect(10, 4) + legOffset, legY + 8, 4, 3);
+    // Far leg
+    ctx.fillStyle = darken(app.bodyColor, 0.25);
+    ctx.fillRect(ox + mRect(17, 4) - legOffset, legY, 4, 10);
+    ctx.fillStyle = darken(app.bodyColor, 0.4);
+    ctx.fillRect(ox + mRect(17, 4) - legOffset, legY + 8, 4, 3);
+
+    // ── Body (back of torso — no chest emblem, no belt buckle visible) ──
+    const bodyY = oy + 18 + bounce;
+    ctx.fillStyle = darken(app.bodyColor, 0.08); // slightly darker = back of armor
+    ctx.fillRect(ox + mRect(7, 17), bodyY, 17, 18);
+
+    if (app.bodyType === 'armor') {
+      // Shoulder pauldrons (seen from behind)
+      ctx.fillStyle = lighten(app.bodyColor, 0.1);
+      ctx.fillRect(ox + mRect(4, 5), bodyY, 5, 5);
+      ctx.fillRect(ox + mRect(22, 5), bodyY, 5, 5);
+      ctx.fillStyle = lighten(app.bodyColor, 0.25);
+      ctx.fillRect(ox + mRect(4, 5), bodyY, 5, 2);
+      ctx.fillRect(ox + mRect(22, 5), bodyY, 5, 2);
+      // Back plate seam (center vertical line)
+      ctx.fillStyle = darken(app.bodyColor, 0.2);
+      ctx.fillRect(ox + mRect(15, 1), bodyY + 3, 1, 12);
+      // Belt (from behind — no buckle visible)
+      ctx.fillStyle = darken(app.bodyColor, 0.3);
+      ctx.fillRect(ox + mRect(7, 17), bodyY + 15, 17, 3);
+    } else if (app.bodyType === 'robe') {
+      ctx.fillRect(ox + mRect(7, 17), bodyY, 17, 24);
+      // Robe center seam
+      ctx.fillStyle = darken(app.bodyColor, 0.12);
+      ctx.fillRect(ox + mRect(15, 1), bodyY + 3, 1, 21);
+    } else if (app.bodyType === 'dress') {
+      ctx.fillRect(ox + mRect(7, 17), bodyY, 17, 24);
+      ctx.fillRect(ox + mRect(6, 19), bodyY + 15, 19, 9);
+    } else {
+      // tunic / leather back
+      ctx.fillStyle = darken(app.bodyColor, 0.1);
+      ctx.fillRect(ox + mRect(11, 8), bodyY, 8, 3); // collar back
+    }
+
+    // ── Arms (back arm prominent, front arm hidden) ──
+    ctx.fillStyle = app.skinColor;
+    // Back arm (fully visible, wider — 3px)
+    ctx.fillRect(ox + mRect(24, 3), bodyY + 3 + armSwing, 3, 12);
+    // Front arm (barely peeking — 2px)
+    ctx.fillStyle = darken(app.skinColor, 0.1);
+    ctx.fillRect(ox + mRect(5, 2), bodyY + 4 - armSwing, 2, 10);
+
+    // ── Cape (drawn OVER body+arms so it drapes visually on top) ──
+    if (app.cape) {
+      const cY = oy + 16 + bounce;
+      // Cape shadow (widest layer)
+      ctx.fillStyle = darken(app.capeColor, 0.2);
+      ctx.fillRect(ox + mRect(5, 22), cY + 1, 22, 25);
+      // Cape body (main color — very wide)
+      ctx.fillStyle = app.capeColor;
+      ctx.fillRect(ox + mRect(6, 20), cY, 20, 24);
+      // Cape shoulder wrap (overlaps body at top for draping effect)
+      ctx.fillStyle = darken(app.capeColor, 0.05);
+      ctx.fillRect(ox + mRect(5, 22), cY, 22, 4);
+      // Cape highlight (top edge shimmer)
+      ctx.fillStyle = lighten(app.capeColor, 0.25);
+      ctx.fillRect(ox + mRect(6, 20), cY, 20, 2);
+      // Center fold line (subtle vertical crease)
+      ctx.fillStyle = darken(app.capeColor, 0.1);
+      ctx.fillRect(ox + mRect(15, 2), cY + 4, 2, 18);
+      // Cape bottom flare — wider than body, with flutter
+      const diagWave = m ? capeWave : -capeWave;
+      ctx.fillStyle = darken(app.capeColor, 0.08);
+      ctx.fillRect(ox + mRect(2, 28) + diagWave, cY + 21, 28, 6);
+      // Flare highlight edge
+      ctx.fillStyle = lighten(app.capeColor, 0.1);
+      ctx.fillRect(ox + mRect(3, 26) + diagWave, cY + 21, 26, 2);
+    }
+
+    // ── Head (back of head, slightly turned — one eye peeking at edge) ──
+    const headY = oy + 6 + bounce;
+    ctx.fillStyle = app.skinColor;
+    ctx.fillRect(ox + mRect(10, 11), headY, 11, 12);
+    ctx.fillRect(ox + mRect(9, 13), headY + 2, 13, 8);
+
+    // ── Face — only 1 eye peeking from the near edge, no mouth ──
+    ctx.fillStyle = '#222222';
+    ctx.fillRect(ox + mRect(10, 2), headY + 4, 2, 3); // near-side eye (matches front-diagonal size)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(ox + mRect(10, 1), headY + 4, 1, 1); // eye white
+
+    // ── Hair (full back view — more prominent) ──
+    ctx.fillStyle = app.hairColor;
+    if (app.hairStyle === 'short') {
+      ctx.fillRect(ox + mRect(9, 13), headY - 2, 13, 5);
+      ctx.fillRect(ox + mRect(9, 2), headY, 2, 7);
+      ctx.fillRect(ox + mRect(20, 2), headY, 2, 7);
+      // Back of head hair coverage
+      ctx.fillRect(ox + mRect(10, 12), headY + 2, 12, 4);
+    } else if (app.hairStyle === 'long') {
+      ctx.fillRect(ox + mRect(9, 13), headY - 2, 13, 5);
+      // Long hair drapes down the back
+      ctx.fillRect(ox + mRect(7, 3), headY, 3, 16);
+      ctx.fillRect(ox + mRect(21, 3), headY, 3, 16);
+      ctx.fillRect(ox + mRect(10, 12), headY + 2, 12, 10);
+    } else if (app.hairStyle === 'spiky') {
+      ctx.fillRect(ox + mRect(9, 13), headY - 3, 13, 5);
+      ctx.fillRect(ox + mRect(10, 3), headY - 5, 3, 3);
+      ctx.fillRect(ox + mRect(16, 3), headY - 5, 3, 3);
+      ctx.fillRect(ox + mRect(13, 4), headY - 6, 4, 3);
+      ctx.fillRect(ox + mRect(10, 12), headY + 2, 12, 4);
+    } else if (app.hairStyle === 'ponytail') {
+      ctx.fillRect(ox + mRect(9, 13), headY - 2, 13, 5);
+      ctx.fillRect(ox + mRect(10, 12), headY + 2, 12, 4);
+      // Ponytail hangs down prominently from the back
+      ctx.fillRect(ox + mRect(14, 4), headY + 5, 4, 4);
+      ctx.fillRect(ox + mRect(15, 3), headY + 9, 3, 10);
+    }
+
+    // ── Headgear (rear profile) ──
+    if (app.headgear === 'helmet') {
+      ctx.fillStyle = MEDIEVAL.ironMedium;
+      ctx.fillRect(ox + mRect(7, 17), headY - 3, 17, 8);
+      ctx.fillStyle = MEDIEVAL.ironLight;
+      ctx.fillRect(ox + mRect(8, 15), headY - 3, 15, 2);
+      // Back ridge
+      ctx.fillStyle = darken(MEDIEVAL.ironMedium, 0.15);
+      ctx.fillRect(ox + mRect(15, 2), headY - 3, 2, 8);
+    } else if (app.headgear === 'wizard_hat') {
+      ctx.fillStyle = '#3333aa';
+      ctx.fillRect(ox + mRect(7, 17), headY - 3, 17, 6);
+      ctx.fillRect(ox + mRect(10, 11), headY - 8, 11, 5);
+      ctx.fillRect(ox + mRect(12, 7), headY - 11, 7, 3);
+      ctx.fillRect(ox + mRect(14, 3), headY - 12, 3, 2);
+      // Hat brim visible from behind
+      ctx.fillStyle = darken('#3333aa', 0.15);
+      ctx.fillRect(ox + mRect(6, 19), headY + 1, 19, 2);
+    } else if (app.headgear === 'hood') {
+      ctx.fillStyle = app.bodyColor;
+      ctx.fillRect(ox + mRect(7, 17), headY - 3, 17, 10);
+      ctx.fillRect(ox + mRect(6, 2), headY, 2, 9);
+      ctx.fillRect(ox + mRect(23, 2), headY, 2, 9);
+      // Hood drape at back
+      ctx.fillStyle = darken(app.bodyColor, 0.1);
+      ctx.fillRect(ox + mRect(10, 12), headY + 5, 12, 5);
+    } else if (app.headgear === 'crown') {
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(ox + mRect(8, 15), headY - 3, 15, 5);
+      // Rear prongs of crown
+      ctx.fillStyle = MEDIEVAL.goldBright;
+      ctx.fillRect(ox + mRect(10, 3), headY - 5, 3, 2);
+      ctx.fillRect(ox + mRect(14, 3), headY - 6, 3, 3);
+      ctx.fillRect(ox + mRect(18, 3), headY - 5, 3, 2);
+    } else if (app.headgear === 'circlet') {
+      ctx.fillStyle = MEDIEVAL.gold;
+      ctx.fillRect(ox + mRect(9, 13), headY - 1, 13, 2);
+      // Gem barely visible at edge
+      ctx.fillStyle = '#44aaff';
+      ctx.fillRect(ox + mRect(10, 2), headY - 1, 2, 2);
+    } else if (app.headgear === 'bandana') {
+      ctx.fillStyle = '#cc3333';
+      ctx.fillRect(ox + mRect(9, 13), headY - 1, 13, 3);
+      // Bandana tail flowing behind
+      ctx.fillRect(ox + mRect(20, 4), headY + 1, 4, 6);
+    }
+
+    // ── Weapon (on back arm / trailing side — more visible from rear) ──
+    if (app.weapon !== 'none') {
+      const wpnX = ox + mRect(24, 3);
+      const wpnY = bodyY + 5;
+
+      ctx.fillStyle = app.weaponColor;
+      if (app.weapon === 'sword') {
+        ctx.fillRect(wpnX, wpnY - 4, 3, 18);
+        ctx.fillStyle = darken(app.weaponColor, 0.2);
+        ctx.fillRect(wpnX - 1, wpnY + 11, 5, 3);
+        ctx.fillStyle = MEDIEVAL.woodMedium;
+        ctx.fillRect(wpnX, wpnY + 14, 3, 4);
+      } else if (app.weapon === 'staff') {
+        ctx.fillRect(wpnX, wpnY - 8, 3, 29);
+        ctx.fillStyle = lighten(app.weaponColor, 0.3);
+        ctx.fillRect(wpnX - 2, wpnY - 11, 5, 5);
+      } else if (app.weapon === 'bow') {
+        ctx.fillStyle = MEDIEVAL.woodMedium;
+        ctx.fillRect(wpnX, wpnY - 2, 2, 20);
+        ctx.fillStyle = '#cccccc';
+        ctx.fillRect(wpnX + 2, wpnY - 2, 1, 20);
+      } else if (app.weapon === 'axe') {
+        ctx.fillRect(wpnX, wpnY, 3, 18);
+        ctx.fillStyle = MEDIEVAL.ironMedium;
+        ctx.fillRect(wpnX - 3, wpnY, 5, 6);
+      } else if (app.weapon === 'dagger') {
+        ctx.fillRect(wpnX, wpnY + 2, 3, 10);
       } else if (app.weapon === 'hammer') {
         ctx.fillRect(wpnX, wpnY, 3, 18);
         ctx.fillStyle = MEDIEVAL.ironDark;
@@ -629,11 +880,11 @@ export class CharacterRenderer {
       }
     }
 
-    // Register idle animations for battle-resolution textures (same layout, 2× size)
+    // Register idle animations for battle-resolution textures (8 directions including back-diagonal)
     const battleTexKeys = scene.textures.getTextureKeys().filter(k => k.startsWith('char_') && k.endsWith('_battle'));
     for (const bKey of battleTexKeys) {
-      for (let dirIdx = 0; dirIdx < DIRECTIONS.length; dirIdx++) {
-        const dir = DIRECTIONS[dirIdx];
+      for (let dirIdx = 0; dirIdx < BATTLE_DIRECTIONS.length; dirIdx++) {
+        const dir = BATTLE_DIRECTIONS[dirIdx];
         const idleKey = `${bKey}_idle_${dir}`;
         if (scene.anims.exists(idleKey)) continue;
         const baseFrame = dirIdx * 4;

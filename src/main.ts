@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { gameConfig } from './config';
+import { gameState } from './systems/GameStateManager';
 
 const game = new Phaser.Game(gameConfig);
-// Expose for debugging
+// Expose for debugging & e2e testing
 (window as any).__GAME__ = game;
+(window as any).__GAME_STATE__ = gameState;
 
 // Auto-focus canvas so keyboard events work immediately
 game.events.on('ready', () => {
