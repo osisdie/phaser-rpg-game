@@ -8,6 +8,9 @@ import {
   pressKey,
   takeScreenshot,
   getSceneKeys,
+  startNewGame,
+  forceStartBattle,
+  getBattleState,
 } from './helpers';
 
 test.describe('Game Boot & Title', () => {
@@ -128,6 +131,85 @@ test.describe('New Game Flow', () => {
 
     await page.waitForTimeout(500);
     await takeScreenshot(page, 'world-map');
+  });
+});
+
+test.describe('Battle Scene — Diagonal Layout', () => {
+  test('battle scene renders with diagonal layout', async ({ page }) => {
+    await startNewGame(page);
+
+    // Force-start a battle with test monsters
+    await forceStartBattle(page, { monsterNames: ['史萊姆', '蝙蝠'] });
+    await page.waitForTimeout(1500); // Wait for sword-crossing intro animation
+
+    const active = await getActiveScene(page);
+    expect(active).toBe('BattleScene');
+
+    // Verify battle state is initialized with statusEffects arrays
+    const state = await getBattleState(page);
+    expect(state).not.toBeNull();
+    expect(state!.party.length).toBeGreaterThan(0);
+    expect(state!.enemies.length).toBe(2);
+    expect(state!.enemies[0].name).toBe('史萊姆');
+    expect(state!.enemies[1].name).toBe('蝙蝠');
+
+    // Verify all combatants have statusEffects array initialized
+    for (const p of state!.party) {
+      expect(p.statusEffects).toEqual([]);
+    }
+    for (const e of state!.enemies) {
+      expect(e.statusEffects).toEqual([]);
+    }
+
+    // Verify party sprites are in the BOTTOM-LEFT area (y > 340, x < 400)
+    const partyPositions = await page.evaluate(() => {
+      const game = (window as any).__GAME__ as Phaser.Game;
+      const battle = game.scene.getScene('BattleScene') as any;
+      return battle.partySprites.map((s: any) => ({ x: s.x, y: s.y }));
+    });
+    for (const pos of partyPositions) {
+      expect(pos.y).toBeGreaterThan(340); // Bottom area
+      expect(pos.x).toBeLessThan(400);    // Left area
+    }
+
+    // Verify enemy sprites are in the TOP-RIGHT area (y < 300, x > 500)
+    const enemyPositions = await page.evaluate(() => {
+      const game = (window as any).__GAME__ as Phaser.Game;
+      const battle = game.scene.getScene('BattleScene') as any;
+      return battle.enemySprites.map((s: any) => ({ x: s.x, y: s.y }));
+    });
+    for (const pos of enemyPositions) {
+      expect(pos.y).toBeLessThan(300);    // Top area
+      expect(pos.x).toBeGreaterThan(500); // Right area
+    }
+
+    await takeScreenshot(page, 'battle-diagonal-layout');
+  });
+
+  test('battle scene handles status effect application', async ({ page }) => {
+    await startNewGame(page);
+
+    // Force battle with a poison monster (毒蛇 has 毒 in name → 25% poison on normal attack)
+    await forceStartBattle(page, {
+      monsterNames: ['毒蛇'],
+      regionId: 'region_hero',
+    });
+
+    // Override the monster to guarantee poison on attack for testing
+    await page.evaluate(() => {
+      const game = (window as any).__GAME__ as Phaser.Game;
+      const battle = game.scene.getScene('BattleScene') as any;
+      const combat = battle.combat;
+      const state = combat.getState();
+      // Manually apply poison to first party member to verify the system works
+      combat.applyStatus(state.party[0], 'poison', 1.0, 'test');
+    });
+
+    // Verify status was applied
+    const state = await getBattleState(page);
+    expect(state!.party[0].statusEffects).toContain('poison');
+
+    await takeScreenshot(page, 'battle-status-poison');
   });
 });
 

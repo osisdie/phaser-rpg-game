@@ -60,21 +60,13 @@ export class BattleHUD extends Phaser.GameObjects.Container {
     });
   }
 
-  setupEnemies(enemies: CombatantState[]): void {
+  setupEnemies(_enemies: CombatantState[]): void {
+    // Enemy HP now displayed as floating bars in BattleScene
     this.enemyTexts.forEach(t => t.destroy());
     this.enemyTexts = [];
-
-    enemies.forEach((enemy, i) => {
-      const text = this.scene.add.text(40, 60 + i * 24, '', {
-        fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textPrimary,
-        stroke: '#000000', strokeThickness: 1,
-      });
-      this.add(text);
-      this.enemyTexts.push(text);
-    });
   }
 
-  updateDisplay(party: CombatantState[], enemies: CombatantState[], turn: number): void {
+  updateDisplay(party: CombatantState[], _enemies: CombatantState[], turn: number): void {
     this.turnText.setText(`第 ${turn} 回合`);
 
     party.forEach((member, i) => {
@@ -89,17 +81,7 @@ export class BattleHUD extends Phaser.GameObjects.Container {
       bar.name.setAlpha(alive ? 1 : 0.4);
     });
 
-    enemies.forEach((enemy, i) => {
-      if (!this.enemyTexts[i]) return;
-      if (enemy.stats.hp > 0) {
-        const hpPercent = Math.floor((enemy.stats.hp / enemy.stats.maxHP) * 100);
-        this.enemyTexts[i].setText(`${enemy.name}  HP: ${hpPercent}%`);
-        this.enemyTexts[i].setAlpha(1);
-      } else {
-        this.enemyTexts[i].setText(`${enemy.name}  ✕`);
-        this.enemyTexts[i].setAlpha(0.4);
-      }
-    });
+    // Enemy HP bars are managed by BattleScene (floating above sprites)
   }
 
   private createBar(x: number, y: number, width: number, height: number, color: number): BarDisplay {

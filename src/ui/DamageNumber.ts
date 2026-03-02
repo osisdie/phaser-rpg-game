@@ -6,16 +6,21 @@ export function showDamageNumber(
   scene: Phaser.Scene,
   x: number,
   y: number,
-  value: number,
-  type: 'damage' | 'heal' | 'miss' = 'damage'
+  value: number | string,
+  type: 'damage' | 'heal' | 'miss' | 'status' = 'damage'
 ): void {
-  const color = type === 'heal' ? COLORS.textHeal : type === 'miss' ? '#aaaaaa' : COLORS.textDamage;
-  const prefix = type === 'heal' ? '+' : type === 'miss' ? '' : '-';
-  const displayText = type === 'miss' ? 'MISS' : `${prefix}${value}`;
+  const color = type === 'heal' ? COLORS.textHeal
+    : type === 'miss' ? '#aaaaaa'
+    : type === 'status' ? '#cc66ff'
+    : COLORS.textDamage;
+  const prefix = type === 'heal' ? '+' : type === 'miss' ? '' : type === 'status' ? '' : '-';
+  const displayText = type === 'miss' ? 'MISS'
+    : type === 'status' ? String(value)
+    : `${prefix}${value}`;
 
   const text = scene.add.text(x, y, displayText, {
     fontFamily: FONT_FAMILY,
-    fontSize: type === 'miss' ? '16px' : '22px',
+    fontSize: type === 'miss' ? '16px' : type === 'status' ? '18px' : '22px',
     color,
     fontStyle: 'bold',
     stroke: '#000000',

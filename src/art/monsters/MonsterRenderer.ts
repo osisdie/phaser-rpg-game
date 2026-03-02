@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { TILE_SIZE } from '../../config';
 import { numToHex } from '../palettes';
 import { ArtRegistry } from '../index';
-import { drawMonsterShape, type MonsterShape, type MonsterVisual } from './MonsterShapes';
+import { drawMonsterShape, drawFeature, type MonsterShape, type MonsterVisual, RIGHT_FACING_SHAPES } from './MonsterShapes';
 
 /**
  * Mapping from monster shape → AI asset texture key.
@@ -71,7 +71,8 @@ const AI_BOSS_MAP: Record<string, string> = {
  * if any new images still have wrong content.
  */
 const AI_CONTENT_BLACKLIST = new Set<string>([
-  // Cleared — All-In-One-Pixel-Model (pixelsprite) produces good isolated sprites
+  'mon_slime', // Use procedural pudgy dome (矮胖型) for better per-element color differentiation
+  'mon_snake', // Use procedural pudgy coiled shape (矮胖型) instead of AI bow-tie
 ]);
 
 /**
@@ -138,7 +139,39 @@ function inferFeatures(monsterName: string): string[] {
   return features;
 }
 
+/** Infer a tint color from monster name for elemental/attribute differentiation.
+ *  Returns null if the monster has no recognizable elemental keyword (keep original AI color). */
+const ELEMENT_TINTS: [string, string][] = [
+  ['金屬', '#99aacc'],  // metallic silver-blue
+  ['海水', '#3388cc'],  // ocean blue
+  ['森林', '#228844'],  // forest green
+  ['泥沼', '#887744'],  // swamp brown
+  ['熔岩', '#dd4411'],  // lava red-orange
+  ['毒', '#9944cc'],    // poison purple
+  ['冰', '#55bbff'],    // ice cyan
+  ['霜', '#66ccee'],    // frost light-cyan
+  ['雪', '#aaddff'],    // snow pale-blue
+  ['火', '#ff5522'],    // fire red-orange
+  ['焰', '#ff6633'],    // flame orange
+  ['暗影', '#555577'],  // shadow dark-purple
+  ['暗', '#444466'],    // dark indigo
+];
+
+function inferTintColor(monsterName: string): string | null {
+  for (const [keyword, color] of ELEMENT_TINTS) {
+    if (monsterName.includes(keyword)) return color;
+  }
+  return null;
+}
+
 export class MonsterRenderer {
+
+  /** Check if a procedural monster needs horizontal flip for diagonal battle layout.
+   *  Right-facing shapes (wolf, dragon, fish, bird, turtle) look off-screen
+   *  when enemies are positioned top-right — flip them to face party. */
+  static needsFlipForBattle(monsterName: string): boolean {
+    return RIGHT_FACING_SHAPES.has(inferShape(monsterName));
+  }
 
   /** Generate all monster textures that exist in game data */
   static generateAll(scene: Phaser.Scene): void {
@@ -173,7 +206,10 @@ export class MonsterRenderer {
     if (aiKey) {
       const MONSTER_BASE = 96;
       const targetSize = isBoss ? MONSTER_BASE * 2 : MONSTER_BASE;
-      if (this.copyAITexture(scene, aiKey, textureKey, targetSize)) return;
+      const tint = inferTintColor(monsterName);
+      const feats = inferFeatures(monsterName);
+      if (isBoss) feats.push('crown');
+      if (this.copyAITexture(scene, aiKey, textureKey, targetSize, tint, feats)) return;
     }
 
     const shape = inferShape(monsterName);
@@ -198,10 +234,14 @@ export class MonsterRenderer {
     if (scene.textures.exists(battleKey)) return battleKey;
 
     // Try AI texture first — scale up to battle resolution with NEAREST filtering
+    // Apply elemental tint + feature overlays for attribute differentiation
     const aiKey = this.findAITexture(scene, monsterName, textureKey, isBoss);
     if (aiKey) {
       const battleSize = isBoss ? 240 : 180;
-      if (this.copyAITexture(scene, aiKey, battleKey, battleSize)) return battleKey;
+      const tint = inferTintColor(monsterName);
+      const feats = inferFeatures(monsterName);
+      if (isBoss) feats.push('crown');
+      if (this.copyAITexture(scene, aiKey, battleKey, battleSize, tint, feats)) return battleKey;
     }
 
     const shape = inferShape(monsterName);
@@ -224,36 +264,26 @@ export class MonsterRenderer {
 
   /**
    * Find an AI-generated texture matching this monster.
-   * Priority: exact AI key match → name-based → shape-based.
+   * Currently disabled — all monsters use procedural rendering for consistent art style.
+   * To re-enable AI textures, restore the lookup logic (see git history).
    */
-  private static findAITexture(scene: Phaser.Scene, monsterName: string, textureKey: string, isBoss: boolean): string | null {
-    // 1. Boss mapping by monster ID (e.g., r1_boss → mon_boss_guardian)
-    if (isBoss) {
-      const monsterId = textureKey.replace('mon_boss_', '');
-      const aiKey = AI_BOSS_MAP[monsterId];
-      if (aiKey && !AI_CONTENT_BLACKLIST.has(aiKey) && scene.textures.exists(aiKey)) return aiKey;
-    }
-
-    // 2. Name-based mapping (specific Chinese keywords → specific AI texture)
-    for (const [keyword, aiKey] of Object.entries(AI_NAME_MAP)) {
-      if (monsterName.includes(keyword) && !AI_CONTENT_BLACKLIST.has(aiKey) && scene.textures.exists(aiKey)) return aiKey;
-    }
-
-    // 3. Shape-based mapping (inferred shape → generic AI texture)
-    const shape = inferShape(monsterName);
-    const aiKey = AI_SHAPE_MAP[shape];
-    if (aiKey && !AI_CONTENT_BLACKLIST.has(aiKey) && scene.textures.exists(aiKey)) return aiKey;
-
-    return null;
+  private static findAITexture(
+    _scene: Phaser.Scene, _monsterName: string, _textureKey: string, _isBoss: boolean,
+  ): string | null {
+    return null; // Use procedural rendering for all monsters (consistent art style)
   }
 
   /**
    * Copy an AI texture to a new key, scaling to targetSize with NEAREST filtering.
    * Centers the source image within the target canvas.
+   * Optionally applies a color tint and/or feature overlays (ice/fire/poison).
    * Returns false if the source image is too transparent (rembg damage), so
    * the caller can fall back to procedural rendering.
    */
-  private static copyAITexture(scene: Phaser.Scene, aiKey: string, targetKey: string, targetSize: number): boolean {
+  private static copyAITexture(
+    scene: Phaser.Scene, aiKey: string, targetKey: string, targetSize: number,
+    tintColor?: string | null, features?: string[],
+  ): boolean {
     if (scene.textures.exists(targetKey)) return true;
 
     const aiTex = scene.textures.get(aiKey);
@@ -290,6 +320,23 @@ export class MonsterRenderer {
     const dw = Math.round(sw * scale);
     const dh = Math.round(sh * scale);
     ctx.drawImage(source, padding + Math.round((targetSize - dw) / 2), padding + Math.round((targetSize - dh) / 2), dw, dh);
+
+    // Apply color tint (source-atop only affects existing opaque pixels)
+    if (tintColor) {
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = tintColor;
+      ctx.globalAlpha = 0.4;
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Overlay elemental feature decorations (ice crystals, flames, poison mist, etc.)
+    if (features && features.length > 0) {
+      for (const feat of features) {
+        drawFeature(ctx, padding, padding, targetSize, targetSize, feat, '#ffff44');
+      }
+    }
 
     ArtRegistry.registerTexture(scene, targetKey, canvas);
     return true;

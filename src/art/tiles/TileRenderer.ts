@@ -37,8 +37,9 @@ export class TileRenderer {
     this.reg(scene, `tile_path_${rid}`, ctx => this.drawPath(ctx, pal));
     // Water
     this.reg(scene, `tile_water_${rid}`, ctx => this.drawWater(ctx, pal));
-    // Battle background (wide)
-    this.regSize(scene, `battle_bg_${rid}`, GAME_WIDTH, GAME_HEIGHT, ctx => this.drawBattleBg(ctx, pal));
+    // Battle background (wide) — normal + boss variant
+    this.regSize(scene, `battle_bg_${rid}`, GAME_WIDTH, GAME_HEIGHT, ctx => this.drawBattleBg(ctx, pal, rid, false));
+    this.regSize(scene, `battle_bg_${rid}_boss`, GAME_WIDTH, GAME_HEIGHT, ctx => this.drawBattleBg(ctx, pal, rid, true));
   }
 
   // ─── Registration helpers ──────────────────────────────────────────
@@ -340,9 +341,16 @@ export class TileRenderer {
 
   // ─── Battle background (full screen) ─────────────────────────────
 
-  private static drawBattleBg(ctx: CanvasRenderingContext2D, pal: RegionPalette): void {
+  private static drawBattleBg(ctx: CanvasRenderingContext2D, pal: RegionPalette, rid: string, isBoss: boolean): void {
     const W = GAME_WIDTH, H = GAME_HEIGHT;
-    const [skyCol, horizonCol, groundCol] = pal.battleBg;
+    let [skyCol, horizonCol, groundCol] = pal.battleBg;
+
+    // Boss variant: darken palette by 15%
+    if (isBoss) {
+      skyCol = darken(skyCol, 0.15);
+      horizonCol = darken(horizonCol, 0.15);
+      groundCol = darken(groundCol, 0.15);
+    }
 
     // Sky gradient (top half)
     const skyH = Math.floor(H * 0.55);
@@ -377,6 +385,309 @@ export class TileRenderer {
       const hillH = Math.sin(x * 0.008) * 25 + Math.sin(x * 0.023) * 15 + Math.sin(x * 0.047) * 8;
       const hy = Math.round(skyH - 10 - Math.abs(hillH));
       ctx.fillRect(x, hy, 1, skyH - hy);
+    }
+
+    // ── Region-specific terrain features ──
+    const accentDark = darken(pal.accent, 0.3);
+    const accentMid = darken(pal.accent, 0.15);
+
+    switch (rid) {
+      case 'region_hero': {
+        // Castle turrets silhouette on horizon
+        const turrets = [120, 280, 500, 720, 880];
+        ctx.fillStyle = accentDark;
+        for (const tx of turrets) {
+          const tw = 18 + Math.floor(Math.random() * 12);
+          const th = 40 + Math.floor(Math.random() * 30);
+          ctx.fillRect(tx, skyH - th, tw, th);
+          // Pointed roof
+          ctx.fillRect(tx - 2, skyH - th - 6, tw + 4, 6);
+          ctx.fillRect(tx + 2, skyH - th - 12, tw - 4, 6);
+        }
+        // Battlements between turrets
+        ctx.fillStyle = darken(horizonCol, 0.25);
+        ctx.fillRect(80, skyH - 20, 850, 20);
+        for (let bx = 80; bx < 930; bx += 16) {
+          ctx.fillRect(bx, skyH - 28, 8, 8);
+        }
+        break;
+      }
+
+      case 'region_elf': {
+        // Tall pine tree silhouettes
+        const trees = [60, 150, 320, 470, 600, 780, 920];
+        ctx.fillStyle = accentDark;
+        for (const tx of trees) {
+          const th = 50 + Math.floor(Math.random() * 40);
+          // Trunk
+          ctx.fillRect(tx - 3, skyH - 8, 6, 8);
+          // Triangular canopy (layered)
+          for (let ly = 0; ly < 4; ly++) {
+            const lw = 10 + ly * 8;
+            ctx.fillRect(tx - lw / 2, skyH - 8 - th + ly * (th / 4), lw, th / 4 + 2);
+          }
+        }
+        break;
+      }
+
+      case 'region_treant': {
+        // Ancient twisted trees with hanging moss
+        const trees = [100, 350, 650, 900];
+        ctx.fillStyle = accentDark;
+        for (const tx of trees) {
+          const th = 60 + Math.floor(Math.random() * 30);
+          // Wide curved trunk
+          ctx.fillRect(tx - 8, skyH - 12, 16, 12);
+          ctx.fillRect(tx - 12, skyH - th, 24, th - 12);
+          // Broad canopy
+          ctx.fillRect(tx - 30, skyH - th - 15, 60, 20);
+          ctx.fillRect(tx - 22, skyH - th - 25, 44, 12);
+          // Hanging moss (vertical lines)
+          ctx.fillStyle = darken(accentMid, 0.1);
+          for (let mx = tx - 25; mx < tx + 25; mx += 6) {
+            const mh = 10 + Math.floor(Math.random() * 15);
+            ctx.fillRect(mx, skyH - th - 10, 1, mh);
+          }
+          ctx.fillStyle = accentDark;
+        }
+        break;
+      }
+
+      case 'region_beast': {
+        // Tall grass tufts + distant watchtower
+        ctx.fillStyle = accentDark;
+        for (let gx = 20; gx < W; gx += 30 + Math.floor(Math.random() * 20)) {
+          const gh = 8 + Math.floor(Math.random() * 12);
+          ctx.fillRect(gx, skyH - gh, 3, gh);
+          ctx.fillRect(gx + 4, skyH - gh + 3, 2, gh - 3);
+          ctx.fillRect(gx - 3, skyH - gh + 5, 2, gh - 5);
+        }
+        // Watchtower
+        ctx.fillRect(750, skyH - 80, 14, 80);
+        ctx.fillRect(742, skyH - 90, 30, 12);
+        break;
+      }
+
+      case 'region_merfolk': {
+        // Underwater coral + light rays from above
+        ctx.fillStyle = accentDark;
+        const corals = [80, 200, 400, 560, 730, 890];
+        for (const cx of corals) {
+          const ch = 30 + Math.floor(Math.random() * 30);
+          // Branching vertical shapes from bottom
+          ctx.fillRect(cx, H - ch, 6, ch);
+          ctx.fillRect(cx - 8, H - ch + 10, 5, ch - 10);
+          ctx.fillRect(cx + 8, H - ch + 6, 4, ch - 6);
+        }
+        // Light rays from above (semi-transparent diagonal beams)
+        ctx.globalAlpha = 0.08;
+        ctx.fillStyle = '#aaddff';
+        for (let rx = 100; rx < W; rx += 180) {
+          ctx.save();
+          ctx.translate(rx, 0);
+          ctx.transform(1, 0, -0.3, 1, 0, 0);
+          ctx.fillRect(0, 0, 40, H * 0.7);
+          ctx.restore();
+        }
+        ctx.globalAlpha = 1.0;
+        break;
+      }
+
+      case 'region_giant': {
+        // Rocky peaks + boulders
+        ctx.fillStyle = accentDark;
+        const peaks = [100, 300, 520, 700, 900];
+        for (const px of peaks) {
+          const ph = 50 + Math.floor(Math.random() * 40);
+          ctx.fillRect(px - 20, skyH - ph, 40, ph);
+          ctx.fillRect(px - 12, skyH - ph - 15, 24, 15);
+          ctx.fillRect(px - 6, skyH - ph - 22, 12, 8);
+        }
+        // Ground boulders
+        ctx.fillStyle = accentMid;
+        for (let bx = 50; bx < W; bx += 120 + Math.floor(Math.random() * 80)) {
+          const bw = 20 + Math.floor(Math.random() * 20);
+          const bh = 12 + Math.floor(Math.random() * 10);
+          ctx.fillRect(bx, skyH + 40 + Math.floor(Math.random() * 60), bw, bh);
+        }
+        break;
+      }
+
+      case 'region_dwarf': {
+        // Cave ceiling (stalactites) + crystal clusters
+        ctx.fillStyle = accentDark;
+        // Stalactites from top
+        for (let sx = 20; sx < W; sx += 25 + Math.floor(Math.random() * 30)) {
+          const sh = 20 + Math.floor(Math.random() * 40);
+          const sw = 4 + Math.floor(Math.random() * 6);
+          ctx.fillRect(sx, 0, sw, sh);
+          ctx.fillRect(sx + 1, sh, sw - 2, 4);
+        }
+        // Crystal clusters (bright rectangles)
+        ctx.fillStyle = lighten(pal.accent, 0.3);
+        const crystals = [150, 400, 650, 850];
+        for (const cx of crystals) {
+          ctx.fillRect(cx, skyH + 20, 4, 14);
+          ctx.fillRect(cx + 6, skyH + 24, 3, 10);
+          ctx.fillRect(cx - 4, skyH + 28, 3, 8);
+        }
+        break;
+      }
+
+      case 'region_undead': {
+        // Dead trees + gravestones
+        ctx.fillStyle = accentDark;
+        const deadTrees = [120, 380, 650, 870];
+        for (const tx of deadTrees) {
+          const th = 40 + Math.floor(Math.random() * 30);
+          ctx.fillRect(tx - 3, skyH - th, 6, th);
+          // Bare branches
+          ctx.fillRect(tx - 15, skyH - th + 8, 12, 3);
+          ctx.fillRect(tx + 3, skyH - th + 4, 14, 3);
+          ctx.fillRect(tx - 10, skyH - th + 16, 8, 2);
+        }
+        // Gravestones
+        ctx.fillStyle = accentMid;
+        for (let gx = 60; gx < W; gx += 80 + Math.floor(Math.random() * 60)) {
+          ctx.fillRect(gx, skyH - 10, 10, 12);
+          ctx.fillRect(gx + 2, skyH - 14, 6, 4);
+          // Cross on top
+          ctx.fillRect(gx + 4, skyH - 18, 2, 6);
+          ctx.fillRect(gx + 2, skyH - 16, 6, 2);
+        }
+        break;
+      }
+
+      case 'region_volcano': {
+        // Lava pools (orange glow) + smoke plumes
+        ctx.fillStyle = '#cc4400';
+        ctx.globalAlpha = 0.6;
+        const pools = [150, 400, 700, 900];
+        for (const px of pools) {
+          const pw = 30 + Math.floor(Math.random() * 20);
+          ctx.fillRect(px - pw / 2, skyH + 60, pw, 8);
+          // Glow above
+          ctx.globalAlpha = 0.15;
+          ctx.fillStyle = '#ff6600';
+          ctx.fillRect(px - pw / 2 - 5, skyH + 50, pw + 10, 12);
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#cc4400';
+        }
+        ctx.globalAlpha = 1.0;
+        // Smoke plumes
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#888888';
+        for (const px of pools) {
+          for (let sy = 0; sy < 4; sy++) {
+            const sw = 12 + sy * 6;
+            ctx.fillRect(px - sw / 2, skyH + 30 - sy * 15, sw, 12);
+          }
+        }
+        ctx.globalAlpha = 1.0;
+        break;
+      }
+
+      case 'region_hotspring': {
+        // Steam columns + hot pool
+        ctx.globalAlpha = 0.1;
+        ctx.fillStyle = '#ffffff';
+        for (let sx = 100; sx < W; sx += 200) {
+          for (let sy = 0; sy < 6; sy++) {
+            const sw = 15 + sy * 4;
+            ctx.fillRect(sx - sw / 2, skyH - sy * 20, sw, 16);
+          }
+        }
+        ctx.globalAlpha = 1.0;
+        // Blue-tinted hot pool at ground level
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#4488aa';
+        ctx.fillRect(200, skyH + 50, 250, 14);
+        ctx.fillRect(600, skyH + 60, 200, 12);
+        ctx.globalAlpha = 1.0;
+        break;
+      }
+
+      case 'region_mountain': {
+        // Snow-capped peaks + pine trees
+        ctx.fillStyle = accentDark;
+        const peaks = [80, 250, 450, 680, 880];
+        for (const px of peaks) {
+          const ph = 60 + Math.floor(Math.random() * 50);
+          // Mountain body
+          ctx.fillRect(px - 30, skyH - ph, 60, ph);
+          ctx.fillRect(px - 20, skyH - ph - 15, 40, 15);
+          ctx.fillRect(px - 10, skyH - ph - 25, 20, 10);
+          // Snow cap
+          ctx.fillStyle = '#eeeeff';
+          ctx.fillRect(px - 8, skyH - ph - 25, 16, 12);
+          ctx.fillStyle = accentDark;
+        }
+        // Small pine trees in foreground
+        ctx.fillStyle = darken(accentDark, 0.1);
+        for (let tx = 40; tx < W; tx += 70 + Math.floor(Math.random() * 40)) {
+          ctx.fillRect(tx - 2, skyH - 4, 4, 4);
+          ctx.fillRect(tx - 6, skyH - 14, 12, 10);
+          ctx.fillRect(tx - 4, skyH - 20, 8, 8);
+        }
+        break;
+      }
+
+      case 'region_demon': {
+        // Dark pillars + ominous runes (glowing red dots)
+        ctx.fillStyle = accentDark;
+        const pillars = [100, 300, 500, 700, 900];
+        for (const px of pillars) {
+          const ph = 80 + Math.floor(Math.random() * 40);
+          ctx.fillRect(px - 8, skyH - ph, 16, ph);
+          ctx.fillRect(px - 12, skyH - ph, 24, 6);
+          ctx.fillRect(px - 12, skyH - 6, 24, 6);
+        }
+        // Glowing runes
+        ctx.fillStyle = '#cc2222';
+        ctx.globalAlpha = 0.7;
+        for (const px of pillars) {
+          ctx.fillRect(px - 2, skyH - 50, 4, 4);
+          ctx.fillRect(px - 2, skyH - 38, 4, 4);
+          ctx.fillRect(px - 2, skyH - 26, 4, 4);
+        }
+        ctx.globalAlpha = 1.0;
+        break;
+      }
+    }
+
+    // ── Boss-only: vignette + lightning ──
+    if (isBoss) {
+      // Vignette: dark borders
+      const vigSize = 80;
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, W, vigSize);          // top
+      ctx.fillRect(0, H - vigSize, W, vigSize); // bottom
+      ctx.fillRect(0, 0, vigSize, H);           // left
+      ctx.fillRect(W - vigSize, 0, vigSize, H); // right
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(0, 0, W, vigSize / 2);
+      ctx.fillRect(0, H - vigSize / 2, W, vigSize / 2);
+      ctx.globalAlpha = 1.0;
+
+      // Lightning bolts (2-3 jagged lines across sky)
+      ctx.strokeStyle = lighten(pal.accent, 0.5);
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.4;
+      for (let li = 0; li < 3; li++) {
+        const startX = 100 + li * 350 + Math.floor(Math.random() * 80);
+        let lx = startX;
+        let ly = 10 + Math.floor(Math.random() * 30);
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        for (let seg = 0; seg < 6; seg++) {
+          lx += -20 + Math.floor(Math.random() * 40);
+          ly += 30 + Math.floor(Math.random() * 25);
+          ctx.lineTo(lx, ly);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1.0;
     }
   }
 }

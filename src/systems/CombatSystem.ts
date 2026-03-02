@@ -1,6 +1,6 @@
 import type {
   BattleAction, BattleResult, CombatantState, MonsterData,
-  CharacterData, LevelUpInfo, SkillData
+  CharacterData, LevelUpInfo, SkillData, StatusType, StatusEffect
 } from '../types';
 import { gameState } from './GameStateManager';
 import { LevelSystem } from './LevelSystem';
@@ -15,6 +15,14 @@ import { getItemById } from '../data/items/index';
 import { getRegionById } from '../data/regions/index';
 
 export type BattlePhase = 'start' | 'player_turn' | 'enemy_turn' | 'action_execute' | 'victory' | 'defeat' | 'fled';
+
+export interface StatusTickResult {
+  combatant: CombatantState;
+  status: StatusType;
+  type: 'damage' | 'skip' | 'redirect' | 'recover';
+  value?: number; // damage for poison
+  message: string;
+}
 
 export interface BattleState {
   party: CombatantState[];
@@ -47,6 +55,7 @@ export class CombatSystem {
       isDefending: false,
       index: i,
       skills: [...c.skills],
+      statusEffects: [],
     }));
 
     // Build enemy combatants with difficulty modifiers
@@ -65,6 +74,7 @@ export class CombatSystem {
       skills: [...m.skills],
       ai: m.ai,
       element: m.element,
+      statusEffects: [],
     }));
 
     this.state = {
@@ -84,12 +94,15 @@ export class CombatSystem {
     return this.state;
   }
 
-  /** Calculate turn order based on AGI */
-  startTurn(): void {
+  /** Calculate turn order based on AGI; returns status tick results for animation */
+  startTurn(): StatusTickResult[] {
     // Reset defending
     for (const c of [...this.state.party, ...this.state.enemies]) {
       c.isDefending = false;
     }
+
+    // Process status ticks at turn start
+    const tickResults = this.processStatusTicks();
 
     // Build turn order: all alive combatants sorted by speed
     const allCombatants = [
@@ -109,6 +122,89 @@ export class CombatSystem {
     this.state.actionQueue = [];
     this.state.currentTurnIndex = 0;
     this.state.phase = 'player_turn';
+
+    return tickResults;
+  }
+
+  /** Process status ticks at the start of each turn */
+  private processStatusTicks(): StatusTickResult[] {
+    const results: StatusTickResult[] = [];
+    const allCombatants = [...this.state.party, ...this.state.enemies];
+
+    for (const c of allCombatants) {
+      if (c.stats.hp <= 0) continue;
+
+      // Process each status effect (iterate backwards for safe removal)
+      for (let si = c.statusEffects.length - 1; si >= 0; si--) {
+        const effect = c.statusEffects[si];
+
+        switch (effect.type) {
+          case 'poison': {
+            const dmg = Math.max(1, Math.floor(c.stats.maxHP * 0.08));
+            c.stats.hp = Math.max(1, c.stats.hp - dmg); // poison can't kill (min 1 HP)
+            results.push({
+              combatant: c, status: 'poison', type: 'damage', value: dmg,
+              message: `${c.name} 受到毒素傷害！(-${dmg})`,
+            });
+            // Poison lasts until recovery (33% chance per turn)
+            if (Math.random() < 0.33) {
+              c.statusEffects.splice(si, 1);
+              results.push({
+                combatant: c, status: 'poison', type: 'recover',
+                message: `${c.name} 的中毒已恢復！`,
+              });
+            }
+            break;
+          }
+          case 'paralysis': {
+            // 33% chance to recover each turn
+            if (Math.random() < 0.33) {
+              c.statusEffects.splice(si, 1);
+              results.push({
+                combatant: c, status: 'paralysis', type: 'recover',
+                message: `${c.name} 的麻痺已恢復！`,
+              });
+            }
+            // (skip logic is handled in executeAction)
+            break;
+          }
+          case 'confusion': {
+            // 33% chance to recover each turn
+            if (Math.random() < 0.33) {
+              c.statusEffects.splice(si, 1);
+              results.push({
+                combatant: c, status: 'confusion', type: 'recover',
+                message: `${c.name} 的混亂已恢復！`,
+              });
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /** Attempt to apply a status effect to a target */
+  applyStatus(target: CombatantState, statusType: StatusType, chance: number, source: string): boolean {
+    if (target.stats.hp <= 0) return false;
+    // Don't stack same status
+    if (target.statusEffects.some(s => s.type === statusType)) return false;
+    if (Math.random() >= chance) return false;
+
+    target.statusEffects.push({ type: statusType, turnsRemaining: -1, source });
+    return true;
+  }
+
+  /** Check if combatant is paralyzed */
+  isParalyzed(combatant: CombatantState): boolean {
+    return combatant.statusEffects.some(s => s.type === 'paralysis');
+  }
+
+  /** Check if combatant is confused */
+  isConfused(combatant: CombatantState): boolean {
+    return combatant.statusEffects.some(s => s.type === 'confusion');
   }
 
   /** Get the current combatant that needs to act */
@@ -170,19 +266,54 @@ export class CombatSystem {
   private executeAction(actor: CombatantState, action: BattleAction): string[] {
     const results: string[] = [];
 
+    // Paralysis check — skip turn
+    if (this.isParalyzed(actor) && action.type !== 'defend') {
+      results.push(`${actor.name} 因麻痺無法行動！`);
+      return results;
+    }
+
+    // Confusion check — redirect target to random alive combatant
+    let confusionTarget: CombatantState | null = null;
+    if (this.isConfused(actor) && (action.type === 'attack' || action.type === 'skill')) {
+      const allAlive = [...this.state.party, ...this.state.enemies].filter(c => c.stats.hp > 0);
+      if (allAlive.length > 0) {
+        confusionTarget = allAlive[Math.floor(Math.random() * allAlive.length)];
+        results.push(`${actor.name} 在混亂中攻擊了 ${confusionTarget.name}！`);
+      }
+    }
+
     switch (action.type) {
       case 'attack': {
-        const target = action.isEnemy
-          ? this.state.party[action.targetIndex ?? 0]
-          : this.state.enemies[action.targetIndex ?? 0];
+        // Resolve target — confusion overrides normal targeting
+        let target: CombatantState | undefined;
+        if (confusionTarget) {
+          target = confusionTarget;
+        } else {
+          target = action.isEnemy
+            ? this.state.party[action.targetIndex ?? 0]
+            : this.state.enemies[action.targetIndex ?? 0];
+        }
         if (!target || target.stats.hp <= 0) break;
 
         let damage = calculateDamage(actor.stats.atk, target.stats.def);
         if (target.isDefending) damage = Math.max(1, Math.floor(damage * 0.5));
         target.stats.hp = Math.max(0, target.stats.hp - damage);
-        results.push(`${actor.name} 對 ${target.name} 造成 ${damage} 點傷害`);
+        if (!confusionTarget) {
+          results.push(`${actor.name} 對 ${target.name} 造成 ${damage} 點傷害`);
+        } else {
+          results.push(`對 ${target.name} 造成 ${damage} 點傷害`);
+        }
         if (target.stats.hp <= 0) {
           results.push(`${target.name} 被擊倒了！`);
+        }
+
+        // Status application from normal attacks (monsters with 毒 in name)
+        if (actor.isEnemy && target.stats.hp > 0) {
+          if (actor.name.includes('毒')) {
+            if (this.applyStatus(target, 'poison', 0.25, actor.name)) {
+              results.push(`${target.name} 中毒了！`);
+            }
+          }
         }
         break;
       }
@@ -201,6 +332,16 @@ export class CombatSystem {
             if (r.target.stats.hp <= 0) results.push(`${r.target.name} 被擊倒了！`);
           } else {
             results.push(`${actor.name} 使用 ${skill.name}，${r.target.name} 恢復了 ${r.value}`);
+          }
+        }
+
+        // Apply status from skill's statusEffect config
+        if (skill.statusEffect) {
+          for (const target of targets) {
+            if (target.stats.hp > 0 && this.applyStatus(target, skill.statusEffect.type, skill.statusEffect.chance, skill.name)) {
+              const statusNames: Record<string, string> = { poison: '中毒', paralysis: '麻痺', confusion: '混亂' };
+              results.push(`${target.name} ${statusNames[skill.statusEffect.type]}了！`);
+            }
           }
         }
         break;
@@ -418,6 +559,11 @@ export class CombatSystem {
           gameState.addItem(drop.itemId);
         }
       }
+    }
+
+    // Clear all status effects on party after battle
+    for (const combatant of this.state.party) {
+      combatant.statusEffects = [];
     }
 
     // Sync stats back from combat to game state BEFORE EXP distribution

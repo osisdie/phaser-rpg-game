@@ -29,6 +29,18 @@ function getEtherForLevel(lv: number): string {
   return lv < 30 ? 'item_ether_s' : 'item_ether_m';
 }
 
+/** Determine skills for a monster based on name and level */
+function getMonsterSkills(name: string, lv: number): string[] {
+  const base: string[] = lv > 10 ? ['skill_monster_bite'] : [];
+  // Poison-type monsters
+  if (name.includes('毒')) base.push('skill_monster_poison_bite');
+  // Paralysis-type monsters
+  if (/蠍|蛇|水母|觸/.test(name)) base.push('skill_monster_paralyze');
+  // Confusion-type monsters
+  if (/幽靈|迷霧|幽魂|迷惑/.test(name)) base.push('skill_monster_confuse');
+  return base;
+}
+
 /** Generate monsters for a region based on level range */
 function generateRegionMonsters(
   regionId: string,
@@ -63,7 +75,7 @@ function generateRegionMonsters(
         { itemId: getEtherForLevel(lv), rate: 0.08 },
         { itemId: `equip_${tier}_${equipSlot}`, rate: equipDropRate },
       ],
-      skills: lv > 10 ? ['skill_monster_bite'] : [],
+      skills: getMonsterSkills(name, lv),
       element: element as any,
       isBoss: false,
       spriteColor: color + i * 0x111111 & 0xffffff,

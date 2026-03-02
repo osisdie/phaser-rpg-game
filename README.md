@@ -6,8 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/screenshots/title.png" width="49%" alt="標題畫面">
-  <img src="docs/screenshots/battle.png" width="49%" alt="戰鬥場景">
+  <img src="docs/screenshots/title.jpeg" width="49%" alt="標題畫面">
+  <img src="docs/screenshots/battle.jpeg" width="49%" alt="戰鬥場景">
 </p>
 
 ---
@@ -28,11 +28,15 @@
 
 | 標題畫面 | 世界地圖 |
 |:---:|:---:|
-| ![Title](docs/screenshots/title.png) | ![World Map](docs/screenshots/worldmap.png) |
+| ![Title](docs/screenshots/title.jpeg) | ![World Map](docs/screenshots/worldmap.jpeg) |
 
-| 城鎮探索 | 戰鬥場景 |
+| 城鎮探索 | 野外冒險 |
 |:---:|:---:|
-| ![Town](docs/screenshots/town.png) | ![Battle](docs/screenshots/battle.png) |
+| ![Town](docs/screenshots/town.jpeg) | ![Field](docs/screenshots/field.jpeg) |
+
+| 戰鬥場景 | Boss 戰 |
+|:---:|:---:|
+| ![Battle](docs/screenshots/battle.jpeg) | ![Boss](docs/screenshots/boss.jpeg) |
 
 ## Tech Stack
 

@@ -107,6 +107,20 @@ export type SkillTarget = 'single_enemy' | 'all_enemies' | 'single_ally' | 'all_
 export type SkillType = 'physical' | 'magical' | 'heal' | 'buff' | 'debuff' | 'special';
 export type ElementType = 'none' | 'fire' | 'water' | 'earth' | 'wind' | 'light' | 'dark';
 
+// ─── 狀態異常 ───
+export type StatusType = 'poison' | 'paralysis' | 'confusion';
+
+export interface StatusEffect {
+  type: StatusType;
+  turnsRemaining: number; // -1 = until random recovery
+  source: string;
+}
+
+export interface StatusEffectConfig {
+  type: StatusType;
+  chance: number; // 0–1
+}
+
 export interface SkillData {
   id: string;
   name: string;
@@ -119,6 +133,7 @@ export interface SkillData {
   levelRequired: number;
   race?: Race;
   animation?: string;
+  statusEffect?: StatusEffectConfig;
 }
 
 // ─── 怪物 ───
@@ -182,6 +197,7 @@ export interface CombatantState {
   skills: string[];
   ai?: MonsterAI;
   element?: ElementType;
+  statusEffects: StatusEffect[];
 }
 
 // ─── 區域 ───
