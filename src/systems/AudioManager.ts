@@ -12,7 +12,7 @@
 
 // ─── 音符頻率表 ───
 const NOTE: Record<string, number> = {
-  C3: 131, D3: 147, E3: 165, F3: 175, G3: 196, A3: 220, B3: 247,
+  A2: 110, C3: 131, D3: 147, E3: 165, F3: 175, G3: 196, A3: 220, B3: 247,
   C4: 262, D4: 294, E4: 330, F4: 349, G4: 392, A4: 440, B4: 494,
   C5: 523, D5: 587, E5: 659, F5: 698, G5: 784, A5: 880, B5: 988,
   'Db3': 139, 'Eb3': 156, 'Gb3': 185, 'Ab3': 208, 'Bb3': 233,
@@ -326,8 +326,47 @@ function defineTracks(): Record<string, TrackDef> {
   const boss_mountain= battleTrack('高山族-Boss',   NOTE.G3, MINOR, 110, 'boss');
   const boss_demon   = battleTrack('大魔王',        NOTE.C3, MINOR, 96, 'boss');
 
+  // ─── World Map Progressive BGM ───
+  const world_rising: TrackDef = {
+    name: '世界地圖（覺醒）', bpm: 92, loopBars: 8,
+    melody: melodyFromScale(scaleNotes(NOTE.G4, MAJOR), [0,2,4,7, 5,4,2,4, 7,9,7,5, 4,2,0,2]),
+    melodyRhythm: [2,2,2,2, 2,2,2,2, 2,2,2,2, 2,2,2,2],
+    melodyWave: 'triangle', melodyVol: 0.16,
+    bass: [NOTE.G3, NOTE.D3, NOTE.E3, NOTE.C3, NOTE.G3, NOTE.D3, NOTE.E3, NOTE.G3],
+    bassRhythm: [4,4,4,4,4,4,4,4], bassWave: 'triangle', bassVol: 0.14,
+    padChords: [[NOTE.G3,NOTE.B3,NOTE.D4],[NOTE.D3,NOTE.Gb3,NOTE.A3],[NOTE.E3,NOTE.G3,NOTE.B3],[NOTE.C4,NOTE.E4,NOTE.G4]],
+    padWave: 'triangle', padVol: 0.06,
+    drumPattern: generateDrumLoop('march'), drumVol: 0.1,
+  };
+
+  const world_epic: TrackDef = {
+    name: '世界地圖（史詩）', bpm: 108, loopBars: 8,
+    melody: melodyFromScale(scaleNotes(NOTE.D4, MAJOR), [0,4,7,9, 12,9,7,4, 5,7,9,12, 9,7,5,4]),
+    melodyRhythm: [1,1,2,2, 2,2,1,1, 1,1,2,2, 2,2,2,2],
+    melodyWave: 'sawtooth', melodyVol: 0.14,
+    bass: [NOTE.D3, NOTE.A3, NOTE.B3, NOTE.G3, NOTE.D3, NOTE.A3, NOTE.G3, NOTE.D3],
+    bassRhythm: [4,4,4,4,4,4,4,4], bassWave: 'triangle', bassVol: 0.15,
+    padChords: [[NOTE.D4,NOTE.Gb4,NOTE.A4],[NOTE.A3,NOTE.Db4,NOTE.E4],[NOTE.B3,NOTE.D4,NOTE.Gb4],[NOTE.G3,NOTE.B3,NOTE.D4]],
+    padWave: 'sawtooth', padVol: 0.05,
+    drumPattern: generateDrumLoop('epic'), drumVol: 0.12,
+  };
+
+  const world_dark: TrackDef = {
+    name: '世界地圖（黑暗）', bpm: 56, loopBars: 8,
+    melody: melodyFromScale(scaleNotes(NOTE.A3, MINOR), [0,2,3,0, -1,0,2,3, 5,3,2,0, -1,-1,0,-1]),
+    melodyRhythm: [2,2,4,2, 4,2,2,4, 2,2,4,2, 4,4,2,4],
+    melodyWave: 'sine', melodyVol: 0.10,
+    bass: [NOTE.A2, NOTE.E3, NOTE.A2, NOTE.E3, NOTE.F3, NOTE.C3, NOTE.E3, NOTE.A2],
+    bassRhythm: [4,4,4,4,4,4,4,4], bassWave: 'sine', bassVol: 0.16,
+    padChords: [[NOTE.A3,NOTE.C4,NOTE.E4],[NOTE.E3,NOTE.G3,NOTE.B3],[NOTE.F3,NOTE.A3,NOTE.C4],[NOTE.E3,NOTE.Ab3,NOTE.B3]],
+    padWave: 'sine', padVol: 0.05,
+    drumPattern: generateDrumLoop('calm'), drumVol: 0.04,
+  };
+
   return {
     title, victory, gameover, ending, sad, happy, thinking, companion, memory, shop,
+    // World Map Progressive
+    world_rising, world_epic, world_dark,
     // Kingdom themes (used for field/overworld)
     kingdom_hero: k_hero, kingdom_elf: k_elf, kingdom_treant: k_treant,
     kingdom_beast: k_beast, kingdom_merfolk: k_merfolk, kingdom_giant: k_giant,

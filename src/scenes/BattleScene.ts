@@ -21,6 +21,8 @@ import { getCompanionTextureKey } from '../art/characters/NPCProfiles';
 import { ItemIconRenderer } from '../art/ui/ItemIconRenderer';
 import { getCompanionForRegion } from '../data/characters/index';
 import { getRegionById } from '../data/regions/index';
+import { getAllConsumables, getAllEquipments } from '../data/items/index';
+import type { BattleResult, LevelUpInfo } from '../types';
 
 type BattlePhaseUI = 'intro' | 'menu' | 'target_select' | 'skill_select' | 'item_select' | 'executing' | 'result';
 
@@ -112,6 +114,16 @@ export class BattleScene extends Phaser.Scene {
   // Status effect icons (above sprites)
   private statusIcons: Phaser.GameObjects.Text[][] = []; // [combatantGlobalIdx][statusIdx]
 
+  // Death animation tracking (prevent re-triggering)
+  private deadSet: Set<string> = new Set();
+
+  // Victory flow — bypass old advanceResult() when new phased flow handles input
+  private resultHandledByCallback = false;
+
+  // Optional callbacks from caller
+  private skipIntro = false;
+  private onVictoryCallback?: () => void;
+
   // Battle log panel (scrollable, auto-append)
   private battleLogEntries: string[] = [];
   private battleLogBg!: Phaser.GameObjects.Rectangle;
@@ -124,12 +136,14 @@ export class BattleScene extends Phaser.Scene {
     super('BattleScene');
   }
 
-  create(data: { monsters: MonsterData[]; regionId: string; isBoss?: boolean; returnScene: string; returnData: object }): void {
+  create(data: { monsters: MonsterData[]; regionId: string; isBoss?: boolean; returnScene: string; returnData: object; skipIntro?: boolean; onVictory?: () => void }): void {
     this.monsters = data.monsters;
     this.regionId = data.regionId;
     this.isBoss = data.isBoss ?? false;
     this.returnScene = data.returnScene;
     this.returnData = data.returnData;
+    this.skipIntro = data.skipIntro ?? false;
+    this.onVictoryCallback = data.onVictory;
 
     // Initialize combat
     const party = gameState.getParty();
@@ -315,14 +329,18 @@ export class BattleScene extends Phaser.Scene {
 
     // Auto-attack UI (hidden initially)
     this.autoAttackMode = false;
-    this.autoAttackLabel = this.add.text(GAME_WIDTH / 2, 30, t('battle.auto_attack'), {
+    this.autoAttackLabel = this.add.text(160, GAME_HEIGHT - 30, t('battle.auto_attack'), {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: '#ffdd44',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.ui + 10).setVisible(false);
-    this.autoAttackCancelLabel = this.add.text(GAME_WIDTH / 2, 50, `(${t('battle.auto_cancel')})`, {
+    this.autoAttackCancelLabel = this.add.text(160, GAME_HEIGHT - 14, `(${t('battle.auto_cancel')})`, {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#aaaaaa',
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH.ui + 10).setVisible(false);
+
+    // Reset state for scene re-entry
+    this.deadSet = new Set();
+    this.resultHandledByCallback = false;
 
     // Start with sword-crossing intro → then encounter textbox
     this.uiPhase = 'intro';
@@ -345,15 +363,22 @@ export class BattleScene extends Phaser.Scene {
     TransitionEffect.fadeIn(this, 300);
 
     // Sword-crossing intro plays during fade-in, then encounter textbox appears
-    this.time.delayedCall(200, () => {
-      this.playSwordCrossingIntro(() => {
-        this.textBox.show('', t('battle.encounter', monsterNames), () => {
-          this.uiPhase = 'menu';
-          this.textBox.hide();
-          this.showMenuForCurrentMember();
+    if (this.skipIntro) {
+      this.time.delayedCall(300, () => {
+        this.uiPhase = 'menu';
+        this.showMenuForCurrentMember();
+      });
+    } else {
+      this.time.delayedCall(200, () => {
+        this.playSwordCrossingIntro(() => {
+          this.textBox.show('', t('battle.encounter', monsterNames), () => {
+            this.uiPhase = 'menu';
+            this.textBox.hide();
+            this.showMenuForCurrentMember();
+          });
         });
       });
-    });
+    }
     audioManager.playBgm(this.isBoss ? 'boss' : 'battle', this.regionId);
   }
 
@@ -376,12 +401,29 @@ export class BattleScene extends Phaser.Scene {
     this.add.rectangle(logX + logW / 2, logY + logH / 2, logW + 2, logH + 2, 0x334466, 0.6)
       .setDepth(DEPTH.ui + 1);
 
-    // Text object — newest first, word-wrapped
+    // Text object — newest first, word-wrapped with CJK support
+    const wrapWidth = logW - 20;
     this.battleLogText = this.add.text(logX + 8, logY + 4, '', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ccddee',
-      wordWrap: { width: logW - 20 },
+      wordWrap: { width: wrapWidth },
       lineSpacing: 2,
     }).setDepth(DEPTH.ui + 3);
+    this.battleLogText.style.wordWrapCallback = (_text: string, textObject: Phaser.GameObjects.Text) => {
+      const ctx = textObject.context;
+      let result = '';
+      let lineWidth = 0;
+      for (const char of _text) {
+        if (char === '\n') { result += '\n'; lineWidth = 0; continue; }
+        const w = ctx.measureText(char).width;
+        if (lineWidth + w > wrapWidth && lineWidth > 0) {
+          result += '\n';
+          lineWidth = 0;
+        }
+        result += char;
+        lineWidth += w;
+      }
+      return result;
+    };
 
     // Mask so text doesn't overflow
     this.battleLogMaskGraphics = this.add.graphics().setDepth(0);
@@ -511,8 +553,12 @@ export class BattleScene extends Phaser.Scene {
 
     // Update sprite visibility for dead combatants + enemy HP bars
     state.enemies.forEach((e, i) => {
-      if (this.enemySprites[i]) {
-        this.enemySprites[i].setAlpha(e.stats.hp > 0 ? 1 : 0.2);
+      if (this.enemySprites[i] && e.stats.hp <= 0) {
+        const deathKey = `enemy_${i}`;
+        if (!this.deadSet.has(deathKey)) {
+          this.deadSet.add(deathKey);
+          BattleEffects.playDeathAnimation(this, this.enemySprites[i]);
+        }
       }
       // Update floating HP bar position & fill (centered above sprite)
       const bar = this.enemyHpBars[i];
@@ -540,9 +586,12 @@ export class BattleScene extends Phaser.Scene {
 
       if (this.partySprites[i]) {
         if (isDown) {
-          this.partySprites[i].setAlpha(0.4);
-          this.partySprites[i].setTint(0xff4444);
-          this.stopNearDeathPulse(i);
+          const deathKey = `party_${i}`;
+          if (!this.deadSet.has(deathKey)) {
+            this.deadSet.add(deathKey);
+            this.stopNearDeathPulse(i);
+            BattleEffects.playDeathAnimation(this, this.partySprites[i]);
+          }
         } else if (isNearDeath) {
           // First time entering near-death → SFX + start pulse
           if (!this.wasNearDeath[i]) {
@@ -713,7 +762,14 @@ export class BattleScene extends Phaser.Scene {
         this.textBox.advance();
         break;
       case 'result':
-        this.advanceResult();
+        if (this.resultHandledByCallback) {
+          // New phased victory flow — advance textbox (triggers onComplete callbacks)
+          if (this.textBox.visible) {
+            this.textBox.advance();
+          }
+        } else {
+          this.advanceResult();
+        }
         break;
     }
   }
@@ -772,6 +828,9 @@ export class BattleScene extends Phaser.Scene {
         this.showMenuForCurrentMember();
         return;
       }
+      // All enemies already dead — proceed to execute turn so victory is detected
+      this.executeTurn();
+      return;
     }
 
     // Highlight current member with tint
@@ -854,11 +913,14 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private showTargetSelect(isAlly: boolean, onSelect: (index: number) => void): void {
+  private showTargetSelect(isAlly: boolean, onSelect: (index: number) => void, reviveMode = false): void {
     const state = this.combat.getState();
     const targets = isAlly ? state.party : state.enemies;
     const sprites = isAlly ? this.partySprites : this.enemySprites;
-    let selectedIdx = targets.findIndex(t => t.stats.hp > 0);
+    // In revive mode, select only KO'd allies; otherwise only alive targets
+    const isValidTarget = (t: CombatantState) => reviveMode ? t.stats.hp <= 0 : t.stats.hp > 0;
+    let selectedIdx = targets.findIndex(isValidTarget);
+    if (selectedIdx === -1) selectedIdx = 0; // fallback
 
     const updateCursor = () => {
       const sprite = sprites[selectedIdx];
@@ -887,13 +949,13 @@ export class BattleScene extends Phaser.Scene {
 
     const onPrev = () => {
       do { selectedIdx = (selectedIdx - 1 + targets.length) % targets.length; }
-      while (targets[selectedIdx].stats.hp <= 0);
+      while (!isValidTarget(targets[selectedIdx]));
       updateCursor();
       audioManager.playSfx('select');
     };
     const onNext = () => {
       do { selectedIdx = (selectedIdx + 1) % targets.length; }
-      while (targets[selectedIdx].stats.hp <= 0);
+      while (!isValidTarget(targets[selectedIdx]));
       updateCursor();
       audioManager.playSfx('select');
     };
@@ -913,7 +975,7 @@ export class BattleScene extends Phaser.Scene {
 
     // Click support
     sprites.forEach((sprite, i) => {
-      if (targets[i]?.stats.hp > 0) {
+      if (targets[i] && isValidTarget(targets[i])) {
         sprite.setInteractive({ useHandCursor: true });
         sprite.once('pointerdown', () => { cleanup(); onSelect(i); });
       }
@@ -934,23 +996,31 @@ export class BattleScene extends Phaser.Scene {
 
     let panel: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
     let border: Phaser.GameObjects.Rectangle | null = null;
+    const skillPanelH = Math.min(320, 160 + skills.length * 36);
     if (this.textures.exists('ui_panel_menu')) {
       panel = this.add.image(panelX, panelY, 'ui_panel_menu').setDepth(DEPTH.overlay);
     } else {
-      panel = this.add.rectangle(panelX, panelY, 300, 250, COLORS.panel, 0.95).setDepth(DEPTH.overlay);
-      border = this.add.rectangle(panelX, panelY, 304, 254, COLORS.panelBorder).setDepth(DEPTH.overlay - 1);
+      panel = this.add.rectangle(panelX, panelY, 300, skillPanelH, COLORS.panel, 0.95).setDepth(DEPTH.overlay);
+      border = this.add.rectangle(panelX, panelY, 304, skillPanelH + 4, COLORS.panelBorder).setDepth(DEPTH.overlay - 1);
     }
     const title = this.add.text(panelX, panelY - 110, t('battle.select_skill'), {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
 
     const items: Phaser.GameObjects.Text[] = [];
+    const mpTexts: Phaser.GameObjects.Text[] = [];
     const skillIcons: Phaser.GameObjects.Image[] = [];
     let selectedIdx = 0;
 
+    // Description text below the skill list
+    const descText = this.add.text(panelX, panelY + 100, '', {
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#bbccdd',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
+
     skills.forEach((skill, i) => {
       const canUse = actor.stats.mp >= skill.mpCost;
-      const iy = panelY - 80 + i * 28;
+      const iy = panelY - 80 + i * 36;
       // Skill icon
       const iconKey = ItemIconRenderer.getSkillIconKey(skill.element, skill.type);
       if (this.textures.exists(iconKey)) {
@@ -958,9 +1028,15 @@ export class BattleScene extends Phaser.Scene {
         if (!canUse) icon.setAlpha(0.4);
         skillIcons.push(icon);
       }
-      const text = this.add.text(panelX - 115, iy, `  ${skill.name} (MP:${skill.mpCost})`, {
+      const text = this.add.text(panelX - 115, iy, `  ${skill.name}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: canUse ? COLORS.textPrimary : '#666666',
       }).setDepth(DEPTH.overlay + 1);
+
+      // Right-aligned MP cost
+      const mpText = this.add.text(panelX + 120, iy, `MP ${skill.mpCost}`, {
+        fontFamily: FONT_FAMILY, fontSize: '12px', color: canUse ? '#88aacc' : '#555555',
+      }).setOrigin(1, 0).setDepth(DEPTH.overlay + 1);
+      mpTexts.push(mpText);
 
       if (canUse) {
         text.setInteractive({ useHandCursor: true });
@@ -973,16 +1049,23 @@ export class BattleScene extends Phaser.Scene {
     const updateList = () => {
       items.forEach((txt, i) => {
         const canUse = actor.stats.mp >= skills[i].mpCost;
-        txt.setText(i === selectedIdx ? `► ${skills[i].name} (MP:${skills[i].mpCost})` : `  ${skills[i].name} (MP:${skills[i].mpCost})`);
+        txt.setText(i === selectedIdx ? `► ${skills[i].name}` : `  ${skills[i].name}`);
         if (canUse && i === selectedIdx) txt.setColor(COLORS.textHighlight);
         else if (canUse) txt.setColor(COLORS.textPrimary);
       });
+      // Update description
+      const sel = skills[selectedIdx];
+      if (sel) {
+        const typeLabel = sel.type === 'physical' ? '物理' : sel.type === 'magical' ? '魔法' : sel.type === 'heal' ? '回復' : '輔助';
+        descText.setText(`${sel.description}  [${typeLabel}] 威力:${sel.power}`);
+      }
     };
     updateList();
 
     const cleanup = () => {
-      panel.destroy(); border?.destroy(); title.destroy();
+      panel.destroy(); border?.destroy(); title.destroy(); descText.destroy();
       items.forEach(t => t.destroy());
+      mpTexts.forEach(t => t.destroy());
       skillIcons.forEach(ic => ic.destroy());
       this.input.keyboard?.off('keydown-UP', onUp);
       this.input.keyboard?.off('keydown-DOWN', onDown);
@@ -1058,6 +1141,12 @@ export class BattleScene extends Phaser.Scene {
     const items: Phaser.GameObjects.Text[] = [];
     let selectedIdx = 0;
 
+    // Description text below the item list
+    const descText = this.add.text(panelX, panelY + 100, '', {
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#bbccdd',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
+
     const itemIcons: Phaser.GameObjects.Image[] = [];
     usable.forEach((entry, i) => {
       const iy = panelY - 80 + i * 28;
@@ -1081,11 +1170,14 @@ export class BattleScene extends Phaser.Scene {
         txt.setText(i === selectedIdx ? `► ${usable[i].item.name} ×${usable[i].quantity}` : `  ${usable[i].item.name} ×${usable[i].quantity}`);
         txt.setColor(i === selectedIdx ? COLORS.textHighlight : COLORS.textPrimary);
       });
+      // Update description
+      const sel = usable[selectedIdx];
+      descText.setText(sel ? sel.item.description : '');
     };
     updateList();
 
     const cleanup = () => {
-      panel.destroy(); border?.destroy(); title.destroy();
+      panel.destroy(); border?.destroy(); title.destroy(); descText.destroy();
       items.forEach(t => t.destroy());
       itemIcons.forEach(ic => ic.destroy());
       this.input.keyboard?.off('keydown-UP', onUp);
@@ -1099,7 +1191,8 @@ export class BattleScene extends Phaser.Scene {
 
     const selectItem = (i: number) => {
       cleanup();
-      // Select target for item (always ally)
+      // Revival items target KO'd allies, others target alive allies
+      const isReviveItem = usable[i].item.effect?.type === 'revive';
       this.uiPhase = 'target_select';
       this.showTargetSelect(true, (targetIndex) => {
         this.partyActions.push({
@@ -1109,7 +1202,7 @@ export class BattleScene extends Phaser.Scene {
         this.currentPartyIndex++;
         this.uiPhase = 'menu';
         this.showMenuForCurrentMember();
-      });
+      }, isReviveItem);
     };
 
     const onUp = () => { selectedIdx = (selectedIdx - 1 + usable.length) % usable.length; updateList(); audioManager.playSfx('select'); };
@@ -1206,6 +1299,9 @@ export class BattleScene extends Phaser.Scene {
             // Hit effects
             audioManager.playSfx('hit');
             BattleEffects.playAttackEffect(this, targetSprite.x, targetSprite.y);
+            // Screen shake — heavier for boss enemies
+            const isBossHit = action.isEnemy && this.isBoss;
+            BattleEffects.playScreenShake(this, isBossHit ? 0.012 : 0.004, isBossHit ? 250 : 120);
             this.showDamageFromMessages(msgs);
             // Add messages to battle log
             for (const msg of msgs) this.addBattleLogMessage(msg);
@@ -1262,11 +1358,18 @@ export class BattleScene extends Phaser.Scene {
 
             const targetSprites = this.getActionTargetSprites(action);
 
+            // AoE skills get medium screen shake
+            const isAoE = skill?.target === 'all_enemies' || skill?.target === 'all_allies';
+            if (isAoE && skill?.type !== 'heal') {
+              BattleEffects.playScreenShake(this, 0.006, 180);
+            }
+
             for (const ts of targetSprites) {
               if (skill?.type === 'heal') {
-                BattleEffects.playHealEffect(this, ts.x, ts.y);
+                BattleEffects.playHealingAura(this, ts.x, ts.y);
               } else if (skill?.type === 'physical') {
                 // Physical skill: flash target (same as basic attack)
+                BattleEffects.playScreenShake(this, 0.004, 120);
                 this.tweens.add({
                   targets: ts, alpha: 0.3, duration: 60, yoyo: true, repeat: 2,
                 });
@@ -1304,7 +1407,7 @@ export class BattleScene extends Phaser.Scene {
         const targetSprite = this.partySprites[action.targetIndex ?? 0];
         if (targetSprite) {
           audioManager.playSfx('heal');
-          BattleEffects.playHealEffect(this, targetSprite.x, targetSprite.y);
+          BattleEffects.playHealingAura(this, targetSprite.x, targetSprite.y);
           this.showDamageFromMessages(msgs);
         }
         // Add messages to battle log
@@ -1438,6 +1541,15 @@ export class BattleScene extends Phaser.Scene {
       if (state.phase === 'victory') {
         this.showVictory();
       } else if (state.phase === 'defeat') {
+        // Check for revival items before going to game over
+        const reviveItems = InventorySystem.getUsableItems().filter(
+          e => e.item.effect?.type === 'revive' && e.quantity > 0
+        );
+        const deadMembers = state.party.filter(p => p.stats.hp <= 0);
+        if (reviveItems.length > 0 && deadMembers.length > 0) {
+          this.showRevivalPrompt(reviveItems[0].item, deadMembers, () => this.showDefeat());
+          return;
+        }
         this.showDefeat();
       } else if (state.phase === 'fled') {
         this.addBattleLogMessage(t('battle.fled'));
@@ -1446,6 +1558,8 @@ export class BattleScene extends Phaser.Scene {
     } else {
       // Next turn — process status ticks with animation
       const tickResults = this.combat.startTurn();
+      const newState = this.combat.getState();
+      this.addBattleLogMessage(`── 第 ${newState.turn} 回合 ──`);
       this.currentPartyIndex = 0;
       this.partyActions = [];
 
@@ -1485,56 +1599,475 @@ export class BattleScene extends Phaser.Scene {
     this.autoAttackLabel?.setVisible(false);
     this.autoAttackCancelLabel?.setVisible(false);
 
-    const lines: string[] = [t('battle.victory')];
-    lines.push(t('battle.exp_gained', result.exp));
-    lines.push(t('battle.gold_gained', result.gold));
-
-    for (const drop of result.drops) {
-      lines.push(t('battle.item_dropped', drop));
-    }
+    // Use new phased flow — bypass old advanceResult()
+    this.resultHandledByCallback = true;
 
     // Check if mini-boss was defeated (demon kingdom guard)
     if (this.monsters.some(m => m.id === 'r12_mini_boss')) {
       gameState.setFlag('mini_boss_demon_defeated');
-      lines.push('魔王護衛已被擊敗！前方就是大魔王！');
-    }
-    for (const lu of result.levelUps) {
-      audioManager.playSfx('levelup');
-      lines.push(t('battle.level_up', lu.characterId, lu.newLevel));
     }
 
-    // Handle boss defeat
-    if (this.isBoss) {
-      gameState.liberateRegion(this.regionId);
-      lines.push(`${gameState.getState().heroName} 解放了此地區！`);
+    // Phase 1: Celebration → Phase 2: Rewards → Phase 3: Level Ups → Phase 4: Boss → Return
+    this.playVictoryCelebration(() => {
+      this.showVictoryRewardsPanel(result, () => {
+        this.showLevelUps(result.levelUps, 0, () => {
+          this.handleBossVictory(result, () => {
+            this.onVictoryCallback?.();
+            this.returnToField();
+          });
+        });
+      });
+    });
+  }
 
-      // Add companion for this region (if available)
-      const companion = getCompanionForRegion(this.regionId);
-      if (companion) {
-        const companionData = structuredClone(companion);
-        gameState.addCompanion(companionData);
-        if (gameState.addToParty(companionData.id)) {
-          lines.push(t('battle.companion_join', companionData.name));
-        } else {
-          lines.push(`${companionData.name} 成為了夥伴！隊伍已滿，可在選單中編組隊伍。`);
+  // ─── Victory Phase 1: Celebration ───
+
+  private playVictoryCelebration(onComplete: () => void): void {
+    // Party sprites bounce up (staggered)
+    this.partySprites.forEach((sprite, i) => {
+      if (sprite.alpha < 0.5) return; // skip dead
+      const homeY = sprite.getData('homeY') as number;
+      this.tweens.add({
+        targets: sprite,
+        y: homeY - 30,
+        duration: 250,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+        delay: i * 100,
+      });
+    });
+
+    // "勝利！" gold text with scale-in
+    const victoryText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, '勝利！', {
+      fontFamily: FONT_FAMILY, fontSize: '48px', color: '#ffd700',
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setScale(0).setDepth(DEPTH.overlay + 25);
+
+    this.tweens.add({
+      targets: victoryText,
+      scale: { from: 0, to: 1.4 },
+      duration: 400,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: victoryText,
+          scale: 1.0,
+          duration: 200,
+          onComplete: () => {
+            // Hold for 800ms, then fade out
+            this.tweens.add({
+              targets: victoryText,
+              alpha: 0,
+              y: victoryText.y - 20,
+              duration: 500,
+              delay: 800,
+              onComplete: () => {
+                victoryText.destroy();
+                onComplete();
+              },
+            });
+          },
+        });
+      },
+    });
+  }
+
+  // ─── Victory Phase 2: Rewards Panel ───
+
+  private showVictoryRewardsPanel(result: BattleResult, onComplete: () => void): void {
+    const panelElements: Phaser.GameObjects.GameObject[] = [];
+    const cx = GAME_WIDTH / 2;
+
+    // Calculate panel height based on content
+    const hasDrops = result.drops.length > 0;
+    const dropRows = Math.ceil(result.drops.length / 4);
+    const panelH = 140 + (hasDrops ? 30 + dropRows * 70 : 0);
+    const panelTop = GAME_HEIGHT / 2 - panelH / 2;
+    const panelW = 420;
+
+    // Panel background + border
+    const border = this.add.rectangle(cx, GAME_HEIGHT / 2, panelW + 4, panelH + 4, COLORS.panelBorder)
+      .setDepth(DEPTH.overlay + 10);
+    const bg = this.add.rectangle(cx, GAME_HEIGHT / 2, panelW, panelH, COLORS.panel, 0.95)
+      .setDepth(DEPTH.overlay + 11);
+    panelElements.push(border, bg);
+
+    // Title
+    const title = this.add.text(cx, panelTop + 18, '── 戰果 ──', {
+      fontFamily: FONT_FAMILY, fontSize: '18px', color: COLORS.textHighlight,
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 12);
+    panelElements.push(title);
+
+    // EXP line with counting animation
+    const expLabel = this.add.text(cx - 160, panelTop + 50, `EXP: 0`, {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#88ccff',
+      stroke: '#000000', strokeThickness: 1,
+    }).setDepth(DEPTH.overlay + 12);
+    panelElements.push(expLabel);
+
+    const expCounter = { val: 0 };
+    this.tweens.add({
+      targets: expCounter,
+      val: result.exp,
+      duration: 600,
+      onUpdate: () => { expLabel.setText(`EXP: ${Math.floor(expCounter.val)}`); },
+    });
+
+    // Gold line with counting animation
+    const goldLabel = this.add.text(cx + 20, panelTop + 50, `Gold: 0`, {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#ffdd44',
+      stroke: '#000000', strokeThickness: 1,
+    }).setDepth(DEPTH.overlay + 12);
+    panelElements.push(goldLabel);
+
+    const goldCounter = { val: 0 };
+    this.tweens.add({
+      targets: goldCounter,
+      val: result.gold,
+      duration: 600,
+      onUpdate: () => { goldLabel.setText(`Gold: ${Math.floor(goldCounter.val)}`); },
+    });
+
+    // Mini-boss message
+    if (this.monsters.some(m => m.id === 'r12_mini_boss')) {
+      const mbText = this.add.text(cx, panelTop + 80, '魔王護衛已被擊敗！', {
+        fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ff8844',
+        stroke: '#000000', strokeThickness: 1,
+      }).setOrigin(0.5).setDepth(DEPTH.overlay + 12);
+      panelElements.push(mbText);
+    }
+
+    // Item drops with icons
+    if (hasDrops) {
+      const dropTitle = this.add.text(cx - 160, panelTop + 90, '取得道具:', {
+        fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textHighlight,
+        stroke: '#000000', strokeThickness: 1,
+      }).setDepth(DEPTH.overlay + 12);
+      panelElements.push(dropTitle);
+
+      result.drops.forEach((dropName, di) => {
+        const row = Math.floor(di / 4);
+        const col = di % 4;
+        const ix = cx - 150 + col * 95;
+        const iy = panelTop + 115 + row * 70;
+
+        // Try to show item icon
+        const iconKey = this.findItemIconKeyByName(dropName);
+        if (iconKey && this.textures.exists(iconKey)) {
+          const icon = this.add.image(ix + 16, iy + 16, iconKey)
+            .setDisplaySize(32, 32).setDepth(DEPTH.overlay + 13);
+          panelElements.push(icon);
         }
-      }
 
-      // Demon king defeated — trigger ending sequence
-      const region = getRegionById(this.regionId);
-      if (region?.type === 'final') {
-        gameState.setGameCompleted();
-        SaveLoadSystem.autoSave();
-        this.actionLog = lines;
-        this.logIndex = 0;
-        this.textBox.show('', lines[0]);
-        return; // returnToField will redirect to EndingScene
-      }
+        // Item name
+        const nameText = this.add.text(ix, iy + 38, dropName, {
+          fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary,
+          stroke: '#000000', strokeThickness: 1,
+        }).setDepth(DEPTH.overlay + 12);
+        panelElements.push(nameText);
+      });
     }
 
-    this.actionLog = lines;
-    this.logIndex = 0;
-    this.textBox.show('', lines[0]);
+    // "▼ 按 Enter 繼續" blinking prompt
+    const promptText = this.add.text(cx, panelTop + panelH - 20, '▼ 按 Enter 繼續', {
+      fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textHighlight,
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 12);
+    panelElements.push(promptText);
+    this.tweens.add({
+      targets: promptText,
+      alpha: { from: 1, to: 0.3 },
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Wait for user input
+    const cleanup = () => {
+      for (const el of panelElements) el.destroy();
+      this.input.keyboard?.off('keydown-ENTER', onConfirm);
+      this.input.keyboard?.off('keydown-SPACE', onConfirm);
+      this.input.keyboard?.off('keydown-Z', onConfirm);
+    };
+    const onConfirm = () => {
+      cleanup();
+      onComplete();
+    };
+
+    // Enable input after a short delay (prevent accidental skip)
+    this.time.delayedCall(700, () => {
+      this.input.keyboard?.on('keydown-ENTER', onConfirm);
+      this.input.keyboard?.on('keydown-SPACE', onConfirm);
+      this.input.keyboard?.on('keydown-Z', onConfirm);
+    });
+  }
+
+  // ─── Victory Phase 3: Level Ups (recursive) ───
+
+  private showLevelUps(levelUps: LevelUpInfo[], index: number, onComplete: () => void): void {
+    if (index >= levelUps.length) {
+      onComplete();
+      return;
+    }
+
+    const lu = levelUps[index];
+    audioManager.playSfx('levelup');
+
+    // Golden flash
+    const flash = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0xffd700, 0)
+      .setDepth(DEPTH.overlay + 20);
+    this.tweens.add({
+      targets: flash, alpha: { from: 0, to: 0.35 }, yoyo: true, duration: 300,
+      onComplete: () => flash.destroy(),
+    });
+
+    // "LEVEL UP!" bounce text
+    const luText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 'LEVEL UP!', {
+      fontFamily: FONT_FAMILY, fontSize: '32px', color: '#ffd700',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScale(0).setDepth(DEPTH.overlay + 21);
+    this.tweens.add({
+      targets: luText, scale: { from: 0, to: 1.3 }, duration: 300, ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({ targets: luText, scale: 1.0, duration: 200 });
+      },
+    });
+
+    // Particle effect on correct party sprite
+    const state = this.combat.getState();
+    const charIndex = state.party.findIndex(p => p.id === lu.characterId);
+    const charSprite = this.partySprites[charIndex >= 0 ? charIndex : 0];
+    if (charSprite) {
+      BattleEffects.playLevelUpEffect(this, charSprite.x, charSprite.y - 40);
+    }
+
+    // Build stat gains text
+    const statLabels: Record<string, string> = { maxHP: 'HP', maxMP: 'MP', atk: '攻擊', def: '防禦', agi: '速度', luck: '幸運' };
+    const gainParts: string[] = [];
+    for (const [key, val] of Object.entries(lu.statGains)) {
+      if (val && (val as number) > 0) gainParts.push(`${statLabels[key] ?? key}+${val}`);
+    }
+    let statLine = `Lv ${lu.oldLevel} → ${lu.newLevel}`;
+    if (gainParts.length > 0) statLine += `  ${gainParts.join(' ')}`;
+
+    // New skills
+    const newSkillLines: string[] = [];
+    for (const skillId of lu.newSkills) {
+      const skill = getSkillById(skillId);
+      if (skill) newSkillLines.push(`★ 習得新技能：${skill.name}！`);
+    }
+
+    const charName = state.party[charIndex >= 0 ? charIndex : 0]?.name ?? lu.characterId;
+    const allLines = [`${charName} ${t('battle.level_up', lu.characterId, lu.newLevel)}`, statLine, ...newSkillLines];
+
+    // Show in textbox and wait for user to advance through all lines
+    this.showTextSequence(allLines, 0, () => {
+      luText.destroy();
+      this.showLevelUps(levelUps, index + 1, onComplete);
+    });
+  }
+
+  // ─── Victory Phase 4: Boss Victory ───
+
+  private handleBossVictory(result: BattleResult, onComplete: () => void): void {
+    if (!this.isBoss) {
+      onComplete();
+      return;
+    }
+
+    gameState.liberateRegion(this.regionId);
+    const liberationLines = [`${gameState.getState().heroName} 解放了此地區！`];
+
+    // Demon king defeated — ending
+    const region = getRegionById(this.regionId);
+    if (region?.type === 'final') {
+      gameState.setGameCompleted();
+      SaveLoadSystem.autoSave();
+      this.showTextSequence(liberationLines, 0, () => {
+        this.returnToField(); // redirects to EndingScene
+      });
+      return;
+    }
+
+    // Add companion for this region
+    const companion = getCompanionForRegion(this.regionId);
+    if (companion && !gameState.getCompanion(companion.id)) {
+      const companionData = structuredClone(companion);
+      gameState.addCompanion(companionData);
+      const joinedParty = gameState.addToParty(companionData.id);
+
+      this.showTextSequence(liberationLines, 0, () => {
+        this.showCompanionJoinCeremony(companionData, joinedParty, onComplete);
+      });
+    } else {
+      this.showTextSequence(liberationLines, 0, onComplete);
+    }
+  }
+
+  // ─── Helper: Sequential text display ───
+
+  private showTextSequence(lines: string[], index: number, onComplete: () => void): void {
+    if (index >= lines.length) {
+      this.textBox.hide();
+      onComplete();
+      return;
+    }
+
+    this.textBox.show('', lines[index], () => {
+      this.showTextSequence(lines, index + 1, onComplete);
+    });
+  }
+
+  // ─── Helper: Find item icon key by name ───
+
+  private findItemIconKeyByName(name: string): string | null {
+    const allItems = [...getAllConsumables(), ...getAllEquipments()];
+    const found = allItems.find(item => item.name === name);
+    return found ? ItemIconRenderer.getIconKey(found.id) : null;
+  }
+
+  // ─── Companion Join Ceremony ───
+
+  private showCompanionJoinCeremony(
+    companion: { id: string; name: string; race: string; level: number; stats: any; skills: string[] },
+    joinedParty: boolean,
+    onComplete: () => void,
+  ): void {
+    const ceremonyElements: Phaser.GameObjects.GameObject[] = [];
+    const cx = GAME_WIDTH / 2;
+    const cy = GAME_HEIGHT / 2;
+
+    // Race → class label mapping
+    const classMap: Record<string, string> = {
+      elf: '弓箭手', treant: '賢者', beastman: '格鬥家',
+      merfolk: '白魔法師', giant: '機器人', dwarf: '盜賊', undead: '黑魔法師',
+    };
+    const classLabel = classMap[companion.race] ?? '冒險者';
+
+    // 1. Dark overlay (fade in)
+    const overlay = this.add.rectangle(cx, cy, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+      .setDepth(DEPTH.overlay + 30);
+    ceremonyElements.push(overlay);
+    this.tweens.add({ targets: overlay, alpha: 0.6, duration: 400 });
+
+    // 2. Portrait slides in from right
+    const portraitX = cx - 80;
+    const portraitY = cy - 40;
+    const battleTexKey = `char_${companion.id}_battle`;
+    const overworldTexKey = getCompanionTextureKey(companion.id) ?? `char_${companion.id}`;
+    const useBattleTex = this.textures.exists(battleTexKey);
+    const actualTexKey = useBattleTex ? battleTexKey : overworldTexKey;
+    const portraitScale = useBattleTex ? 1.0 : 2.5;
+    const portraitFrame = useBattleTex ? 21 : 1; // down_right idle frame
+
+    let portrait: Phaser.GameObjects.Sprite | Phaser.GameObjects.Rectangle;
+    if (this.textures.exists(actualTexKey)) {
+      portrait = this.add.sprite(GAME_WIDTH + 100, portraitY, actualTexKey, portraitFrame)
+        .setScale(portraitScale).setDepth(DEPTH.overlay + 31);
+    } else {
+      // Fallback: colored rectangle placeholder
+      portrait = this.add.rectangle(GAME_WIDTH + 100, portraitY, 80, 120, 0x6688cc)
+        .setDepth(DEPTH.overlay + 31);
+    }
+    ceremonyElements.push(portrait);
+    this.tweens.add({
+      targets: portrait,
+      x: portraitX,
+      duration: 500,
+      delay: 300,
+      ease: 'Power2',
+    });
+
+    // 3. Golden particle shower
+    this.time.delayedCall(600, () => {
+      for (let i = 0; i < 20; i++) {
+        const px = cx + (Math.random() - 0.5) * 300;
+        const py = -10;
+        const particle = this.add.circle(px, py, 2 + Math.random() * 3, 0xffd700)
+          .setDepth(DEPTH.overlay + 32).setAlpha(0.8);
+        ceremonyElements.push(particle);
+        this.tweens.add({
+          targets: particle,
+          y: GAME_HEIGHT + 20,
+          x: px + (Math.random() - 0.5) * 60,
+          alpha: 0,
+          duration: 1500 + Math.random() * 1000,
+          delay: i * 100,
+          onComplete: () => particle.destroy(),
+        });
+      }
+    });
+
+    // 4. Name + class text
+    const nameText = this.add.text(cx + 60, portraitY - 60, companion.name, {
+      fontFamily: FONT_FAMILY, fontSize: '24px', color: COLORS.textHighlight,
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0, 0.5).setDepth(DEPTH.overlay + 33).setAlpha(0);
+    ceremonyElements.push(nameText);
+    this.tweens.add({ targets: nameText, alpha: 1, duration: 300, delay: 900 });
+
+    const classText = this.add.text(cx + 60, portraitY - 35, `Lv.${companion.level} ${classLabel}`, {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#aabbcc',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0, 0.5).setDepth(DEPTH.overlay + 33).setAlpha(0);
+    ceremonyElements.push(classText);
+    this.tweens.add({ targets: classText, alpha: 1, duration: 300, delay: 1000 });
+
+    // 5. Stats panel (staggered fade-in)
+    const stats = companion.stats;
+    const statLines = [
+      `HP: ${stats.maxHP}  MP: ${stats.maxMP}`,
+      `ATK: ${stats.atk}  DEF: ${stats.def}`,
+      `AGI: ${stats.agi}  LUCK: ${stats.luck}`,
+    ];
+
+    // Skills
+    const skillNames = companion.skills
+      .map(sid => getSkillById(sid))
+      .filter(Boolean)
+      .map(s => s!.name);
+    if (skillNames.length > 0) {
+      statLines.push(`技能: ${skillNames.join('、')}`);
+    }
+
+    statLines.forEach((line, i) => {
+      const st = this.add.text(cx + 60, portraitY - 5 + i * 22, line, {
+        fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textPrimary,
+        stroke: '#000000', strokeThickness: 1,
+      }).setDepth(DEPTH.overlay + 33).setAlpha(0);
+      ceremonyElements.push(st);
+      this.tweens.add({ targets: st, alpha: 1, duration: 300, delay: 1200 + i * 100 });
+    });
+
+    // 6. Join message in textbox
+    this.time.delayedCall(1500, () => {
+      audioManager.playSfx('fanfare');
+      const joinMsg = joinedParty
+        ? t('battle.companion_join', companion.name)
+        : `${companion.name} 成為了夥伴！隊伍已滿，可在選單中編組隊伍。`;
+
+      this.textBox.show('', joinMsg);
+    });
+
+    // 7. Enable dismiss after 2000ms
+    this.time.delayedCall(2000, () => {
+      const cleanup = () => {
+        for (const el of ceremonyElements) {
+          if (el && el.active) el.destroy();
+        }
+        this.textBox.hide();
+        this.input.keyboard?.off('keydown-ENTER', onDismiss);
+        this.input.keyboard?.off('keydown-SPACE', onDismiss);
+        this.input.keyboard?.off('keydown-Z', onDismiss);
+      };
+      const onDismiss = () => {
+        cleanup();
+        onComplete();
+      };
+      this.input.keyboard?.on('keydown-ENTER', onDismiss);
+      this.input.keyboard?.on('keydown-SPACE', onDismiss);
+      this.input.keyboard?.on('keydown-Z', onDismiss);
+    });
   }
 
   private showDefeat(): void {
@@ -1562,11 +2095,104 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
+  private showRevivalPrompt(
+    reviveItem: { id: string; name: string; effect?: { type: string; value: number } },
+    deadMembers: CombatantState[],
+    onDecline: () => void,
+  ): void {
+    const panelX = GAME_WIDTH / 2;
+    const panelY = GAME_HEIGHT / 2;
+
+    const panel = this.add.rectangle(panelX, panelY, 320, 120, COLORS.panel, 0.95).setDepth(DEPTH.overlay);
+    const border = this.add.rectangle(panelX, panelY, 324, 124, COLORS.panelBorder).setDepth(DEPTH.overlay - 1);
+    const prompt = this.add.text(panelX, panelY - 30, `要使用${reviveItem.name}嗎？`, {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
+
+    const yesText = this.add.text(panelX - 50, panelY + 15, '► 是', {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#44ff44',
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 1).setInteractive({ useHandCursor: true });
+    const noText = this.add.text(panelX + 50, panelY + 15, '  否', {
+      fontFamily: FONT_FAMILY, fontSize: '16px', color: '#ff4444',
+    }).setOrigin(0.5).setDepth(DEPTH.overlay + 1).setInteractive({ useHandCursor: true });
+
+    let selected = 0;
+    const updateChoice = () => {
+      yesText.setText(selected === 0 ? '► 是' : '  是');
+      yesText.setColor(selected === 0 ? '#44ff44' : '#aaaaaa');
+      noText.setText(selected === 1 ? '► 否' : '  否');
+      noText.setColor(selected === 1 ? '#ff4444' : '#aaaaaa');
+    };
+
+    const cleanup = () => {
+      panel.destroy(); border.destroy(); prompt.destroy();
+      yesText.destroy(); noText.destroy();
+      this.input.keyboard?.off('keydown-LEFT', onPrev);
+      this.input.keyboard?.off('keydown-RIGHT', onNext);
+      this.input.keyboard?.off('keydown-ENTER', onConfirm);
+      this.input.keyboard?.off('keydown-Z', onConfirm);
+      this.input.keyboard?.off('keydown-SPACE', onConfirm);
+    };
+
+    const onPrev = () => { selected = 0; updateChoice(); audioManager.playSfx('select'); };
+    const onNext = () => { selected = 1; updateChoice(); audioManager.playSfx('select'); };
+    const onConfirm = () => {
+      cleanup();
+      if (selected === 0) {
+        // Use revival item on first dead member
+        const target = deadMembers[0];
+        const reviveValue = reviveItem.effect?.value ?? 50;
+        if (target && gameState.getItemCount(reviveItem.id) > 0) {
+          gameState.removeItem(reviveItem.id);
+          target.stats.hp = Math.floor(target.stats.maxHP * (reviveValue / 100));
+          audioManager.playSfx('heal');
+          BattleEffects.playHealEffect(this, this.partySprites[target.index]?.x ?? panelX, this.partySprites[target.index]?.y ?? panelY);
+          this.addBattleLogMessage(`${target.name} 被復活了！`);
+          // Update HUD
+          this.hud?.update(this.combat.getState().party, this.combat.getState().enemies);
+          // Reset combat phase — party member revived, battle continues
+          const cState = this.combat.getState();
+          cState.phase = 'player_turn';
+          cState.result = undefined as any;
+          this.time.delayedCall(600, () => this.checkBattleResult());
+        } else {
+          onDecline();
+        }
+      } else {
+        onDecline();
+      }
+    };
+
+    this.input.keyboard?.on('keydown-LEFT', onPrev);
+    this.input.keyboard?.on('keydown-RIGHT', onNext);
+    this.input.keyboard?.on('keydown-ENTER', onConfirm);
+    this.input.keyboard?.on('keydown-Z', onConfirm);
+    this.input.keyboard?.on('keydown-SPACE', onConfirm);
+    yesText.on('pointerdown', () => { selected = 0; onConfirm(); });
+    noText.on('pointerdown', () => { selected = 1; onConfirm(); });
+  }
+
   private returnToField(): void {
-    // If the demon king was just defeated, go to ending instead
+    // If the demon king was just defeated, play celebration cutscene then ending
     const region = getRegionById(this.regionId);
     if (this.isBoss && region?.type === 'final') {
-      TransitionEffect.transition(this, 'EndingScene');
+      const heroName = gameState.getState().heroName;
+      const state = gameState.getState();
+      const partyKeys = ['char_hero_battle', ...state.party.map(id => `char_${id}_battle`)];
+      TransitionEffect.transition(this, 'CutsceneScene', {
+        slides: [
+          { text: '大魔王被擊敗了！', duration: 3000, bgColor: 0x110011 },
+          { text: `${heroName}：「我們做到了！」`, duration: 3000,
+            characters: partyKeys, layout: 'celebration' },
+          { text: '和平終於降臨這片大地', duration: 3500,
+            characters: partyKeys, layout: 'gathering', bgColor: 0x0a0a2a },
+          { text: `感謝你，${heroName}。感謝大家。`, duration: 3500,
+            characters: partyKeys, layout: 'celebration', bgColor: 0x0a0a2a },
+          { text: '新的時代開始了…', duration: 3000, bgColor: 0x111122 },
+        ],
+        nextScene: 'EndingScene',
+        nextData: {},
+      });
       return;
     }
     TransitionEffect.transition(this, this.returnScene, this.returnData);

@@ -163,6 +163,17 @@ export const NPC_TYPE_APPEARANCES: Record<string, Partial<CharacterAppearance>> 
     weapon: 'sword',
     cape: false,
   },
+  elder: {
+    headgear: 'circlet',
+    bodyType: 'robe',
+    bodyColor: '#8877aa',
+    weapon: 'staff',
+    weaponColor: '#887766',
+    cape: true,
+    capeColor: '#665588',
+    hairColor: '#cccccc',
+    hairStyle: 'short',
+  },
 };
 
 /** Guard appearances per region — derived from companion races */

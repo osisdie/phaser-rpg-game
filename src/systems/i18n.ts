@@ -116,6 +116,8 @@ const strings: Record<string, string> = {
 
   // ─── 進度 ───
   'progress.kingdoms': '已解放王國：{0}/7',
+  'progress.main': '主線 {0}/7',
+  'progress.side': '支線 {0}/3',
   'progress.chapter': '第 {0} 章',
 
   // ─── 全滅 ───

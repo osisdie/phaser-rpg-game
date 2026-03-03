@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config';
-import { COLORS, FONT_FAMILY } from '../utils/constants';
+import { COLORS, DEPTH, FONT_FAMILY } from '../utils/constants';
 import { t } from '../systems/i18n';
 import { gameState } from '../systems/GameStateManager';
 import { SaveLoadSystem } from '../systems/SaveLoadSystem';
@@ -765,7 +765,22 @@ export class MenuScene extends Phaser.Scene {
         ? `${t('save.slot', i + 1)}  ${info.heroName} Lv.${info.level}  ${info.playTime}${completedMark}`
         : `${t('save.slot', i + 1)}  ${t('save.empty')}`;
       const slot = i;
-      saveItems.push({ label, action: () => { if (SaveLoadSystem.save(slot)) this.showSave(); } });
+      saveItems.push({ label, action: () => {
+        if (SaveLoadSystem.save(slot)) {
+          audioManager.playSfx('fanfare');
+          // Show brief confirmation overlay
+          const confirmText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '儲存完成！', {
+            fontFamily: FONT_FAMILY, fontSize: '28px', color: '#ffd700',
+            stroke: '#000000', strokeThickness: 4,
+          }).setOrigin(0.5).setDepth(DEPTH.ui + 100);
+          this.tweens.add({
+            targets: confirmText, alpha: { from: 1, to: 0 }, y: confirmText.y - 30,
+            duration: 1500, ease: 'Cubic.easeOut',
+            onComplete: () => confirmText.destroy(),
+          });
+          this.showSave();
+        }
+      } });
     }
 
     saveItems.forEach((item, i) => {

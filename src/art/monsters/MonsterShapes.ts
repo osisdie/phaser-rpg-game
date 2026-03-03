@@ -12,7 +12,8 @@ import {
 export type MonsterShape =
   | 'slime' | 'bat' | 'wolf' | 'snake' | 'spider' | 'skeleton'
   | 'goblin' | 'ghost' | 'elemental' | 'gargoyle' | 'dragon'
-  | 'insect' | 'fish' | 'bird' | 'bear' | 'turtle' | 'crab' | 'plant';
+  | 'insect' | 'fish' | 'bird' | 'bear' | 'turtle' | 'crab' | 'plant'
+  | 'demon';
 
 /** Shapes whose heads/eyes face RIGHT in canvas space — need flipX in diagonal battle layout */
 export const RIGHT_FACING_SHAPES = new Set<MonsterShape>([
@@ -25,7 +26,7 @@ export interface MonsterVisual {
   baseColor: string;
   accentColor: string;
   size: number; // multiplier (1 = 32px, 2 = 64px for bosses)
-  features?: string[]; // optional decorations: 'horns', 'wings', 'crown', 'ice', 'fire', 'poison'
+  features?: string[]; // optional decorations: 'horns', 'wings', 'ice', 'fire', 'poison', 'lightning', 'earth_aura', 'wind_aura', 'water_aura', 'light_aura'
   /** Slime appearance variant (0–2) for visual variety */
   slimeVariant?: number;
 }
@@ -58,6 +59,7 @@ export function drawMonsterShape(
     case 'turtle': drawTurtle(ctx, ox, oy, w, h, baseColor, accentColor); break;
     case 'crab': drawCrab(ctx, ox, oy, w, h, baseColor, accentColor); break;
     case 'plant': drawPlant(ctx, ox, oy, w, h, baseColor, accentColor); break;
+    case 'demon': drawDemon(ctx, ox, oy, w, h, baseColor, accentColor); break;
   }
 
   // Feature decorations
@@ -1074,18 +1076,142 @@ export function drawFeature(ctx: CanvasRenderingContext2D, ox: number, oy: numbe
   if (feat === 'horns') {
     fillGradientTriangle(ctx, ox + w * 0.2, oy + h * 0.15, ox + w * 0.1, oy - h * 0.05, ox + w * 0.25, oy + h * 0.05, darken(accent, 0.3));
     fillGradientTriangle(ctx, ox + w * 0.7, oy + h * 0.15, ox + w * 0.75, oy - h * 0.05, ox + w * 0.85, oy + h * 0.05, darken(accent, 0.3));
-  } else if (feat === 'crown') {
-    const crownColor = '#ffd700';
-    fillGradientRect(ctx, ox + w * 0.2, oy + h * 0.02, w * 0.6, h * 0.04, crownColor);
-    fillGradientTriangle(ctx, ox + w * 0.25, oy + h * 0.02, ox + w * 0.22, oy - h * 0.06, ox + w * 0.28, oy + h * 0.02, crownColor);
-    fillGradientTriangle(ctx, ox + w * 0.45, oy + h * 0.02, ox + w * 0.42, oy - h * 0.08, ox + w * 0.48, oy + h * 0.02, crownColor);
-    fillGradientTriangle(ctx, ox + w * 0.65, oy + h * 0.02, ox + w * 0.62, oy - h * 0.06, ox + w * 0.68, oy + h * 0.02, crownColor);
-    // Jewels
-    ctx.fillStyle = '#cc2222';
-    ctx.fillRect(Math.round(ox + w * 0.44), Math.round(oy - h * 0.04), 2, 2);
-    ctx.fillStyle = '#2222cc';
-    ctx.fillRect(Math.round(ox + w * 0.24), Math.round(oy - h * 0.02), 2, 2);
-    ctx.fillRect(Math.round(ox + w * 0.64), Math.round(oy - h * 0.02), 2, 2);
+  } else if (feat === 'lightning') {
+    // Electric sparks crackling around the boss
+    ctx.globalAlpha = 0.8;
+    const bolts = [
+      [0.15, 0.05, 0.25, 0.20, 0.18, 0.35],
+      [0.80, 0.08, 0.72, 0.22, 0.85, 0.38],
+      [0.45, 0.0, 0.50, 0.12, 0.42, 0.25],
+    ];
+    for (const [x1f, y1f, x2f, y2f, x3f, y3f] of bolts) {
+      ctx.strokeStyle = '#ffff44';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ox + w * x1f, oy + h * y1f);
+      ctx.lineTo(ox + w * x2f, oy + h * y2f);
+      ctx.lineTo(ox + w * x3f, oy + h * y3f);
+      ctx.stroke();
+      // Glow core
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(ox + w * x1f, oy + h * y1f);
+      ctx.lineTo(ox + w * x2f, oy + h * y2f);
+      ctx.stroke();
+    }
+    // Spark dots
+    for (let i = 0; i < 6; i++) {
+      const sx = ox + w * (0.1 + ((i * 3571) % 17) / 20);
+      const sy = oy + h * (0.05 + ((i * 2137) % 13) / 20);
+      ctx.fillStyle = '#ffff88';
+      ctx.fillRect(Math.round(sx), Math.round(sy), 2, 2);
+    }
+    ctx.globalAlpha = 1;
+  } else if (feat === 'earth_aura') {
+    // Floating rock shards around the boss
+    ctx.globalAlpha = 0.7;
+    const rocks = [
+      [0.08, 0.15, 0.08, 0.06], [0.85, 0.20, 0.07, 0.05],
+      [0.12, 0.60, 0.06, 0.05], [0.82, 0.55, 0.09, 0.06],
+      [0.05, 0.38, 0.05, 0.04], [0.90, 0.40, 0.06, 0.05],
+    ];
+    for (const [xf, yf, wf, hf] of rocks) {
+      const rx = ox + w * xf, ry = oy + h * yf;
+      const rw = w * wf, rh = h * hf;
+      ctx.fillStyle = '#887766';
+      ctx.fillRect(Math.round(rx), Math.round(ry), Math.round(rw), Math.round(rh));
+      ctx.fillStyle = '#aa9988';
+      ctx.fillRect(Math.round(rx + 1), Math.round(ry), Math.round(rw - 2), Math.round(rh * 0.5));
+    }
+    ctx.globalAlpha = 1;
+  } else if (feat === 'wind_aura') {
+    // Swirling wind lines around the boss
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#aaddff';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2;
+      const cxA = ox + w * 0.5 + Math.cos(angle) * w * 0.4;
+      const cyA = oy + h * 0.4 + Math.sin(angle) * h * 0.3;
+      ctx.beginPath();
+      ctx.arc(cxA, cyA, w * 0.12, angle, angle + Math.PI * 0.8);
+      ctx.stroke();
+    }
+    // Leaf-like particles
+    ctx.fillStyle = '#88ccaa';
+    for (let i = 0; i < 5; i++) {
+      const lx = ox + w * (0.1 + ((i * 4793) % 19) / 24);
+      const ly = oy + h * (0.1 + ((i * 3109) % 17) / 24);
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, w * 0.015, w * 0.006, ((i * 47) % 180) * Math.PI / 180, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else if (feat === 'water_aura') {
+    // Water ripples and droplets
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#4488cc';
+    ctx.lineWidth = 1.5;
+    const cxW = ox + w * 0.5, cyW = oy + h * 0.75;
+    for (let i = 1; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(cxW, cyW, w * 0.15 * i, h * 0.04 * i, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Floating water drops
+    ctx.globalAlpha = 0.6;
+    for (let i = 0; i < 5; i++) {
+      const dx = ox + w * (0.15 + ((i * 3727) % 14) / 20);
+      const dy = oy + h * (0.08 + ((i * 2591) % 11) / 18);
+      ctx.fillStyle = '#66aaee';
+      ctx.beginPath();
+      ctx.arc(dx, dy, w * 0.015, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#aaddff';
+      ctx.fillRect(Math.round(dx - 1), Math.round(dy - 1), 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  } else if (feat === 'light_aura') {
+    // Holy light rays radiating outward
+    ctx.globalAlpha = 0.35;
+    const cxL = ox + w * 0.5, cyL = oy + h * 0.15;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const rayLen = w * 0.45;
+      const grad = ctx.createLinearGradient(cxL, cyL, cxL + Math.cos(angle) * rayLen, cyL + Math.sin(angle) * rayLen);
+      grad.addColorStop(0, '#ffffaa');
+      grad.addColorStop(0.5, '#ffdd66');
+      grad.addColorStop(1, 'rgba(255,255,170,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cxL, cyL);
+      ctx.lineTo(cxL + Math.cos(angle) * rayLen, cyL + Math.sin(angle) * rayLen);
+      ctx.stroke();
+    }
+    // Central glow
+    const glowGrad = ctx.createRadialGradient(cxL, cyL, 0, cxL, cyL, w * 0.1);
+    glowGrad.addColorStop(0, 'rgba(255,255,200,0.6)');
+    glowGrad.addColorStop(1, 'rgba(255,255,200,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(cxL, cyL, w * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (feat === 'dark_aura') {
+    // Semi-transparent dark aura circle behind boss body
+    const cx = ox + w / 2;
+    const cy = oy + h * 0.45;
+    const auraR = w * 0.55;
+    const grad = ctx.createRadialGradient(cx, cy, auraR * 0.3, cx, cy, auraR);
+    grad.addColorStop(0, 'rgba(80,20,120,0.3)');
+    grad.addColorStop(0.6, 'rgba(40,10,60,0.15)');
+    grad.addColorStop(1, 'rgba(20,5,30,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, auraR, 0, Math.PI * 2);
+    ctx.fill();
   } else if (feat === 'ice') {
     ctx.fillStyle = '#aaddff';
     ctx.globalAlpha = 0.4;
@@ -1125,6 +1251,142 @@ export function drawFeature(ctx: CanvasRenderingContext2D, ox: number, oy: numbe
     }
     ctx.globalAlpha = 1;
   }
+}
+
+// ─── Demon (大魔王) ──────────────────────────────────────────────────
+
+function drawDemon(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, base: string, accent: string): void {
+  const cx = ox + w / 2;
+
+  // Dark aura (subtle glow behind everything)
+  ctx.globalAlpha = 0.15;
+  fillGradientOval(ctx, cx - w * 0.45, oy + h * 0.05, w * 0.9, h * 0.85, accent);
+  ctx.globalAlpha = 1;
+
+  // Bat-like wings (behind body, spread wide)
+  const wingColor = darken(base, 0.25);
+  const wingMembrane = darken(base, 0.15);
+  // Left wing
+  ctx.fillStyle = wingColor;
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.15, oy + h * 0.25);
+  ctx.lineTo(cx - w * 0.48, oy + h * 0.05);
+  ctx.lineTo(cx - w * 0.46, oy + h * 0.2);
+  ctx.lineTo(cx - w * 0.42, oy + h * 0.12);
+  ctx.lineTo(cx - w * 0.38, oy + h * 0.28);
+  ctx.lineTo(cx - w * 0.3, oy + h * 0.18);
+  ctx.lineTo(cx - w * 0.22, oy + h * 0.4);
+  ctx.closePath();
+  ctx.fill();
+  // Wing membrane
+  ctx.fillStyle = wingMembrane;
+  ctx.globalAlpha = 0.4;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  // Right wing (mirror)
+  ctx.fillStyle = wingColor;
+  ctx.beginPath();
+  ctx.moveTo(cx + w * 0.15, oy + h * 0.25);
+  ctx.lineTo(cx + w * 0.48, oy + h * 0.05);
+  ctx.lineTo(cx + w * 0.46, oy + h * 0.2);
+  ctx.lineTo(cx + w * 0.42, oy + h * 0.12);
+  ctx.lineTo(cx + w * 0.38, oy + h * 0.28);
+  ctx.lineTo(cx + w * 0.3, oy + h * 0.18);
+  ctx.lineTo(cx + w * 0.22, oy + h * 0.4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = wingMembrane;
+  ctx.globalAlpha = 0.4;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Muscular torso
+  fillGradientOval(ctx, cx - w * 0.2, oy + h * 0.28, w * 0.4, h * 0.3, base);
+  // Chest musculature highlight
+  addHighlight(ctx, cx - w * 0.08, oy + h * 0.32, w * 0.06, 0.15);
+  addHighlight(ctx, cx + w * 0.02, oy + h * 0.32, w * 0.06, 0.15);
+
+  // Waist/hip area
+  fillGradientOval(ctx, cx - w * 0.15, oy + h * 0.52, w * 0.3, h * 0.12, darken(base, 0.1));
+
+  // Legs
+  fillGradientRect(ctx, cx - w * 0.14, oy + h * 0.6, w * 0.11, h * 0.22, darken(base, 0.08));
+  fillGradientRect(ctx, cx + w * 0.04, oy + h * 0.6, w * 0.11, h * 0.22, darken(base, 0.08));
+  // Clawed feet
+  ctx.fillStyle = darken(base, 0.3);
+  fillFlatOval(ctx, cx - w * 0.17, oy + h * 0.8, w * 0.15, h * 0.04);
+  fillFlatOval(ctx, cx + w * 0.03, oy + h * 0.8, w * 0.15, h * 0.04);
+
+  // Arms (muscular, spread slightly)
+  fillGradientRect(ctx, cx - w * 0.32, oy + h * 0.3, w * 0.14, h * 0.08, darken(base, 0.05));
+  fillGradientRect(ctx, cx + w * 0.18, oy + h * 0.3, w * 0.14, h * 0.08, darken(base, 0.05));
+  // Forearms (angled down)
+  fillGradientRect(ctx, cx - w * 0.36, oy + h * 0.36, w * 0.1, h * 0.16, darken(base, 0.08));
+  fillGradientRect(ctx, cx + w * 0.26, oy + h * 0.36, w * 0.1, h * 0.16, darken(base, 0.08));
+  // Clawed hands
+  ctx.fillStyle = darken(base, 0.3);
+  for (let i = 0; i < 3; i++) {
+    ctx.fillRect(Math.round(cx - w * 0.38 + i * w * 0.03), Math.round(oy + h * 0.5), Math.max(1, w * 0.02), Math.max(2, h * 0.04));
+    ctx.fillRect(Math.round(cx + w * 0.27 + i * w * 0.03), Math.round(oy + h * 0.5), Math.max(1, w * 0.02), Math.max(2, h * 0.04));
+  }
+
+  // Head
+  fillGradientOval(ctx, cx - w * 0.14, oy + h * 0.08, w * 0.28, h * 0.22, base);
+
+  // Large curved horns
+  const hornColor = darken(base, 0.3);
+  // Left horn
+  ctx.fillStyle = hornColor;
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.1, oy + h * 0.1);
+  ctx.quadraticCurveTo(cx - w * 0.28, oy - h * 0.06, cx - w * 0.22, oy - h * 0.02);
+  ctx.quadraticCurveTo(cx - w * 0.2, oy + h * 0.04, cx - w * 0.08, oy + h * 0.12);
+  ctx.closePath();
+  ctx.fill();
+  // Right horn
+  ctx.beginPath();
+  ctx.moveTo(cx + w * 0.1, oy + h * 0.1);
+  ctx.quadraticCurveTo(cx + w * 0.28, oy - h * 0.06, cx + w * 0.22, oy - h * 0.02);
+  ctx.quadraticCurveTo(cx + w * 0.2, oy + h * 0.04, cx + w * 0.08, oy + h * 0.12);
+  ctx.closePath();
+  ctx.fill();
+
+  // Glowing eyes (red/yellow)
+  drawEye(ctx, cx - w * 0.06, oy + h * 0.16, w * 0.05, accent, '#ffdd00');
+  drawEye(ctx, cx + w * 0.06, oy + h * 0.16, w * 0.05, accent, '#ffdd00');
+
+  // Menacing mouth
+  ctx.fillStyle = '#220000';
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.07, oy + h * 0.23);
+  ctx.lineTo(cx, oy + h * 0.26);
+  ctx.lineTo(cx + w * 0.07, oy + h * 0.23);
+  ctx.closePath();
+  ctx.fill();
+  // Fangs
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(Math.round(cx - w * 0.04), Math.round(oy + h * 0.23), Math.max(1, w * 0.02), Math.max(2, h * 0.03));
+  ctx.fillRect(Math.round(cx + w * 0.02), Math.round(oy + h * 0.23), Math.max(1, w * 0.02), Math.max(2, h * 0.03));
+
+  // Tail (curving behind legs)
+  ctx.strokeStyle = darken(base, 0.15);
+  ctx.lineWidth = Math.max(2, w * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(cx, oy + h * 0.58);
+  ctx.quadraticCurveTo(cx + w * 0.3, oy + h * 0.7, cx + w * 0.2, oy + h * 0.85);
+  ctx.stroke();
+  // Tail tip (arrow-shaped)
+  ctx.fillStyle = darken(base, 0.25);
+  ctx.beginPath();
+  ctx.moveTo(cx + w * 0.2, oy + h * 0.83);
+  ctx.lineTo(cx + w * 0.26, oy + h * 0.82);
+  ctx.lineTo(cx + w * 0.2, oy + h * 0.88);
+  ctx.lineTo(cx + w * 0.14, oy + h * 0.82);
+  ctx.closePath();
+  ctx.fill();
+
+  // Head highlight
+  addHighlight(ctx, cx - w * 0.04, oy + h * 0.1, w * 0.06, 0.18);
 }
 
 // ─── Legacy flat helpers (used for small details) ────────────────────

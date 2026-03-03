@@ -11,6 +11,18 @@ import { audioManager } from '../systems/AudioManager';
 import { getNodeIconKey } from '../art/worldmap/WorldMapRenderer';
 import { COLORS as COLOR_HEX, FONT_FAMILY as FONT } from '../utils/constants';
 
+/** Demon Lord taunts shown when ≥3 kingdoms liberated */
+const DEMON_TAUNTS = [
+  '哈哈哈...你以為解放幾個王國就能打敗我？',
+  '可笑的勇者...你們的反抗毫無意義！',
+  '黑暗永遠不會消失...我在魔王城等著你們！',
+  '越來越近了嗎？來吧...我會讓你後悔的！',
+  '區區凡人...也敢挑戰我的權威？',
+  '你的同伴們...最終都會倒在我腳下！',
+  '這個世界已經屬於我...你改變不了什麼！',
+  '盡管掙扎吧...結局早已註定！',
+];
+
 export class WorldMapScene extends Phaser.Scene {
   private nodes: WorldNode[] = [];
   private nodeSprites: Phaser.GameObjects.Container[] = [];
@@ -18,6 +30,8 @@ export class WorldMapScene extends Phaser.Scene {
   private cursor!: Phaser.GameObjects.Triangle;
   private infoText!: Phaser.GameObjects.Text;
   private progressUI!: ProgressUI;
+  private tauntTimer?: Phaser.Time.TimerEvent;
+  private demonNode?: WorldNode;
 
   constructor() {
     super('WorldMapScene');
@@ -227,8 +241,184 @@ export class WorldMapScene extends Phaser.Scene {
     if (currentIdx >= 0) this.selectedIndex = currentIdx;
 
     this.updateCursor();
+
+    // ─── World Map Enhancements ───
+    const liberatedCount = gameState.getState().liberatedRegions.length;
+    this.demonNode = this.nodes.find(n => n.region.type === 'final');
+
+    // 7A. Slow background particles
+    this.spawnBackgroundParticles(liberatedCount);
+
+    // 7B. Demon lord taunts (≥3 kingdoms liberated)
+    if (this.demonNode && liberatedCount >= 3) {
+      this.startDemonTaunts();
+    }
+
+    // 7D. Final stage visuals (11 kingdoms liberated)
+    if (liberatedCount >= 11) {
+      this.applyFinalStageVisuals();
+    }
+
     TransitionEffect.fadeIn(this);
-    audioManager.playBgm('field');
+
+    // 7C. Progressive BGM based on liberation progress
+    if (liberatedCount >= 11) {
+      audioManager.playBgm('world_dark');
+    } else if (liberatedCount >= 8) {
+      audioManager.playBgm('world_epic');
+    } else if (liberatedCount >= 4) {
+      audioManager.playBgm('world_rising');
+    } else {
+      audioManager.playBgm('field');
+    }
+  }
+
+  // ─── 7A: Background Particles ───
+  private spawnBackgroundParticles(liberatedCount: number): void {
+    const isLate = liberatedCount >= 8;
+    const particleColor = isLate ? 0xcc6644 : 0xddcc88;
+
+    for (let i = 0; i < 20; i++) {
+      const px = Math.random() * GAME_WIDTH;
+      const py = Math.random() * GAME_HEIGHT;
+      const r = 1 + Math.random();
+      const dot = this.add.circle(px, py, r, particleColor, 0.1 + Math.random() * 0.15);
+      dot.setDepth(0.5);
+
+      // Gentle sinusoidal drift
+      const duration = 8000 + Math.random() * 7000;
+      const xAmp = 30 + Math.random() * 50;
+      this.tweens.add({
+        targets: dot,
+        x: { from: px - xAmp, to: px + xAmp },
+        y: dot.y - GAME_HEIGHT - 20,
+        duration,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: Math.random() * duration,
+        onRepeat: () => {
+          dot.setPosition(Math.random() * GAME_WIDTH, GAME_HEIGHT + 10);
+        },
+      });
+    }
+  }
+
+  // ─── 7B: Demon Lord Taunts ───
+  private startDemonTaunts(): void {
+    const showTaunt = () => {
+      if (!this.demonNode) return;
+      const taunt = DEMON_TAUNTS[Math.floor(Math.random() * DEMON_TAUNTS.length)];
+      const dx = Phaser.Math.Clamp(this.demonNode.screenX, 160, GAME_WIDTH - 160);
+      const dy = this.demonNode.screenY - 50;
+
+      // Small demon icon (32×32) — horns + red eyes
+      const iconSize = 28;
+      const iconGfx = this.add.graphics().setDepth(152).setAlpha(0);
+      const iconX = dx - 14;
+      const iconY = dy - 28;
+      // Horns
+      iconGfx.fillStyle(0x660033);
+      iconGfx.fillTriangle(iconX - 8, iconY - 6, iconX - 2, iconY + 4, iconX - 12, iconY + 2);
+      iconGfx.fillTriangle(iconX + 8, iconY - 6, iconX + 2, iconY + 4, iconX + 12, iconY + 2);
+      // Face
+      iconGfx.fillStyle(0x440022);
+      iconGfx.fillCircle(iconX, iconY + 6, 8);
+      // Glowing red eyes
+      iconGfx.fillStyle(0xff2222);
+      iconGfx.fillCircle(iconX - 3, iconY + 4, 2);
+      iconGfx.fillCircle(iconX + 3, iconY + 4, 2);
+
+      // Dark speech bubble — wider for CJK text
+      const bubbleW = Math.min(280, taunt.length * 16 + 28);
+      const bubbleH = 40;
+      const bubble = this.add.rectangle(dx, dy, bubbleW, bubbleH, 0x1a0a2a, 0.85)
+        .setStrokeStyle(1, 0x662288).setDepth(150).setAlpha(0);
+      const text = this.add.text(dx, dy, taunt, {
+        fontFamily: FONT_FAMILY, fontSize: '13px', color: '#cc44ff',
+        stroke: '#000000', strokeThickness: 2,
+        wordWrap: { width: bubbleW - 20 }, align: 'center',
+      }).setOrigin(0.5).setDepth(151).setAlpha(0);
+
+      // Adjust bubble height to fit text
+      const actualH = text.height + 16;
+      bubble.setSize(bubbleW, actualH);
+      const bubbleY = dy - actualH / 2 + 20;
+      bubble.setPosition(dx, bubbleY);
+      text.setPosition(dx, bubbleY);
+      iconGfx.setPosition(0, 0); // icon drawn at absolute coords above bubble
+
+      // Fade in → hold → fade out
+      this.tweens.add({
+        targets: [bubble, text, iconGfx],
+        alpha: 1,
+        duration: 300,
+        onComplete: () => {
+          this.time.delayedCall(3000, () => {
+            this.tweens.add({
+              targets: [bubble, text, iconGfx],
+              alpha: 0,
+              duration: 500,
+              onComplete: () => { bubble.destroy(); text.destroy(); iconGfx.destroy(); },
+            });
+          });
+        },
+      });
+    };
+
+    // First taunt after 3 seconds, then every 8-12 seconds
+    this.time.delayedCall(3000, showTaunt);
+    this.tauntTimer = this.time.addEvent({
+      delay: 8000 + Math.random() * 4000,
+      callback: showTaunt,
+      loop: true,
+    });
+  }
+
+  // ─── 7D: Final Stage Visuals ───
+  private applyFinalStageVisuals(): void {
+    // Dark overlay
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x1a0a2a, 0.4)
+      .setDepth(0.2);
+
+    // Vignette effect (dark gradient at edges)
+    const vignette = this.add.graphics().setDepth(0.3);
+    vignette.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0.5, 0.5, 0, 0);
+    vignette.fillRect(0, 0, GAME_WIDTH, 80);
+    vignette.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.5, 0.5);
+    vignette.fillRect(0, GAME_HEIGHT - 80, GAME_WIDTH, 80);
+
+    // Red particle emanation from demon castle
+    if (this.demonNode) {
+      const dx = this.demonNode.screenX;
+      const dy = this.demonNode.screenY;
+
+      // Dark purple aura behind demon castle
+      const aura = this.add.circle(dx, dy, 40, 0x440066, 0.3).setDepth(0.4);
+      this.tweens.add({
+        targets: aura,
+        scale: { from: 0.8, to: 1.3 },
+        alpha: { from: 0.3, to: 0.1 },
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+      });
+
+      // Red pulsing particles
+      for (let i = 0; i < 10; i++) {
+        const angle = (i / 10) * Math.PI * 2;
+        const p = this.add.circle(dx, dy, 2, 0xff2244, 0.6).setDepth(0.5);
+        this.tweens.add({
+          targets: p,
+          x: dx + Math.cos(angle) * 60,
+          y: dy + Math.sin(angle) * 60,
+          alpha: 0,
+          duration: 2000 + Math.random() * 1000,
+          repeat: -1,
+          delay: i * 200,
+          onRepeat: () => p.setPosition(dx, dy).setAlpha(0.6),
+        });
+      }
+    }
   }
 
   private navigate(dir: number): void {
@@ -305,14 +495,31 @@ export class WorldMapScene extends Phaser.Scene {
     const confirm = (i: number) => {
       cleanup();
       if (i === 0) {
-        // Confirmed — play alliance cutscene then go to field
+        // Confirmed — play enhanced alliance cutscene with character art
         const heroName = gameState.getState().heroName;
+        const state = gameState.getState();
+        const partyKeys = ['char_hero_battle', ...state.party.map(id => `char_${id}_battle`)];
+        const allCompanionKeys = [
+          'char_hero_battle',
+          'char_companion_elf_battle', 'char_companion_treant_battle',
+          'char_companion_beast_battle', 'char_companion_merfolk_battle',
+          'char_companion_giant_battle', 'char_companion_dwarf_battle',
+          'char_companion_undead_battle',
+        ];
         TransitionEffect.transition(this, 'CutsceneScene', {
           slides: [
-            { text: '七大王國的勇者們齊聚一堂…', duration: 3000 },
-            { text: '精靈族的弓箭手、樹人的守護者、獸人的戰士…\n人魚的法師、巨人的力士、矮人的鍛冶師、不死族的暗影…', duration: 4000 },
-            { text: `在 ${heroName} 的帶領下，七國聯軍向魔王城進發！`, duration: 3000 },
-            { text: `${heroName}：「各位，感謝你們的支持！\n我發誓，一定會消滅魔王，\n讓所有王國恢復和平！」`, duration: 4000 },
+            { text: `${heroName}：「是時候了…」`, duration: 3000,
+              characters: ['char_hero_battle'], layout: 'center' },
+            { text: '夥伴們紛紛趕來…', duration: 3000,
+              characters: partyKeys, layout: 'gathering' },
+            { text: '七大王國的勇士齊聚一堂', duration: 4000,
+              characters: allCompanionKeys, layout: 'gathering' },
+            { text: `在 ${heroName} 的帶領下，七國聯軍向魔王城進發！`, duration: 3500,
+              characters: allCompanionKeys, layout: 'celebration' },
+            { text: '魔王城就在前方…', duration: 3000,
+              bgColor: 0x110011 },
+            { text: `${heroName}：「讓我們終結這一切！」`, duration: 3000,
+              characters: partyKeys, layout: 'center', bgColor: 0x110011 },
           ],
           nextScene: 'FieldScene',
           nextData: { regionId },

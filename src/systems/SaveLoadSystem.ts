@@ -53,6 +53,7 @@ export class SaveLoadSystem {
       difficulty: state.difficulty,
       timestamp: Date.now(),
       gameCompleted: state.gameCompleted,
+      miniBossDefeatedTimes: { ...state.miniBossDefeatedTimes },
     };
   }
 
@@ -115,6 +116,7 @@ export class SaveLoadSystem {
         difficulty: data.difficulty,
         encounterSteps: 0,
         gameCompleted: data.gameCompleted ?? false,
+        miniBossDefeatedTimes: data.miniBossDefeatedTimes ?? {},
       });
       return true;
     } catch {

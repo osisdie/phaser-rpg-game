@@ -290,6 +290,7 @@ export interface SaveData {
   difficulty: Difficulty;
   timestamp: number;
   gameCompleted: boolean;
+  miniBossDefeatedTimes?: Record<string, number>;
 }
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -313,6 +314,8 @@ export interface GameState {
   difficulty: Difficulty;
   encounterSteps: number;
   gameCompleted: boolean;
+  /** Maps regionId → timestamp of last mini-boss defeat (for respawn cooldown) */
+  miniBossDefeatedTimes: Record<string, number>;
 }
 
 // ─── NPC ───
@@ -323,7 +326,7 @@ export interface NPCData {
   y: number;
   spriteColor: number;
   dialogueId: string;
-  type: 'quest' | 'shop' | 'info' | 'save' | 'inn' | 'guard';
+  type: 'quest' | 'shop' | 'info' | 'save' | 'inn' | 'guard' | 'elder';
   /** NPC behavior: idle (default), wander (random walk near home), patrol (back-and-forth) */
   behavior?: 'idle' | 'wander';
 }

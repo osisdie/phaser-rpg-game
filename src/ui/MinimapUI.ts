@@ -7,6 +7,7 @@ export class MinimapUI extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
   private playerDot: Phaser.GameObjects.Arc;
   private bossDot?: Phaser.GameObjects.Arc;
+  private npcDots: Phaser.GameObjects.Arc[] = [];
   private mapWidth = 120;
   private mapHeight = 90;
   private worldW = 0;
@@ -58,5 +59,37 @@ export class MinimapUI extends Phaser.GameObjects.Container {
     const relX = (playerX / worldWidth) * this.mapWidth - this.mapWidth / 2;
     const relY = (playerY / worldHeight) * this.mapHeight - this.mapHeight / 2;
     this.playerDot.setPosition(relX, relY);
+  }
+
+  /** Add colored NPC markers to the minimap */
+  setNPCPositions(npcs: { x: number; y: number; type: string }[]): void {
+    // Clear existing
+    this.npcDots.forEach(d => d.destroy());
+    this.npcDots = [];
+
+    for (const npc of npcs) {
+      const relX = (npc.x / this.worldW) * this.mapWidth - this.mapWidth / 2;
+      const relY = (npc.y / this.worldH) * this.mapHeight - this.mapHeight / 2;
+
+      let color = 0xaaaaaa;
+      let radius = 1.5;
+      switch (npc.type) {
+        case 'quest': case 'elder':
+          color = 0xffcc00; radius = 2.5; break;
+        case 'shop':
+          color = 0x88ff88; radius = 2; break;
+        case 'inn':
+          color = 0x44ccff; radius = 2; break;
+        case 'save':
+          color = 0xaa88ff; radius = 2; break;
+      }
+
+      const dot = this.scene.add.circle(relX, relY, radius, color);
+      this.npcDots.push(dot);
+      this.add(dot);
+    }
+
+    // Keep player dot on top
+    this.bringToTop(this.playerDot);
   }
 }

@@ -43,6 +43,13 @@ for (const td of tierData) {
     if (sb.slot === 'armor') stats['maxHP'] = Math.floor(value * 3);
     if (sb.slot === 'boots') stats['agi'] = value;
 
+    // Build stat description
+    const statLabels: Record<string, string> = { atk: '攻擊', def: '防禦', agi: '速度', maxHP: 'HP', maxMP: 'MP', luck: '幸運' };
+    const descParts: string[] = [];
+    for (const [key, val] of Object.entries(stats)) {
+      if (val && val > 0) descParts.push(`${statLabels[key] ?? key}+${val}`);
+    }
+
     equipments.push({
       id: `equip_${td.tier}_${sb.idSuffix}`,
       name: `${td.prefix}${sb.name}`,
@@ -50,10 +57,40 @@ for (const td of tierData) {
       tier: td.tier,
       stats: stats as any,
       price: td.price,
-      description: `${td.prefix}${sb.name}`,
+      description: descParts.length > 0 ? descParts.join(' ') : `${td.prefix}${sb.name}`,
     });
   }
 }
+
+// ─── 特殊武器：支線Boss掉落 ───
+const uniqueWeapons: EquipmentItem[] = [
+  {
+    id: 'equip_flame_emperor_blade', name: '炎帝之劍', slot: 'weapon', tier: 'mithril',
+    stats: { atk: 42, luck: 5 }, price: 2000, description: '攻擊+42 幸運+5',
+  },
+  {
+    id: 'equip_tidal_spear', name: '潮汐神槍', slot: 'weapon', tier: 'dragon',
+    stats: { atk: 48, maxHP: 30 }, price: 3500, description: '攻擊+48 HP+30',
+  },
+  {
+    id: 'equip_frost_axe', name: '霜雪裂斧', slot: 'weapon', tier: 'holy',
+    stats: { atk: 55, agi: 8 }, price: 5500, description: '攻擊+55 速度+8',
+  },
+];
+equipments.push(...uniqueWeapons);
+
+// ─── 特殊防具：魔王城迷你Boss掉落 ───
+const demonDefensiveDrops: EquipmentItem[] = [
+  {
+    id: 'equip_demon_aegis', name: '魔王之盾', slot: 'shield', tier: 'legendary',
+    stats: { def: 60, maxHP: 50 }, price: 12000, description: '防禦+60 HP+50',
+  },
+  {
+    id: 'equip_demon_crown', name: '魔王之冠', slot: 'helmet', tier: 'legendary',
+    stats: { def: 45, maxMP: 30 }, price: 10000, description: '防禦+45 MP+30',
+  },
+];
+equipments.push(...demonDefensiveDrops);
 
 // Lookup maps
 const itemMap = new Map<string, ItemData>();

@@ -70,6 +70,12 @@ export class BuildingRenderer {
     this.generatePond(scene, 'deco_pond');
     this.generateHotSpring(scene, 'deco_hotspring');
     this.generateWaterfall(scene, 'deco_waterfall');
+    // Multi-tile terrain features
+    this.generateWaterfallTop(scene, 'deco_waterfall_top');
+    this.generateWaterfallMid(scene, 'deco_waterfall_mid');
+    this.generateWaterfallBottom(scene, 'deco_waterfall_bottom');
+    this.generateCaveEntrance(scene, 'deco_cave');
+    this.generateDenseForest(scene, 'deco_dense_forest');
 
     // Generic fallback buildings (only used if no region is specified)
     this.generateBuilding(scene, 'bld_tudor', MEDIEVAL.woodMedium, MEDIEVAL.parchment, MEDIEVAL.roofMedium, MEDIEVAL.gold, 'peaked');
@@ -858,6 +864,154 @@ export class BuildingRenderer {
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.fillRect(Math.round(S * 0.4), S - 3, 3, 2);
 
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  // ─── Multi-tile Terrain Features ───
+
+  /** Waterfall top: cliff edge with water beginning to pour */
+  private static generateWaterfallTop(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S);
+    // Rock cliff
+    ctx.fillStyle = '#777777';
+    ctx.fillRect(0, 0, S * 2, S);
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(0, Math.round(S * 0.6), S * 2, Math.round(S * 0.4));
+    // Cliff edge details
+    ctx.fillStyle = '#888888';
+    for (let x = 0; x < S * 2; x += 4) {
+      const h = 2 + Math.floor(Math.random() * 3);
+      ctx.fillRect(x, Math.round(S * 0.55), 3, h);
+    }
+    // Water beginning to pour (center gap)
+    for (let py = Math.round(S * 0.6); py < S; py++) {
+      for (let px = Math.round(S * 0.6); px < Math.round(S * 1.4); px++) {
+        const shimmer = Math.sin(py * 0.6 + px * 0.2) * 6;
+        ctx.fillStyle = varyColor(MEDIEVAL.waterLight, 3 + Math.round(shimmer));
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Waterfall middle: cascading water between rock walls */
+  private static generateWaterfallMid(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S);
+    // Rock walls on sides
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(0, 0, Math.round(S * 0.55), S);
+    ctx.fillRect(Math.round(S * 1.45), 0, Math.round(S * 0.55), S);
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(Math.round(S * 0.5), 0, Math.round(S * 0.1), S);
+    ctx.fillRect(Math.round(S * 1.4), 0, Math.round(S * 0.1), S);
+    // Cascading water (wider center)
+    for (let py = 0; py < S; py++) {
+      for (let px = Math.round(S * 0.6); px < Math.round(S * 1.4); px++) {
+        const shimmer = Math.sin(py * 0.8 + px * 0.3) * 8;
+        ctx.fillStyle = varyColor(MEDIEVAL.waterLight, 5 + Math.round(shimmer));
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    // White streaks
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    for (let i = 0; i < 4; i++) {
+      const sx = Math.round(S * 0.7 + Math.random() * S * 0.5);
+      ctx.fillRect(sx, 0, 1, S);
+    }
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Waterfall bottom: splash pool */
+  private static generateWaterfallBottom(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S * 2, S);
+    // Ground
+    ctx.fillStyle = '#555544';
+    ctx.fillRect(0, 0, S * 2, S);
+    // Pool
+    ctx.fillStyle = MEDIEVAL.waterDark;
+    fillOval(ctx, Math.round(S * 0.3), Math.round(S * 0.1), Math.round(S * 1.4), Math.round(S * 0.8));
+    ctx.fillStyle = MEDIEVAL.waterLight;
+    fillOval(ctx, Math.round(S * 0.4), Math.round(S * 0.2), Math.round(S * 1.2), Math.round(S * 0.55));
+    // Foam/splash at top center
+    ctx.fillStyle = 'rgba(220,240,255,0.6)';
+    ctx.fillRect(Math.round(S * 0.7), Math.round(S * 0.05), Math.round(S * 0.6), Math.round(S * 0.15));
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let i = 0; i < 5; i++) {
+      const dx = Math.round(S * 0.75 + Math.random() * S * 0.5);
+      const dy = Math.round(S * 0.08 + Math.random() * S * 0.1);
+      ctx.fillRect(dx, dy, 2, 2);
+    }
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Cave entrance: 3×2 dark rocky entrance */
+  private static generateCaveEntrance(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const W = TILE_SIZE * 3;
+    const H = TILE_SIZE * 2;
+    const { canvas, ctx } = ArtRegistry.createCanvas(W, H);
+    // Rock face
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(0, 0, W, H);
+    // Cave opening (dark arch)
+    ctx.fillStyle = '#111111';
+    ctx.beginPath();
+    ctx.ellipse(W / 2, H * 0.9, W * 0.35, H * 0.65, 0, Math.PI, 0);
+    ctx.fill();
+    // Shadow gradient (darker toward center)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.ellipse(W / 2, H * 0.9, W * 0.28, H * 0.5, 0, Math.PI, 0);
+    ctx.fill();
+    // Rock details around entrance
+    ctx.fillStyle = '#666666';
+    for (let i = 0; i < 12; i++) {
+      const rx = Math.round(Math.random() * W);
+      const ry = Math.round(Math.random() * H * 0.4);
+      ctx.fillRect(rx, ry, 3 + Math.floor(Math.random() * 4), 2 + Math.floor(Math.random() * 3));
+    }
+    // Stalactites at top of arch
+    ctx.fillStyle = '#444444';
+    for (let i = 0; i < 5; i++) {
+      const sx = Math.round(W * 0.3 + Math.random() * W * 0.4);
+      const sh = Math.round(4 + Math.random() * 8);
+      ctx.fillRect(sx, Math.round(H * 0.25), 2, sh);
+    }
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** Dense forest: 2×2 dark tree cluster */
+  private static generateDenseForest(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const S = TILE_SIZE * 2;
+    const { canvas, ctx } = ArtRegistry.createCanvas(S, S);
+    // Dark ground
+    ctx.fillStyle = '#2a3a22';
+    ctx.fillRect(0, 0, S, S);
+    // Dense canopy layers
+    const greens = ['#1a4a1a', '#225522', '#1a3a1a', '#2a5a2a'];
+    for (let i = 0; i < 8; i++) {
+      ctx.fillStyle = greens[i % greens.length];
+      const cx = Math.round(S * 0.15 + Math.random() * S * 0.7);
+      const cy = Math.round(S * 0.1 + Math.random() * S * 0.6);
+      const r = Math.round(S * 0.15 + Math.random() * S * 0.15);
+      fillOval(ctx, cx - r, cy - r, r * 2, r * 2);
+    }
+    // Tree trunks (peeking through)
+    ctx.fillStyle = '#3a2a1a';
+    for (let i = 0; i < 4; i++) {
+      const tx = Math.round(S * 0.2 + Math.random() * S * 0.6);
+      ctx.fillRect(tx, Math.round(S * 0.6), 4, Math.round(S * 0.35));
+    }
+    // Dark interior shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    fillOval(ctx, Math.round(S * 0.2), Math.round(S * 0.2), Math.round(S * 0.6), Math.round(S * 0.5));
     ArtRegistry.registerTexture(scene, key, canvas);
   }
 }

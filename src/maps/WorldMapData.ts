@@ -16,14 +16,28 @@ export function buildWorldMapNodes(): WorldNode[] {
   const regions = getAllRegions();
   const state = gameState.getState();
 
+  // Starting kingdoms are always accessible
+  const startingRegions = new Set(['region_hero', 'region_elf', 'region_treant']);
+  // Non-demon kingdoms that must all be liberated to access demon castle
+  const nonDemonKingdoms = regions.filter(r => r.type !== 'final').map(r => r.id);
+  const allNonDemonLiberated = nonDemonKingdoms.every(id => state.liberatedRegions.includes(id));
+
   return regions.map(region => {
     const visited = state.visitedRegions.includes(region.id);
     const liberated = state.liberatedRegions.includes(region.id);
 
-    // A region is accessible if connected to a visited region, or is the starting region
-    const accessible = region.id === 'region_hero' || region.connections.some(c =>
-      state.visitedRegions.includes(c)
-    );
+    // Liberation-based unlocking:
+    // 1. Starting 3 kingdoms always accessible
+    // 2. Other kingdoms accessible if connected to a liberated region
+    // 3. Demon castle requires all non-demon kingdoms liberated
+    let accessible: boolean;
+    if (startingRegions.has(region.id)) {
+      accessible = true;
+    } else if (region.type === 'final') {
+      accessible = allNonDemonLiberated;
+    } else {
+      accessible = region.connections.some(c => state.liberatedRegions.includes(c));
+    }
 
     return {
       region,

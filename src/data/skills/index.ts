@@ -57,6 +57,7 @@ const skills: SkillData[] = [
   { id: 'skill_monster_heal', name: '再生', description: '恢復少量 HP', type: 'heal', target: 'self', element: 'none', mpCost: 5, power: 80, levelRequired: 1 },
   { id: 'skill_boss_smash', name: '毀滅重擊', description: '魔王的強力攻擊', type: 'physical', target: 'single_enemy', element: 'dark', mpCost: 10, power: 200, levelRequired: 1 },
   { id: 'skill_boss_dark_blast', name: '暗黑爆裂', description: '魔王的全體攻擊', type: 'magical', target: 'all_enemies', element: 'dark', mpCost: 20, power: 200, levelRequired: 1 },
+  { id: 'skill_boss_crit', name: '致命一擊', description: '集中力量的一擊，有高暴擊率', type: 'physical', target: 'single_enemy', element: 'none', mpCost: 0, power: 180, levelRequired: 1 },
 
   // ─── 怪物狀態異常技能 ───
   { id: 'skill_monster_poison_bite', name: '毒咬', description: '帶毒的撕咬', type: 'physical', target: 'single_enemy', element: 'none', mpCost: 0, power: 100, levelRequired: 1, statusEffect: { type: 'poison', chance: 0.35 } },

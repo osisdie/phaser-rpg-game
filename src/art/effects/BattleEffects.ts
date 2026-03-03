@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { MEDIEVAL, lighten } from '../palettes';
 import { ArtRegistry } from '../index';
+import { DEPTH } from '../../utils/constants';
 
 /** Generates battle effect textures and provides runtime effect methods */
 export class BattleEffects {
@@ -289,17 +290,188 @@ export class BattleEffects {
     }
   }
 
-  /** Play a magic effect (particles rising from target) */
-  static playMagicEffect(scene: Phaser.Scene, targetX: number, targetY: number, element: string): void {
-    const particleKey = element === 'fire' ? 'fx_fire'
-      : element === 'ice' ? 'fx_ice'
-      : element === 'lightning' ? 'fx_lightning'
-      : 'fx_magic';
+  /** Play screen shake — wraps Phaser camera shake */
+  static playScreenShake(scene: Phaser.Scene, intensity = 0.004, duration = 120): void {
+    scene.cameras.main.shake(duration, intensity);
+  }
 
+  /** Play death animation — tilt, drop, fade, grey tint */
+  static playDeathAnimation(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite, onComplete?: () => void): void {
+    scene.tweens.add({
+      targets: sprite,
+      angle: Phaser.Math.Between(-15, 15),
+      y: sprite.y + 25,
+      alpha: 0.15,
+      duration: 600,
+      ease: 'Power2',
+      onComplete: () => {
+        sprite.setTint(0x444444);
+        onComplete?.();
+      },
+    });
+  }
+
+  /** Play healing aura — expanding green glow circle + spiral particles */
+  static playHealingAura(scene: Phaser.Scene, x: number, y: number): void {
+    // Expanding glow circle
+    const glow = scene.add.circle(x, y, 10, 0x44ff88, 0.3).setDepth(200);
+    scene.tweens.add({
+      targets: glow,
+      radius: 50,
+      alpha: 0,
+      duration: 800,
+      onUpdate: () => {
+        // Phaser circles need manual scale for radius animation
+        const t = glow.alpha / 0.3; // normalized 1→0
+        glow.setScale(1 + (1 - t) * 4);
+      },
+      onComplete: () => glow.destroy(),
+    });
+
+    // 10 green particles in rising spiral
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      const startR = 8;
+      const px = x + Math.cos(angle) * startR;
+      const py = y + Math.sin(angle) * startR * 0.6;
+      const particle = scene.add.image(px, py, 'fx_heal')
+        .setDepth(200).setAlpha(0.9);
+
+      scene.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle + 2) * 30,
+        y: py - 50 - Math.random() * 30,
+        alpha: 0,
+        scale: { from: 1.2, to: 0.3 },
+        duration: 700 + Math.random() * 300,
+        delay: i * 60,
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /** Play a magic effect (element-specific patterns) */
+  static playMagicEffect(scene: Phaser.Scene, targetX: number, targetY: number, element: string): void {
+    switch (element) {
+      case 'fire':
+        this.playFireMagic(scene, targetX, targetY);
+        break;
+      case 'ice':
+        this.playIceMagic(scene, targetX, targetY);
+        break;
+      case 'lightning':
+        this.playLightningMagic(scene, targetX, targetY);
+        break;
+      default:
+        this.playGenericMagic(scene, targetX, targetY);
+    }
+  }
+
+  /** Fire: 12 particles in rising column */
+  private static playFireMagic(scene: Phaser.Scene, x: number, y: number): void {
+    for (let i = 0; i < 12; i++) {
+      const px = x + (Math.random() - 0.5) * 20; // narrow column
+      const py = y + 10;
+      const particle = scene.add.image(px, py, 'fx_fire')
+        .setDepth(200).setAlpha(0.9);
+
+      scene.tweens.add({
+        targets: particle,
+        y: py - 60 - Math.random() * 50, // tall rise
+        x: px + (Math.random() - 0.5) * 12,
+        alpha: 0,
+        scale: { from: 1.2, to: 0.2 },
+        duration: 500 + Math.random() * 400,
+        delay: i * 40,
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /** Ice: particles converge inward, then shatter outward */
+  private static playIceMagic(scene: Phaser.Scene, x: number, y: number): void {
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      const startDist = 60 + Math.random() * 30;
+      const px = x + Math.cos(angle) * startDist;
+      const py = y + Math.sin(angle) * startDist * 0.6;
+      const particle = scene.add.image(px, py, 'fx_ice')
+        .setDepth(200).setAlpha(0.9);
+
+      // Phase 1: converge inward (250ms)
+      scene.tweens.add({
+        targets: particle,
+        x, y,
+        duration: 250,
+        ease: 'Power2',
+        onComplete: () => {
+          // Phase 2: shatter outward (300ms)
+          const shatterAngle = angle + (Math.random() - 0.5) * 0.5;
+          const shatterDist = 40 + Math.random() * 40;
+          scene.tweens.add({
+            targets: particle,
+            x: x + Math.cos(shatterAngle) * shatterDist,
+            y: y + Math.sin(shatterAngle) * shatterDist * 0.6,
+            alpha: 0,
+            scale: { from: 1.3, to: 0 },
+            duration: 300,
+            onComplete: () => particle.destroy(),
+          });
+        },
+      });
+    }
+  }
+
+  /** Lightning: yellow flash + zigzag particles falling from top */
+  private static playLightningMagic(scene: Phaser.Scene, x: number, y: number): void {
+    // Yellow screen flash
+    const flash = scene.add.rectangle(x, y - 40, 80, 120, 0xffff44, 0.4)
+      .setDepth(199);
+    scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 150,
+      onComplete: () => flash.destroy(),
+    });
+
+    // 8 zigzag particles falling from top
     for (let i = 0; i < 8; i++) {
-      const px = targetX + (Math.random() - 0.5) * 40;
-      const py = targetY + (Math.random() - 0.5) * 20;
-      const particle = scene.add.image(px, py, particleKey)
+      const startX = x + (Math.random() - 0.5) * 50;
+      const startY = y - 80;
+      const particle = scene.add.image(startX, startY, 'fx_lightning')
+        .setDepth(200).setAlpha(0.9);
+
+      // Zigzag via intermediate positions
+      const midX = startX + (Math.random() > 0.5 ? 1 : -1) * (15 + Math.random() * 15);
+      const endY = y + 10 + Math.random() * 20;
+
+      scene.tweens.add({
+        targets: particle,
+        x: midX,
+        y: y - 30,
+        duration: 120,
+        delay: i * 35,
+        onComplete: () => {
+          scene.tweens.add({
+            targets: particle,
+            x: startX + (Math.random() - 0.5) * 20,
+            y: endY,
+            alpha: 0,
+            scale: { from: 1.2, to: 0.3 },
+            duration: 180,
+            onComplete: () => particle.destroy(),
+          });
+        },
+      });
+    }
+  }
+
+  /** Generic magic: 8 particles rising (default fallback) */
+  private static playGenericMagic(scene: Phaser.Scene, x: number, y: number): void {
+    for (let i = 0; i < 8; i++) {
+      const px = x + (Math.random() - 0.5) * 40;
+      const py = y + (Math.random() - 0.5) * 20;
+      const particle = scene.add.image(px, py, 'fx_magic')
         .setDepth(200).setAlpha(0.9);
 
       scene.tweens.add({
@@ -463,6 +635,43 @@ export class BattleEffects {
         delay: 100,
         onComplete: () => { timer.destroy(); star.destroy(); },
       });
+    }
+  }
+
+  /** Play level up golden particle effect */
+  static playLevelUpEffect(scene: Phaser.Scene, x: number, y: number): void {
+    // Rising golden sparkles
+    for (let i = 0; i < 12; i++) {
+      const px = x + (Math.random() - 0.5) * 60;
+      const py = y + 20;
+      const particle = scene.add.circle(px, py, 3 + Math.random() * 3, 0xffd700).setDepth(DEPTH.overlay + 10);
+      scene.tweens.add({
+        targets: particle,
+        y: py - 80 - Math.random() * 60,
+        x: px + (Math.random() - 0.5) * 40,
+        alpha: { from: 1, to: 0 },
+        scale: { from: 1, to: 0.3 },
+        duration: 800 + Math.random() * 600,
+        delay: i * 60,
+        onComplete: () => particle.destroy(),
+      });
+    }
+    // Star burst at center
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const starKey = scene.textures.exists('fx_sparkle') ? 'fx_sparkle' : null;
+      if (starKey) {
+        const star = scene.add.image(x, y, starKey).setScale(0.5).setDepth(DEPTH.overlay + 10);
+        scene.tweens.add({
+          targets: star,
+          x: x + Math.cos(angle) * 50,
+          y: y + Math.sin(angle) * 50,
+          alpha: 0, scale: 0.1,
+          duration: 600,
+          delay: 100,
+          onComplete: () => star.destroy(),
+        });
+      }
     }
   }
 

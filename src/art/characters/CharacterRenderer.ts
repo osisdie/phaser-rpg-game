@@ -152,29 +152,23 @@ export class CharacterRenderer {
         ctx.fillStyle = darken(app.capeColor, 0.1);
         ctx.fillRect(ox + 5 + capeWave, cY + 18, 22, 6);
       } else if (dir === 'up') {
-        // Facing away — cape fully visible covering the back
-        ctx.fillStyle = darken(app.capeColor, 0.15);
-        ctx.fillRect(ox + 6, cY + 2, 20, 22);
-        ctx.fillStyle = app.capeColor;
-        ctx.fillRect(ox + 7, cY, 18, 21);
-        ctx.fillStyle = lighten(app.capeColor, 0.15);
-        ctx.fillRect(ox + 7, cY, 18, 2);
-        // Cape bottom flare — flutter
-        ctx.fillStyle = darken(app.capeColor, 0.1);
-        ctx.fillRect(ox + 5 + capeWave, cY + 18, 22, 6);
+        // Cape drawn AFTER body for 'up' direction (see below)
       } else {
-        // Left or right — flutter shifts bottom outward
-        const capeX = dir === 'left' ? ox + 16 : ox + 3;
+        // Left or right — cape trails behind character
+        const capeX = dir === 'left' ? ox + 14 : ox + 2;
         const sideWave = dir === 'left' ? capeWave : -capeWave;
+        // Shadow layer
         ctx.fillStyle = darken(app.capeColor, 0.15);
-        ctx.fillRect(capeX, cY + 1, 13, 22);
+        ctx.fillRect(capeX, cY + 1, 16, 23);
+        // Body layer
         ctx.fillStyle = app.capeColor;
-        ctx.fillRect(capeX + 1, cY, 12, 21);
+        ctx.fillRect(capeX + 1, cY, 14, 22);
+        // Top highlight
         ctx.fillStyle = lighten(app.capeColor, 0.2);
-        ctx.fillRect(capeX + 1, cY, 12, 2);
-        // Side cape bottom flare — flutter
+        ctx.fillRect(capeX + 1, cY, 14, 2);
+        // Side cape bottom flare — flutter trails behind
         ctx.fillStyle = darken(app.capeColor, 0.1);
-        ctx.fillRect(capeX + sideWave, cY + 18, 13, 4);
+        ctx.fillRect(capeX + sideWave, cY + 19, 16, 5);
       }
     }
 
@@ -200,7 +194,37 @@ export class CharacterRenderer {
     // ── Body ──
     const bodyY = oy + 18 + bounce;
     ctx.fillStyle = app.bodyColor;
-    if (app.bodyType === 'armor') {
+    if (dir === 'up') {
+      // Back view — no chest emblem, no belt buckle, slightly darker
+      ctx.fillStyle = darken(app.bodyColor, 0.08);
+      ctx.fillRect(ox + 8, bodyY, 16, 18);
+      if (app.bodyType === 'armor') {
+        // Shoulder pauldrons (seen from behind)
+        ctx.fillStyle = lighten(app.bodyColor, 0.1);
+        ctx.fillRect(ox + 5, bodyY, 5, 5);
+        ctx.fillRect(ox + 22, bodyY, 5, 5);
+        ctx.fillStyle = lighten(app.bodyColor, 0.25);
+        ctx.fillRect(ox + 5, bodyY, 5, 2);
+        ctx.fillRect(ox + 22, bodyY, 5, 2);
+        // Back plate seam (center vertical line)
+        ctx.fillStyle = darken(app.bodyColor, 0.2);
+        ctx.fillRect(ox + 15, bodyY + 3, 1, 12);
+        // Belt (no buckle visible from behind)
+        ctx.fillStyle = darken(app.bodyColor, 0.3);
+        ctx.fillRect(ox + 8, bodyY + 15, 16, 3);
+      } else if (app.bodyType === 'robe') {
+        ctx.fillRect(ox + 8, bodyY, 16, 24);
+        ctx.fillStyle = darken(app.bodyColor, 0.12);
+        ctx.fillRect(ox + 15, bodyY + 3, 1, 21);
+      } else if (app.bodyType === 'dress') {
+        ctx.fillRect(ox + 8, bodyY, 16, 24);
+        ctx.fillRect(ox + 7, bodyY + 15, 18, 9);
+      } else {
+        // tunic / leather back — collar back
+        ctx.fillStyle = darken(app.bodyColor, 0.1);
+        ctx.fillRect(ox + 12, bodyY, 8, 3);
+      }
+    } else if (app.bodyType === 'armor') {
       ctx.fillRect(ox + 8, bodyY, 16, 18);
       // Shoulder pauldrons (wider than body)
       ctx.fillStyle = lighten(app.bodyColor, 0.15);
@@ -251,6 +275,36 @@ export class CharacterRenderer {
       ctx.fillRect(ox + 24, bodyY + 3 + armSwing, 3, 12);
     }
 
+    // ── Cape overlay for 'up' direction (drawn OVER body to drape on back) ──
+    if (app.cape && dir === 'up') {
+      const cY = oy + 14 + bounce; // Start higher — near neck/shoulders
+      // Cape shadow (widest layer — nearly full character width)
+      ctx.fillStyle = darken(app.capeColor, 0.2);
+      ctx.fillRect(ox + 3, cY + 1, 26, 28);
+      // Cape body (main color — dominant back coverage)
+      ctx.fillStyle = app.capeColor;
+      ctx.fillRect(ox + 4, cY, 24, 27);
+      // Shoulder wrap (covers full shoulder width)
+      ctx.fillStyle = darken(app.capeColor, 0.05);
+      ctx.fillRect(ox + 3, cY, 26, 5);
+      // Top highlight (collar line)
+      ctx.fillStyle = lighten(app.capeColor, 0.25);
+      ctx.fillRect(ox + 4, cY, 24, 2);
+      // Center fold crease
+      ctx.fillStyle = darken(app.capeColor, 0.1);
+      ctx.fillRect(ox + 15, cY + 5, 2, 20);
+      // Subtle side fold lines
+      ctx.fillStyle = darken(app.capeColor, 0.06);
+      ctx.fillRect(ox + 9, cY + 8, 1, 16);
+      ctx.fillRect(ox + 22, cY + 8, 1, 16);
+      // Cape bottom flare — wider than body, with flutter
+      ctx.fillStyle = darken(app.capeColor, 0.08);
+      ctx.fillRect(ox + 1 + capeWave, cY + 24, 30, 7);
+      // Flare highlight
+      ctx.fillStyle = lighten(app.capeColor, 0.1);
+      ctx.fillRect(ox + 2 + capeWave, cY + 24, 28, 2);
+    }
+
     // ── Head ──
     const headY = oy + 6 + bounce;
     // Head outline
@@ -284,29 +338,58 @@ export class CharacterRenderer {
 
     // ── Hair ──
     ctx.fillStyle = app.hairColor;
-    if (app.hairStyle === 'short') {
-      ctx.fillRect(ox + 10, headY - 2, 12, 4);
-      ctx.fillRect(ox + 10, headY, 2, 6);
-      ctx.fillRect(ox + 20, headY, 2, 6);
-    } else if (app.hairStyle === 'long') {
-      ctx.fillRect(ox + 10, headY - 2, 12, 4);
-      ctx.fillRect(ox + 8, headY, 3, 12);
-      ctx.fillRect(ox + 21, headY, 3, 12);
-      ctx.fillRect(ox + 10, headY, 2, 9);
-      ctx.fillRect(ox + 21, headY, 2, 9);
-    } else if (app.hairStyle === 'spiky') {
-      ctx.fillRect(ox + 10, headY - 3, 12, 4);
-      ctx.fillRect(ox + 11, headY - 5, 3, 3);
-      ctx.fillRect(ox + 16, headY - 5, 3, 3);
-      ctx.fillRect(ox + 13, headY - 6, 4, 3);
-    } else if (app.hairStyle === 'ponytail') {
-      ctx.fillRect(ox + 10, headY - 2, 12, 4);
-      if (dir === 'down' || dir === 'right') {
-        ctx.fillRect(ox + 21, headY + 2, 3, 3);
-        ctx.fillRect(ox + 23, headY + 5, 3, 9);
+    if (dir === 'up') {
+      // Back of head — full hair coverage (no skin visible)
+      if (app.hairStyle === 'short') {
+        ctx.fillRect(ox + 9, headY - 2, 14, 5);   // top crown
+        ctx.fillRect(ox + 9, headY, 2, 7);          // left sideburn
+        ctx.fillRect(ox + 21, headY, 2, 7);         // right sideburn
+        ctx.fillRect(ox + 10, headY + 2, 12, 6);    // back of head coverage
+      } else if (app.hairStyle === 'long') {
+        ctx.fillRect(ox + 9, headY - 2, 14, 5);    // top crown
+        ctx.fillRect(ox + 7, headY, 3, 16);          // left drape
+        ctx.fillRect(ox + 22, headY, 3, 16);         // right drape
+        ctx.fillRect(ox + 10, headY + 2, 12, 12);    // full back coverage
+      } else if (app.hairStyle === 'spiky') {
+        ctx.fillRect(ox + 9, headY - 3, 14, 5);
+        ctx.fillRect(ox + 10, headY - 5, 3, 3);
+        ctx.fillRect(ox + 16, headY - 5, 3, 3);
+        ctx.fillRect(ox + 13, headY - 6, 4, 3);
+        ctx.fillRect(ox + 10, headY + 2, 12, 5);    // back of head
+      } else if (app.hairStyle === 'ponytail') {
+        ctx.fillRect(ox + 9, headY - 2, 14, 5);    // top crown
+        ctx.fillRect(ox + 10, headY + 2, 12, 6);    // back coverage
+        // Ponytail hanging down the back
+        ctx.fillRect(ox + 14, headY + 6, 4, 4);
+        ctx.fillRect(ox + 15, headY + 10, 3, 10);
       }
+      // bald = no hair
+    } else {
+      // Front / side views — original hair rendering
+      if (app.hairStyle === 'short') {
+        ctx.fillRect(ox + 10, headY - 2, 12, 4);
+        ctx.fillRect(ox + 10, headY, 2, 6);
+        ctx.fillRect(ox + 20, headY, 2, 6);
+      } else if (app.hairStyle === 'long') {
+        ctx.fillRect(ox + 10, headY - 2, 12, 4);
+        ctx.fillRect(ox + 8, headY, 3, 12);
+        ctx.fillRect(ox + 21, headY, 3, 12);
+        ctx.fillRect(ox + 10, headY, 2, 9);
+        ctx.fillRect(ox + 21, headY, 2, 9);
+      } else if (app.hairStyle === 'spiky') {
+        ctx.fillRect(ox + 10, headY - 3, 12, 4);
+        ctx.fillRect(ox + 11, headY - 5, 3, 3);
+        ctx.fillRect(ox + 16, headY - 5, 3, 3);
+        ctx.fillRect(ox + 13, headY - 6, 4, 3);
+      } else if (app.hairStyle === 'ponytail') {
+        ctx.fillRect(ox + 10, headY - 2, 12, 4);
+        if (dir === 'down' || dir === 'right') {
+          ctx.fillRect(ox + 21, headY + 2, 3, 3);
+          ctx.fillRect(ox + 23, headY + 5, 3, 9);
+        }
+      }
+      // bald = no hair
     }
-    // bald = no hair
 
     // ── Headgear ──
     if (app.headgear === 'helmet') {

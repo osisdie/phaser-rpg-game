@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, DEPTH, FONT_FAMILY } from '../utils/constants';
 import { gameState } from '../systems/GameStateManager';
+import { getAllRegions } from '../data/regions';
 import { t } from '../systems/i18n';
 
 /** Progress display showing liberated kingdoms */
@@ -23,7 +24,10 @@ export class ProgressUI extends Phaser.GameObjects.Container {
   }
 
   refresh(): void {
-    const count = gameState.getState().liberatedRegions.length;
-    this.text.setText(t('progress.kingdoms', count));
+    const state = gameState.getState();
+    const regions = getAllRegions();
+    const mainCount = state.liberatedRegions.filter(id => regions.find(r => r.id === id)?.type === 'main').length;
+    const sideCount = state.liberatedRegions.filter(id => regions.find(r => r.id === id)?.type === 'side').length;
+    this.text.setText(`${t('progress.main', mainCount)} ${t('progress.side', sideCount)}`);
   }
 }
