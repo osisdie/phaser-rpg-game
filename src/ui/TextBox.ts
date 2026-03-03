@@ -29,24 +29,35 @@ export class TextBox extends Phaser.GameObjects.Container {
     const boxY = GAME_HEIGHT - 90;
 
     // Use medieval panel texture if available
-    if (scene.textures.exists('ui_panel_dialogue')) {
+    const hasPanel = scene.textures.exists('ui_panel_dialogue');
+    if (hasPanel) {
       this.bg = scene.add.image(boxX, boxY, 'ui_panel_dialogue');
     } else {
       this.border = scene.add.rectangle(boxX, boxY, boxWidth + 4, boxHeight + 4, COLORS.panelBorder);
       this.bg = scene.add.rectangle(boxX, boxY, boxWidth, boxHeight, COLORS.panel, 0.95);
     }
 
+    // Content area — align text within the visual panel interior
+    // Panel texture is 920×140 with 10px wood border; rect fallback is 984×140 with 2px border
+    const bgW = hasPanel ? 920 : boxWidth;
+    const bdr = hasPanel ? 10 : 2;
+    const padX = 14;  // horizontal padding inside border
+    const padY = 6;   // vertical padding inside border
+    const cLeft = boxX - bgW / 2 + bdr + padX;
+    const cRight = boxX + bgW / 2 - bdr - padX;
+    const cTop = boxY - boxHeight / 2 + bdr + padY;
+
     // Name plate
     if (scene.textures.exists('ui_name_plate')) {
-      this.namePlate = scene.add.image(boxX - boxWidth / 2 + 80, boxY - boxHeight / 2 - 4, 'ui_name_plate');
+      this.namePlate = scene.add.image(boxX - bgW / 2 + 80, boxY - boxHeight / 2 - 4, 'ui_name_plate');
     }
 
-    this.nameText = scene.add.text(boxX - boxWidth / 2 + 16, boxY - boxHeight / 2 + 8, '', {
+    this.nameText = scene.add.text(cLeft, cTop, '', {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
       stroke: '#000000', strokeThickness: 1,
     });
-    const contentWrapWidth = boxWidth - 40;
-    this.contentText = scene.add.text(boxX - boxWidth / 2 + 16, boxY - boxHeight / 2 + 32, '', {
+    const contentWrapWidth = cRight - cLeft;
+    this.contentText = scene.add.text(cLeft, cTop + 24, '', {
       fontFamily: FONT_FAMILY, fontSize: '15px', color: COLORS.textPrimary,
       wordWrap: { width: contentWrapWidth },
       lineSpacing: 4,
@@ -69,7 +80,7 @@ export class TextBox extends Phaser.GameObjects.Container {
       }
       return result;
     };
-    this.indicator = scene.add.text(boxX + boxWidth / 2 - 30, boxY + boxHeight / 2 - 24, '▼', {
+    this.indicator = scene.add.text(cRight - 12, boxY + boxHeight / 2 - bdr - padY - 16, '▼', {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
     });
 
@@ -108,13 +119,26 @@ export class TextBox extends Phaser.GameObjects.Container {
 
   showChoices(choices: { text: string; index: number }[], onSelect: (index: number) => void): void {
     this.clearChoices();
+    this.contentText.setVisible(false); // Hide content to prevent overlap
     this.choicesContainer = this.scene.add.container(0, 0);
     this.add(this.choicesContainer);
 
-    const startY = GAME_HEIGHT - 90 - 70 + 36;
+    // Position choice panel ABOVE the dialog box
+    const boxTop = GAME_HEIGHT - 90 - 70; // top edge of dialog box
+    const panelH = choices.length * 32 + 20;
+    const panelW = 280;
+    const panelCX = GAME_WIDTH / 2;
+    const panelTop = boxTop - panelH - 8;
+
+    // Semi-transparent background + border for choice panel
+    const choiceBorder = this.scene.add.rectangle(panelCX, panelTop + panelH / 2, panelW + 4, panelH + 4, COLORS.panelBorder);
+    const choiceBg = this.scene.add.rectangle(panelCX, panelTop + panelH / 2, panelW, panelH, COLORS.panel, 0.95);
+    this.choicesContainer.add([choiceBorder, choiceBg]);
+
+    const startY = panelTop + 14;
     choices.forEach((choice, i) => {
-      const y = startY + i * 28;
-      const text = this.scene.add.text(GAME_WIDTH / 2 - 400, y, `  ${choice.text}`, {
+      const y = startY + i * 32;
+      const text = this.scene.add.text(panelCX - panelW / 2 + 20, y, `  ${choice.text}`, {
         fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textPrimary,
       });
       text.setInteractive({ useHandCursor: true });
@@ -124,11 +148,13 @@ export class TextBox extends Phaser.GameObjects.Container {
       this.choicesContainer!.add(text);
     });
 
-    // Keyboard support
+    // Keyboard support — filter to only text objects (skip bg/border rects)
     let selectedIndex = 0;
+    const getChoiceTexts = () =>
+      this.choicesContainer!.list.filter((c): c is Phaser.GameObjects.Text => c instanceof Phaser.GameObjects.Text);
     const updateSelection = () => {
-      const children = this.choicesContainer!.list as Phaser.GameObjects.Text[];
-      children.forEach((t, i) => {
+      const textChildren = getChoiceTexts();
+      textChildren.forEach((t, i) => {
         t.setText(i === selectedIndex ? `► ${choices[i].text}` : `  ${choices[i].text}`);
         t.setColor(i === selectedIndex ? COLORS.textHighlight : COLORS.textPrimary);
       });
@@ -161,6 +187,7 @@ export class TextBox extends Phaser.GameObjects.Container {
       this.choicesContainer.destroy();
       this.choicesContainer = undefined;
     }
+    this.contentText.setVisible(true); // Restore content text visibility
   }
 
   hide(): void {

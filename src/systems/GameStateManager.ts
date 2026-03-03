@@ -36,6 +36,7 @@ function createDefaultState(): GameState {
     difficulty: 'normal',
     encounterSteps: 0,
     gameCompleted: false,
+    miniBossDefeatedTimes: {},
   };
   // Apply starting equipment bonuses to hero stats
   EquipmentSystem.applyAllEquipment(state.hero);
@@ -240,6 +241,19 @@ class GameStateManager {
   decrementEncounterSteps(): number {
     this.state.encounterSteps--;
     return this.state.encounterSteps;
+  }
+
+  // ─── Mini-Boss Cooldown ───
+  /** Check if a post-liberation mini-boss can spawn (1hr cooldown, 4hr for demon) */
+  canSpawnMiniBoss(regionId: string): boolean {
+    const ts = this.state.miniBossDefeatedTimes[regionId];
+    if (!ts) return true;
+    const cooldownMs = regionId === 'region_demon' ? 4 * 60 * 60 * 1000 : 60 * 60 * 1000;
+    return Date.now() - ts >= cooldownMs;
+  }
+
+  recordMiniBossDefeat(regionId: string): void {
+    this.state.miniBossDefeatedTimes[regionId] = Date.now();
   }
 }
 

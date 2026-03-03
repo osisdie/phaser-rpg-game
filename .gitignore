@@ -86,5 +86,8 @@ __pycache__/
 # Playwright MCP screenshots
 .playwright-mcp/
 
+# Serena MCP
+.serena/
+
 # Python egg-info
 *.egg-info/

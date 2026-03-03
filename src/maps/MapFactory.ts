@@ -264,6 +264,7 @@ export class MapFactory {
     const isWater = regionId.includes('merfolk') || regionId.includes('hotspring');
     const isVolcanic = regionId.includes('volcano');
     const isMountain = regionId.includes('mountain') || regionId.includes('giant');
+    const isForest = regionId.includes('elf') || regionId.includes('treant') || regionId.includes('hero');
 
     // Determine decoration palette for this region
     const decoTypes: { key: string; weight: number; scale: [number, number]; blocking: boolean }[] = [
@@ -377,8 +378,16 @@ export class MapFactory {
       }
     }
 
-    // Waterfalls — mountain/giant regions
-    if (isMountain && scene.textures.exists('deco_waterfall')) {
+    // Multi-tile waterfalls — mountain/giant regions (3 rows × 2 cols)
+    if (isMountain && scene.textures.exists('deco_waterfall_top')) {
+      const wfCount = 1 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < wfCount; i++) {
+        const wx = 4 + Math.floor(Math.random() * (config.width - 8));
+        const wy = 3 + Math.floor(Math.random() * Math.max(1, config.height - 10));
+        this.placeMultiTileFeature(scene, wallBodies, wx, wy, 'waterfall');
+      }
+    } else if (isMountain && scene.textures.exists('deco_waterfall')) {
+      // Fallback: old single-tile waterfall
       const wfCount = 1 + Math.floor(Math.random() * 2);
       for (let i = 0; i < wfCount; i++) {
         const wx = 2 + Math.floor(Math.random() * (config.width - 4));
@@ -391,6 +400,68 @@ export class MapFactory {
         wallBodies.add(body);
         body.setVisible(false);
       }
+    }
+
+    // Multi-tile caves — mountain/volcanic regions (3×2 tiles)
+    if ((isMountain || isVolcanic) && scene.textures.exists('deco_cave')) {
+      if (Math.random() > 0.4) {
+        const cx = 5 + Math.floor(Math.random() * (config.width - 10));
+        const cy = 4 + Math.floor(Math.random() * Math.max(1, config.height - 8));
+        this.placeMultiTileFeature(scene, wallBodies, cx, cy, 'cave');
+      }
+    }
+
+    // Multi-tile dense forest groves — forest/elf/treant regions (2×2 tiles)
+    if (isForest && scene.textures.exists('deco_dense_forest')) {
+      const groveCount = 1 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < groveCount; i++) {
+        const gx = 4 + Math.floor(Math.random() * (config.width - 8));
+        const gy = 3 + Math.floor(Math.random() * Math.max(1, config.height - 7));
+        this.placeMultiTileFeature(scene, wallBodies, gx, gy, 'forest');
+      }
+    }
+  }
+
+  /** Place a multi-tile terrain feature and add collision bodies */
+  private static placeMultiTileFeature(
+    scene: Phaser.Scene,
+    wallBodies: Phaser.Physics.Arcade.StaticGroup,
+    gx: number, gy: number,
+    type: 'waterfall' | 'cave' | 'forest',
+  ): void {
+    const addBody = (px: number, py: number, w: number, h: number) => {
+      const body = scene.add.rectangle(px, py, w, h);
+      scene.physics.add.existing(body, true);
+      wallBodies.add(body);
+      body.setVisible(false);
+    };
+
+    if (type === 'waterfall') {
+      // 2 cols × 3 rows: top, mid, bottom
+      const px = gx * TILE_SIZE + TILE_SIZE; // center of 2-tile width
+      const topY = gy * TILE_SIZE + TILE_SIZE / 2;
+      scene.add.image(px, topY, 'deco_waterfall_top').setDepth(DEPTH.objects);
+      addBody(px, topY, TILE_SIZE * 2 - 8, TILE_SIZE - 8);
+
+      const midY = (gy + 1) * TILE_SIZE + TILE_SIZE / 2;
+      scene.add.image(px, midY, 'deco_waterfall_mid').setDepth(DEPTH.objects);
+      addBody(px, midY, TILE_SIZE * 2 - 8, TILE_SIZE - 8);
+
+      const botY = (gy + 2) * TILE_SIZE + TILE_SIZE / 2;
+      scene.add.image(px, botY, 'deco_waterfall_bottom').setDepth(DEPTH.objects);
+      addBody(px, botY, TILE_SIZE * 2 - 8, TILE_SIZE - 8);
+    } else if (type === 'cave') {
+      // 3 cols × 2 rows single image
+      const px = gx * TILE_SIZE + TILE_SIZE * 1.5;
+      const py = gy * TILE_SIZE + TILE_SIZE;
+      scene.add.image(px, py, 'deco_cave').setDepth(DEPTH.objects);
+      addBody(px, py, TILE_SIZE * 3 - 8, TILE_SIZE * 2 - 8);
+    } else if (type === 'forest') {
+      // 2×2 single image
+      const px = gx * TILE_SIZE + TILE_SIZE;
+      const py = gy * TILE_SIZE + TILE_SIZE;
+      scene.add.image(px, py, 'deco_dense_forest').setDepth(DEPTH.objects);
+      addBody(px, py, TILE_SIZE * 2 - 8, TILE_SIZE * 2 - 8);
     }
   }
 
@@ -408,8 +479,8 @@ export class MapFactory {
 
   static getFieldConfig(regionId: string, regionColor: number): MapConfig {
     return {
-      width: 48,
-      height: 36,
+      width: 68,
+      height: 52,
       groundColor: 0x335522,
       wallColor: 0x223311,
       decorColor: 0x115511,

@@ -46,12 +46,12 @@ export class BattleMenu extends Phaser.GameObjects.Container {
     }
 
     this.actions.forEach((action, i) => {
-      const textX = menuX - menuW / 2 + 36;
+      const textX = menuX - menuW / 2 + 34;
       const textY = menuY + 12 + i * 36;
 
-      // Icon next to label
+      // Icon next to label (scaled down to fit within panel border)
       if (scene.textures.exists(action.icon)) {
-        const icon = scene.add.image(menuX - menuW / 2 + 20, textY + 9, action.icon);
+        const icon = scene.add.image(menuX - menuW / 2 + 18, textY + 9, action.icon).setScale(0.55);
         this.icons.push(icon);
         this.add(icon);
       }

@@ -4,7 +4,7 @@ import { COLORS, DEPTH, FONT_FAMILY } from '../utils/constants';
 import { t } from '../systems/i18n';
 import { gameState } from '../systems/GameStateManager';
 import { getRegionById } from '../data/regions/index';
-import { getEncounterTable, getMonstersForRegion, getBossForRegion, getMiniBossForRegion } from '../data/monsters/index';
+import { getEncounterTable, getMonstersForRegion, getBossForRegion, getMiniBossForRegion, generateFieldMiniBoss } from '../data/monsters/index';
 import { EncounterSystem } from '../systems/EncounterSystem';
 import { MapFactory } from '../maps/MapFactory';
 import { Player } from '../entities/Player';
@@ -23,6 +23,7 @@ interface TreasureChest {
   gy: number;
   flagKey: string;
   opened: boolean;
+  collisionBody?: Phaser.GameObjects.Rectangle;
 }
 
 export class FieldScene extends Phaser.Scene {
@@ -34,6 +35,11 @@ export class FieldScene extends Phaser.Scene {
   private chests: TreasureChest[] = [];
   private inChestDialogue = false;
   private interactKey?: Phaser.Input.Keyboard.Key;
+  private spaceKey?: Phaser.Input.Keyboard.Key;
+  private enterKey?: Phaser.Input.Keyboard.Key;
+  private bossMarkerPos?: { x: number; y: number };
+  private fieldMiniBossPos?: { x: number; y: number };
+  private fieldMiniBossData?: import('../types').MonsterData;
 
   constructor() {
     super('FieldScene');
@@ -48,6 +54,9 @@ export class FieldScene extends Phaser.Scene {
     EncounterSystem.initSteps();
     this.chests = [];
     this.inChestDialogue = false;
+    this.bossMarkerPos = undefined;
+    this.fieldMiniBossPos = undefined;
+    this.fieldMiniBossData = undefined;
 
     // Create field map
     const mapConfig = MapFactory.getFieldConfig(this.regionId, region.color);
@@ -67,9 +76,12 @@ export class FieldScene extends Phaser.Scene {
     this.player.onStep(() => {
       const nearChest = this.isNearChest();
       let shouldEncounter = EncounterSystem.step();
-      // Extra step decrement near unopened chests (effectively 2× encounter rate)
+      // Extra steps near unopened chests (~2.5× encounter rate)
       if (!shouldEncounter && nearChest) {
         shouldEncounter = EncounterSystem.step();
+        if (!shouldEncounter && Math.random() < 0.5) {
+          shouldEncounter = EncounterSystem.step();
+        }
       }
       if (shouldEncounter) {
         this.triggerEncounter();
@@ -105,13 +117,15 @@ export class FieldScene extends Phaser.Scene {
     // Controls footer with background bar for visibility
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 12, GAME_WIDTH, 24, 0x000000, 0.6)
       .setScrollFactor(0).setDepth(DEPTH.ui);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | Z寶箱 | T城鎮 | B Boss戰 | M選單 | Q世界地圖', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | SPACE寶箱 | T城鎮 | B Boss戰 | M選單 | Q世界地圖', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ddddcc',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
 
     // Keys
     this.interactKey = this.input.keyboard?.addKey('Z');
+    this.spaceKey = this.input.keyboard?.addKey('SPACE');
+    this.enterKey = this.input.keyboard?.addKey('ENTER');
     this.input.keyboard?.on('keydown-T', () => { if (!this.inChestDialogue) this.goToTown(); });
     this.input.keyboard?.on('keydown-Q', () => { if (!this.inChestDialogue) this.goToWorldMap(); });
     this.input.keyboard?.on('keydown-ESC', () => {
@@ -130,6 +144,7 @@ export class FieldScene extends Phaser.Scene {
       // Generate boss texture and use it as marker
       const bossTexKey = MonsterRenderer.getTextureKey(boss.name, boss.id, true);
       MonsterRenderer.generateForMonster(this, bossTexKey, boss.name, boss.spriteColor, true);
+      this.bossMarkerPos = { x: bossX, y: bossY };
       const bossMarker = this.add.image(bossX, bossY, bossTexKey).setDepth(DEPTH.characters);
 
       this.add.text(bossX, bossY - 104, 'BOSS', {
@@ -142,6 +157,26 @@ export class FieldScene extends Phaser.Scene {
 
       // Red dot on minimap for boss location
       this.minimap.setBossPosition(bossX, bossY);
+    }
+
+    // Post-liberation field mini-boss
+    if (gameState.isRegionLiberated(this.regionId) && gameState.canSpawnMiniBoss(this.regionId)) {
+      const miniBoss = generateFieldMiniBoss(this.regionId);
+      if (miniBoss) {
+        this.fieldMiniBossData = miniBoss;
+        const mbX = Math.floor(mapConfig.width * 0.7) * TILE_SIZE + TILE_SIZE / 2;
+        const mbY = Math.floor(mapConfig.height * 0.3) * TILE_SIZE + TILE_SIZE / 2;
+        this.fieldMiniBossPos = { x: mbX, y: mbY };
+
+        const mbTexKey = MonsterRenderer.getTextureKey(miniBoss.name, miniBoss.id, false);
+        MonsterRenderer.generateForMonster(this, mbTexKey, miniBoss.name, miniBoss.spriteColor ?? 0x888888, false);
+        const mbMarker = this.add.image(mbX, mbY, mbTexKey).setDepth(DEPTH.characters);
+        this.add.text(mbX, mbY - 64, '強敵', {
+          fontFamily: FONT_FAMILY, fontSize: '11px', color: '#ffaa22',
+          stroke: '#000000', strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(DEPTH.characters + 1);
+        this.tweens.add({ targets: mbMarker, scale: { from: 0.9, to: 1.05 }, duration: 1000, yoyo: true, repeat: -1 });
+      }
     }
 
     // Landing animation — expanding ring to help locate player spawn
@@ -168,9 +203,27 @@ export class FieldScene extends Phaser.Scene {
     this.player.update(time, delta);
     this.minimap.updatePlayerPosition(this.player.x, this.player.y, this.mapBounds.width, this.mapBounds.height);
 
-    // Check chest interaction
-    if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+    // Check chest interaction (Z, SPACE, or ENTER)
+    const justInteract = (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey))
+      || (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey))
+      || (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey));
+    if (justInteract) {
       this.checkChestInteraction();
+    }
+
+    // Auto-trigger field mini-boss when close
+    if (this.fieldMiniBossPos && this.fieldMiniBossData) {
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y, this.fieldMiniBossPos.x, this.fieldMiniBossPos.y
+      );
+      if (dist < TILE_SIZE * 1.2) {
+        this.triggerFieldMiniBoss();
+      }
+    }
+
+    // Edge transition: walk to south edge → town
+    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 0.5) {
+      this.goToTown();
     }
   }
 
@@ -186,8 +239,7 @@ export class FieldScene extends Phaser.Scene {
     }
 
     // Truly random each visit: 0-3 chests in field
-    const chestCount = Math.floor(Math.random() * 4); // 0-3
-    if (chestCount === 0) return;
+    const chestCount = Math.max(1, Math.floor(Math.random() * 4)); // 1-3 (guaranteed at least 1)
 
     // Divide map into 3 horizontal zones to avoid clustering
     const zoneW = Math.floor((mapConfig.width - 6) / 3);
@@ -209,15 +261,15 @@ export class FieldScene extends Phaser.Scene {
       const py = gy * TILE_SIZE + TILE_SIZE / 2;
 
       const sprite = this.add.sprite(px, py, 'deco_chest')
-        .setDepth(DEPTH.objects + 1);
+        .setDepth(DEPTH.objects + 1).setScale(0.5);
 
-      // Add collision body
-      const chestBody = this.add.rectangle(px, py, TILE_SIZE - 8, TILE_SIZE - 8);
+      // Add collision body (half-size to match scaled sprite)
+      const chestBody = this.add.rectangle(px, py, TILE_SIZE / 2 - 4, TILE_SIZE / 2 - 4);
       this.physics.add.existing(chestBody, true);
       wallBodies.add(chestBody);
       chestBody.setVisible(false);
 
-      this.chests.push({ sprite, gx, gy, flagKey, opened: false });
+      this.chests.push({ sprite, gx, gy, flagKey, opened: false, collisionBody: chestBody });
     }
   }
 
@@ -246,7 +298,13 @@ export class FieldScene extends Phaser.Scene {
     // Fade out after a short delay (visual feedback then disappear)
     this.time.delayedCall(800, () => {
       if (chest.sprite) {
-        this.tweens.add({ targets: chest.sprite, alpha: 0, duration: 600, ease: 'Power2' });
+        this.tweens.add({
+          targets: chest.sprite, alpha: 0, duration: 600, ease: 'Power2',
+          onComplete: () => {
+            chest.collisionBody?.destroy();
+            chest.collisionBody = undefined;
+          },
+        });
       }
     });
 
@@ -467,8 +525,42 @@ export class FieldScene extends Phaser.Scene {
     });
   }
 
+  private triggerFieldMiniBoss(): void {
+    if (!this.fieldMiniBossData) return;
+    const monster = structuredClone(this.fieldMiniBossData);
+    this.fieldMiniBossData = undefined; // prevent re-trigger
+    this.fieldMiniBossPos = undefined;
+
+    audioManager.playSfx('hit');
+    TransitionEffect.transition(this, 'BattleScene', {
+      monsters: [monster],
+      regionId: this.regionId,
+      isBoss: false,
+      skipIntro: true, // no sword-crossing intro for field mini-boss
+      returnScene: 'FieldScene',
+      returnData: { regionId: this.regionId, playerX: this.player.x, playerY: this.player.y },
+      onVictory: () => { gameState.recordMiniBossDefeat(this.regionId); },
+    });
+  }
+
   private triggerBoss(): void {
     if (gameState.isRegionLiberated(this.regionId)) return;
+
+    // Must be within 1.5 tiles of the boss marker
+    if (this.bossMarkerPos) {
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y, this.bossMarkerPos.x, this.bossMarkerPos.y
+      );
+      if (dist > TILE_SIZE * 1.5) {
+        // Show brief hint
+        const hint = this.add.text(this.player.x, this.player.y - 40, '靠近 Boss 才能挑戰！', {
+          fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ff8888',
+          stroke: '#000000', strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(DEPTH.ui + 10);
+        this.tweens.add({ targets: hint, alpha: 0, y: hint.y - 20, duration: 1200, onComplete: () => hint.destroy() });
+        return;
+      }
+    }
 
     // Demon kingdom: must defeat mini-boss before final boss
     const miniBoss = getMiniBossForRegion(this.regionId);

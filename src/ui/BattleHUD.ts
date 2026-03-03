@@ -14,19 +14,11 @@ interface BarDisplay {
 export class BattleHUD extends Phaser.GameObjects.Container {
   private partyBars: { name: Phaser.GameObjects.Text; hp: BarDisplay; mp: BarDisplay }[] = [];
   private enemyTexts: Phaser.GameObjects.Text[] = [];
-  private turnText: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
     scene.add.existing(this);
     this.setDepth(DEPTH.ui);
-
-    // Turn counter
-    this.turnText = scene.add.text(GAME_WIDTH / 2, 16, '', {
-      fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
-      stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5, 0);
-    this.add(this.turnText);
   }
 
   setupParty(party: CombatantState[]): void {
@@ -39,7 +31,7 @@ export class BattleHUD extends Phaser.GameObjects.Container {
     });
     this.partyBars = [];
 
-    const startX = GAME_WIDTH - 320;
+    const startX = GAME_WIDTH - 290;
     const startY = GAME_HEIGHT - 175;
 
     party.forEach((member, i) => {
@@ -49,8 +41,8 @@ export class BattleHUD extends Phaser.GameObjects.Container {
         stroke: '#000000', strokeThickness: 1,
       });
 
-      const hp = this.createBar(startX, y + 18, 200, 12, COLORS.hpBar);
-      const mp = this.createBar(startX, y + 34, 200, 8, COLORS.mpBar);
+      const hp = this.createBar(startX, y + 18, 170, 12, COLORS.hpBar);
+      const mp = this.createBar(startX, y + 34, 170, 8, COLORS.mpBar);
 
       const children: Phaser.GameObjects.GameObject[] = [name, hp.bg, hp.fill, hp.text, mp.bg, mp.fill, mp.text];
       if (hp.frame) children.push(hp.frame);
@@ -66,8 +58,7 @@ export class BattleHUD extends Phaser.GameObjects.Container {
     this.enemyTexts = [];
   }
 
-  updateDisplay(party: CombatantState[], _enemies: CombatantState[], turn: number): void {
-    this.turnText.setText(`第 ${turn} 回合`);
+  updateDisplay(party: CombatantState[], _enemies: CombatantState[], _turn: number): void {
 
     party.forEach((member, i) => {
       if (!this.partyBars[i]) return;
@@ -96,7 +87,7 @@ export class BattleHUD extends Phaser.GameObjects.Container {
     }
 
     const text = this.scene.add.text(x + width + 8, y - 2, '', {
-      fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textSecondary,
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textSecondary,
       stroke: '#000000', strokeThickness: 2,
     }).setResolution(2);
     return { frame, bg, fill, text };
@@ -104,9 +95,10 @@ export class BattleHUD extends Phaser.GameObjects.Container {
 
   private updateBar(bar: BarDisplay, current: number, max: number, label: string): void {
     const ratio = Math.max(0, current / max);
-    const width = 200 * ratio;
+    const barWidth = bar.bg.width;
+    const width = barWidth * ratio;
     bar.fill.setSize(width, bar.fill.height);
-    bar.fill.setX(bar.bg.x - 100 + width / 2);
+    bar.fill.setX(bar.bg.x - barWidth / 2 + width / 2);
     bar.text.setText(label);
   }
 }

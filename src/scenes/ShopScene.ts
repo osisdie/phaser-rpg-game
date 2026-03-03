@@ -19,6 +19,7 @@ export class ShopScene extends Phaser.Scene {
   // Store references for ESC handler
   private currentShopData: { id: string; name: string; price: number; desc: string }[] = [];
   private currentSellItems: { item: { id: string; name: string; sellPrice: number }; quantity: number }[] = [];
+  private descText?: Phaser.GameObjects.Text;
 
   constructor() {
     super('ShopScene');
@@ -63,6 +64,12 @@ export class ShopScene extends Phaser.Scene {
     } else {
       this.showSellList(goldText);
     }
+
+    // Item description area
+    this.descText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 85, '', {
+      fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ccddee',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5);
 
     // Close hint
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 50, `ESC 關閉  |  ↑↓ 選擇  |  Enter/Z/Space 確認（按兩次）`, {
@@ -259,7 +266,7 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 
-  private updateShopHighlight(shopData: { id: string; price: number }[]): void {
+  private updateShopHighlight(shopData: { id: string; price: number; desc?: string; name?: string }[]): void {
     this.itemTexts.forEach((text, i) => {
       const raw = text.text.replace(/^[► ] /, '').replace(/  ← 確定\?$/, '');
       const canAfford = gameState.getGold() >= (shopData[i]?.price ?? Infinity);
@@ -274,6 +281,11 @@ export class ShopScene extends Phaser.Scene {
         text.setColor(canAfford ? '#ffffff' : '#666666');
       }
     });
+    // Update description panel
+    const sel = shopData[this.selectedIndex];
+    if (this.descText && sel) {
+      this.descText.setText(sel.desc ? `${sel.name ?? ''} — ${sel.desc}` : '');
+    }
   }
 
   private updateSellHighlight(items: { item: { name: string; sellPrice: number }; quantity: number }[]): void {

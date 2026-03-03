@@ -28,6 +28,7 @@ const AI_SHAPE_MAP: Record<MonsterShape, string> = {
   turtle: 'mon_golem',
   crab: 'mon_scorpion',
   plant: 'mon_flower',
+  demon: 'mon_boss_demon_lord',
 };
 
 /**
@@ -85,15 +86,16 @@ const MONSTER_SHAPE_MAP: Record<string, MonsterShape> = {
   '毒史萊姆': 'slime', '冰史萊姆': 'slime', '火史萊姆': 'slime', '金屬史萊姆': 'slime',
   '泥沼史萊姆': 'slime', '森林史萊姆': 'slime', '海水史萊姆': 'slime', '史萊姆': 'slime', '黏液': 'slime',
   '蝙蝠': 'bat', '翼': 'bat',
-  '狼': 'wolf', '犬': 'wolf', '獸': 'wolf',
+  '狼': 'wolf', '犬': 'wolf',
   '蛇': 'snake', '蟒': 'snake', '蜥': 'snake',
   '蜘蛛': 'spider', '蛛': 'spider',
   '骷髏': 'skeleton', '亡靈': 'skeleton', '屍': 'skeleton',
   '哥布林': 'goblin', '妖精': 'goblin', '地精': 'goblin',
-  '幽靈': 'ghost', '鬼': 'ghost', '魂': 'ghost', '影': 'ghost',
+  '幽靈': 'ghost', '鬼': 'ghost', '魂': 'ghost', '惡靈': 'ghost', '獵手': 'ghost',
   '精靈': 'elemental', '元素': 'elemental',
-  '石像': 'gargoyle', '魔像': 'gargoyle',
+  '石像': 'gargoyle', '魔像': 'gargoyle', '石魔': 'gargoyle', '魔獸': 'gargoyle', '石獸': 'gargoyle',
   '龍': 'dragon', '飛龍': 'dragon', '巨龍': 'dragon',
+  '魔蟲': 'spider', '飛蟲': 'spider', '爬蟲': 'spider',
   '蟲': 'insect', '蟻': 'insect', '蜂': 'insect', '蠍': 'insect',
   '魚': 'fish', '水母': 'fish', '海': 'fish',
   '鳥': 'bird', '鷹': 'bird', '鴉': 'bird',
@@ -103,6 +105,9 @@ const MONSTER_SHAPE_MAP: Record<string, MonsterShape> = {
   '花': 'plant', '樹': 'plant', '藤': 'plant', '菇': 'plant',
   '土匪': 'goblin', '盜賊': 'goblin', '刺客': 'goblin', '忍者': 'goblin',
   '鼠': 'bat', '蝎': 'insect',
+  '影': 'ghost',
+  '大魔王': 'demon', '魔王護衛': 'gargoyle', '護衛': 'gargoyle',
+  '魔王': 'demon', '魔': 'demon',
 };
 
 /** Hash string to integer for deterministic variant selection */
@@ -137,6 +142,30 @@ function inferFeatures(monsterName: string): string[] {
     if (monsterName.includes(keyword)) features.push(feat);
   }
   return features;
+}
+
+/** Infer boss elemental aura feature from monster name (replaces crown).
+ *  Order matters — more specific patterns first. */
+const BOSS_ELEMENT_KEYWORDS: [string, string][] = [
+  ['火山', 'fire'],     ['鑄造', 'fire'],    // forge/volcano → fire
+  ['冰峰', 'ice'],      ['冰', 'ice'],       ['霜', 'ice'],      ['雪', 'ice'],
+  ['深海', 'water_aura'], ['溫泉', 'water_aura'], ['海', 'water_aura'], ['水', 'water_aura'],
+  ['雷', 'lightning'],  ['電', 'lightning'],  ['閃', 'lightning'],
+  ['山嶽', 'earth_aura'], ['岩', 'earth_aura'], ['石', 'earth_aura'],
+  ['風', 'wind_aura'],  ['嵐', 'wind_aura'],
+  ['光', 'light_aura'], ['聖', 'light_aura'], ['神', 'light_aura'],
+  ['腐化', 'poison'],   ['腐朽', 'poison'],  ['毒', 'poison'],
+  ['不死', 'lightning'], // undead → eerie lightning
+  ['古樹', 'earth_aura'], // ancient tree → earth/nature
+  ['火', 'fire'],       ['焰', 'fire'],      ['炎', 'fire'],     ['熔', 'fire'],
+  ['魔', 'fire'],       // demon/dark bosses → fire
+];
+
+function inferBossElement(monsterName: string): string {
+  for (const [keyword, element] of BOSS_ELEMENT_KEYWORDS) {
+    if (monsterName.includes(keyword)) return element;
+  }
+  return 'fire'; // default boss element
 }
 
 /** Infer a tint color from monster name for elemental/attribute differentiation.
@@ -193,7 +222,7 @@ export class MonsterRenderer {
       baseColor: '#880000',
       accentColor: '#ff4444',
       size: 2,
-      features: ['horns', 'fire'],
+      features: ['dark_aura', 'fire'],
     });
   }
 
@@ -208,13 +237,13 @@ export class MonsterRenderer {
       const targetSize = isBoss ? MONSTER_BASE * 2 : MONSTER_BASE;
       const tint = inferTintColor(monsterName);
       const feats = inferFeatures(monsterName);
-      if (isBoss) feats.push('crown');
+      if (isBoss) feats.push(inferBossElement(monsterName));
       if (this.copyAITexture(scene, aiKey, textureKey, targetSize, tint, feats)) return;
     }
 
     const shape = inferShape(monsterName);
     const features = inferFeatures(monsterName);
-    if (isBoss) features.push('crown');
+    if (isBoss) { features.push('dark_aura', inferBossElement(monsterName)); }
 
     const visual: MonsterVisual = {
       shape,
@@ -240,13 +269,13 @@ export class MonsterRenderer {
       const battleSize = isBoss ? 240 : 180;
       const tint = inferTintColor(monsterName);
       const feats = inferFeatures(monsterName);
-      if (isBoss) feats.push('crown');
+      if (isBoss) { feats.push('dark_aura', inferBossElement(monsterName)); }
       if (this.copyAITexture(scene, aiKey, battleKey, battleSize, tint, feats)) return battleKey;
     }
 
     const shape = inferShape(monsterName);
     const features = inferFeatures(monsterName);
-    if (isBoss) features.push('crown');
+    if (isBoss) { features.push('dark_aura', inferBossElement(monsterName)); }
 
     const visual: MonsterVisual = {
       shape,

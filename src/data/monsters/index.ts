@@ -121,7 +121,7 @@ function generateBoss(
 
 // ─── Region 1: 勇者王國 (Lv 1-7) ───
 const heroMonsters = generateRegionMonsters('r1', 1,
-  ['史萊姆', '蝙蝠', '小哥布林', '毒蛇', '野狼', '骷髏兵', '土匪', '暗影鼠', '食屍鬼', '黑蜘蛛'],
+  ['史萊姆', '蝙蝠', '小哥布林', '毒蛇', '野狼', '骷髏兵', '土匪', '暗影蟲', '食屍鬼', '黑蜘蛛'],
   0x44aa44
 );
 // Tutorial boss — hand-crafted for solo hero at ~Lv 5-6
@@ -145,7 +145,7 @@ const heroBoss: MonsterData = {
 
 // ─── Region 2: 精靈王國 (Lv 7-14) ───
 const elfMonsters = generateRegionMonsters('r2', 7,
-  ['毒史萊姆', '樹精靈', '森林狼', '巨型蜜蜂', '森林史萊姆', '藤蔓蛇', '迷霧幽靈', '暗影鹿', '腐化精靈', '森林巨蜘蛛'],
+  ['毒史萊姆', '樹精靈', '森林狼', '毒翼蟲', '森林史萊姆', '藤蔓蛇', '迷霧幽靈', '暗影魔獸', '腐化精靈', '森林巨蜘蛛'],
   0x228822, 'earth'
 );
 const elfBoss = generateBoss('r2', '腐化精靈王', 18, 0x226622, 'earth');
@@ -159,28 +159,28 @@ const treantBoss = generateBoss('r3', '腐朽古樹', 25, 0x445500, 'earth');
 
 // ─── Region 4: 獸人王國 (Lv 21-28) ───
 const beastMonsters = generateRegionMonsters('r4', 21,
-  ['草原獅', '戰鬥犬', '荒野鷹', '毒蠍', '沙漠蜥蜴', '野牛', '鬣狗群', '岩石蛇', '狂暴猿', '暗影豹'],
+  ['暴牙魔獸', '骸骨戰獸', '荒地飛蟲', '毒蠍', '沙漠爬蟲', '暴怒石魔', '野獸亡靈', '岩石蛇', '狂暴石魔', '暗影獵手'],
   0xcc8844
 );
 const beastBoss = generateBoss('r4', '魔獸將軍', 32, 0x884400);
 
 // ─── Region 5: 人魚王國 (Lv 28-35) ───
 const merfolkMonsters = generateRegionMonsters('r5', 28,
-  ['海水史萊姆', '利齒魚', '海蛇', '珊瑚怪', '水元素', '深海章魚', '幽靈船員', '海馬騎兵', '毒水母', '暗影鯊'],
+  ['海水史萊姆', '利齒魚', '海蛇', '珊瑚怪', '水元素', '深海章魚', '幽靈船員', '深海亡靈', '毒水母', '暗影鯊'],
   0x4488cc, 'water'
 );
 const merfolkBoss = generateBoss('r5', '深海魔龍', 39, 0x224488, 'water');
 
 // ─── Region 6: 巨人王國 (Lv 35-42) ───
 const giantMonsters = generateRegionMonsters('r6', 35,
-  ['石魔像', '山岳鷹', '岩石蟲', '冰霜巨人', '飛石怪', '山洞蝙蝠王', '鐵甲龜', '落石精', '雪怪', '暗影巨人'],
+  ['石魔像', '山岳石獸', '岩石蟲', '冰霜巨人', '浮岩魔像', '穴居魔蟲', '鐵甲魔像', '落石精', '雪怪', '暗影巨人'],
   0x888888
 );
 const giantBoss = generateBoss('r6', '山嶽魔王', 46, 0x666666, 'earth');
 
 // ─── Region 7: 矮人王國 (Lv 42-49) ───
 const dwarfMonsters = generateRegionMonsters('r7', 42,
-  ['地底蟲', '礦石蟲', '火焰蜥蜴', '機關人偶', '毒氣菇', '鋼鐵蝙蝠', '熔岩蛇', '金屬史萊姆', '暗金鼠', '暗影工匠'],
+  ['地底蟲', '礦坑幽靈', '火焰魔蟲', '機關人偶', '毒氣菇', '鋼鐵亡靈', '熔岩蛇', '金屬史萊姆', '暗金幽靈', '暗影工匠'],
   0xcc6644, 'fire'
 );
 const dwarfBoss = generateBoss('r7', '鑄造魔將', 53, 0xaa4422, 'fire');
@@ -194,26 +194,47 @@ const undeadBoss = generateBoss('r8', '不死魔將', 60, 0x442266, 'dark');
 
 // ─── Region 9-11: 支線 ───
 const volcanoMonsters = generateRegionMonsters('r9', 30,
-  ['火焰蜥蜴', '熔岩蟲', '火山蝙蝠', '炎魔', '灰燼鳥', '火史萊姆', '火焰巨人', '煉獄犬', '火山龜', '暗影火靈'],
+  ['火焰蜥蜴', '熔岩蟲', '火山魔蟲', '炎魔', '灰燼亡靈', '火史萊姆', '火焰巨人', '煉獄魔獸', '熔岩魔像', '暗影火靈'],
   0xff4422, 'fire'
 );
 const volcanoBoss = generateBoss('r9', '火山之主', 42, 0xcc2200, 'fire');
+volcanoBoss.stats.atk = Math.floor(volcanoBoss.stats.atk * 1.15);
+volcanoBoss.stats.def = Math.floor(volcanoBoss.stats.def * 1.1);
+volcanoBoss.stats.luck = 25;
+volcanoBoss.skills = ['skill_boss_smash', 'skill_monster_fire', 'skill_monster_heal', 'skill_boss_crit'];
+volcanoBoss.drops = volcanoBoss.drops.map(d =>
+  d.itemId.includes('_sword') ? { itemId: 'equip_flame_emperor_blade', rate: 1.0 } : d
+);
 
 const hotspringMonsters = generateRegionMonsters('r10', 40,
-  ['溫泉猴', '蒸氣怪', '水霧精靈', '溫泉蟹', '地熱蟲', '噴泉蛇', '硫磺蝠', '溫泉龜', '蒸汽魔像', '暗影水靈'],
+  ['溫泉魔像', '蒸氣怪', '水霧精靈', '溫泉爬蟲', '地熱蟲', '噴泉蛇', '硫磺幽靈', '蒸氣魔像', '蒸汽魔像', '暗影水靈'],
   0x44cccc, 'water'
 );
 const hotspringBoss = generateBoss('r10', '溫泉守護者', 52, 0x22aaaa, 'water');
+hotspringBoss.stats.atk = Math.floor(hotspringBoss.stats.atk * 1.15);
+hotspringBoss.stats.def = Math.floor(hotspringBoss.stats.def * 1.1);
+hotspringBoss.stats.luck = 25;
+hotspringBoss.skills = ['skill_boss_smash', 'skill_monster_fire', 'skill_monster_heal', 'skill_boss_crit'];
+hotspringBoss.drops = hotspringBoss.drops.map(d =>
+  d.itemId.includes('_sword') ? { itemId: 'equip_tidal_spear', rate: 1.0 } : d
+);
 
 const mountainMonsters = generateRegionMonsters('r11', 50,
-  ['雪狼', '冰史萊姆', '雪原鷹', '冰霜元素', '雪人', '極地熊', '冰龍幼體', '暴風鳥', '水晶蛇', '暗影冰靈'],
+  ['雪原亡靈', '冰史萊姆', '冰霜飛蟲', '冰霜元素', '雪人', '極地魔像', '冰龍幼體', '暴風惡靈', '水晶蛇', '暗影冰靈'],
   0xccccee, 'wind'
 );
 const mountainBoss = generateBoss('r11', '冰峰之王', 62, 0x8888cc, 'wind');
+mountainBoss.stats.atk = Math.floor(mountainBoss.stats.atk * 1.15);
+mountainBoss.stats.def = Math.floor(mountainBoss.stats.def * 1.1);
+mountainBoss.stats.luck = 25;
+mountainBoss.skills = ['skill_boss_smash', 'skill_monster_fire', 'skill_monster_heal', 'skill_boss_crit'];
+mountainBoss.drops = mountainBoss.drops.map(d =>
+  d.itemId.includes('_sword') ? { itemId: 'equip_frost_axe', rate: 1.0 } : d
+);
 
 // ─── Region 12: 魔王城 (Lv 60-70) ───
 const demonMonsters = generateRegionMonsters('r12', 60,
-  ['魔王衛兵', '暗黑騎士', '地獄犬', '魔法師', '暗影刺客', '惡魔弓手', '深淵蟲', '魔王分身', '墮天使', '混沌魔獸'],
+  ['魔王衛兵', '暗黑騎士', '地獄魔獸', '魔法師', '暗影刺客', '惡魔弓手', '深淵蟲', '魔王分身', '墮天使', '混沌魔獸'],
   0x880088, 'dark'
 );
 
@@ -287,6 +308,67 @@ export function getMonstersForRegion(regionId: string): MonsterData[] {
 export function getMiniBossForRegion(regionId: string): MonsterData | undefined {
   if (regionId === 'region_demon') return monsterMap.get('r12_mini_boss');
   return undefined;
+}
+
+/** Generate a field mini-boss for post-liberation grinding */
+export function generateFieldMiniBoss(regionId: string): MonsterData | undefined {
+  const regionMonsters = getMonstersForRegion(regionId);
+  if (regionMonsters.length === 0) return undefined;
+
+  // Base stats on the strongest regional monster, scaled up
+  const strongest = regionMonsters[regionMonsters.length - 1];
+  const lv = strongest.stats.atk;
+
+  // For demon castle: refightable demon king variant
+  if (regionId === 'region_demon') {
+    return {
+      id: 'field_miniboss_demon',
+      name: '魔王殘影',
+      stats: {
+        maxHP: 6000, hp: 6000, maxMP: 500, mp: 500,
+        atk: 150, def: 120, agi: 85, luck: 40,
+      },
+      ai: 'aggressive',
+      exp: 6000,
+      gold: 6000,
+      drops: [
+        { itemId: 'item_elixir', rate: 1.0 },
+        { itemId: 'equip_demon_aegis', rate: 0.3 },
+        { itemId: 'equip_demon_crown', rate: 0.3 },
+      ],
+      skills: ['skill_boss_smash', 'skill_boss_dark_blast', 'skill_monster_fire', 'skill_boss_crit'],
+      element: 'dark',
+      isBoss: false, // no crown icon
+      spriteColor: 0x550055,
+    };
+  }
+
+  // Generic field mini-boss: scaled-up regional monster
+  return {
+    id: `field_miniboss_${regionId}`,
+    name: `${strongest.name}・強`,
+    stats: {
+      maxHP: Math.floor(strongest.stats.maxHP * 3.5),
+      hp: Math.floor(strongest.stats.maxHP * 3.5),
+      maxMP: Math.floor(strongest.stats.maxMP * 2),
+      mp: Math.floor(strongest.stats.maxMP * 2),
+      atk: Math.floor(strongest.stats.atk * 1.3),
+      def: Math.floor(strongest.stats.def * 1.2),
+      agi: Math.floor(strongest.stats.agi * 1.1),
+      luck: 15,
+    },
+    ai: 'aggressive',
+    exp: Math.floor((strongest.exp ?? 10) * 5),
+    gold: Math.floor((strongest.gold ?? 10) * 4),
+    drops: [
+      { itemId: 'item_potion_l', rate: 1.0 },
+      { itemId: 'item_elixir', rate: 0.3 },
+    ],
+    skills: ['skill_boss_smash', 'skill_monster_fire', 'skill_boss_crit'],
+    element: strongest.element ?? 'none',
+    isBoss: false,
+    spriteColor: strongest.spriteColor ?? 0x888888,
+  };
 }
 
 export function getBossForRegion(regionId: string): MonsterData | undefined {

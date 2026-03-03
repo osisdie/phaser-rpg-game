@@ -10,6 +10,7 @@ import { DialogueSystem } from '../systems/DialogueSystem';
 import { SaveLoadSystem } from '../systems/SaveLoadSystem';
 import { MapFactory } from '../maps/MapFactory';
 import { Player } from '../entities/Player';
+import { MinimapUI } from '../ui/MinimapUI';
 import { TextBox } from '../ui/TextBox';
 import { TransitionEffect } from '../ui/TransitionEffect';
 import { audioManager } from '../systems/AudioManager';
@@ -38,6 +39,7 @@ interface TreasureChest {
   gy: number;
   flagKey: string;
   opened: boolean;
+  collisionBody?: Phaser.GameObjects.Rectangle;
 }
 
 export class TownScene extends Phaser.Scene {
@@ -47,7 +49,10 @@ export class TownScene extends Phaser.Scene {
   private npcSprites: NPCSpriteEntry[] = [];
   private regionId = '';
   private interactKey?: Phaser.Input.Keyboard.Key;
+  private spaceKey?: Phaser.Input.Keyboard.Key;
+  private enterKey?: Phaser.Input.Keyboard.Key;
   private inDialogue = false;
+  private minimap!: MinimapUI;
   private mapBounds = { width: 0, height: 0 };
   private chests: TreasureChest[] = [];
 
@@ -194,6 +199,16 @@ export class TownScene extends Phaser.Scene {
     // UI
     this.textBox = new TextBox(this);
 
+    // Minimap with NPC markers
+    this.minimap = new MinimapUI(this, bounds.width, bounds.height);
+    this.minimap.setScrollFactor(0);
+    const npcMarkers = npcs.map(n => ({
+      x: n.x * TILE_SIZE + TILE_SIZE / 2,
+      y: n.y * TILE_SIZE + TILE_SIZE / 2,
+      type: n.type,
+    }));
+    this.minimap.setNPCPositions(npcMarkers);
+
     // Header
     if (this.textures.exists('ui_header_bar')) {
       this.add.image(GAME_WIDTH / 2, 16, 'ui_header_bar')
@@ -210,13 +225,15 @@ export class TownScene extends Phaser.Scene {
     // Controls footer with background bar for visibility
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 12, GAME_WIDTH, 24, 0x000000, 0.6)
       .setScrollFactor(0).setDepth(DEPTH.ui);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | Z互動 | F野外 | M選單 | Q世界地圖', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | SPACE互動 | F野外 | M選單 | Q世界地圖', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ddddcc',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
 
     // Keys
     this.interactKey = this.input.keyboard?.addKey('Z');
+    this.spaceKey = this.input.keyboard?.addKey('SPACE');
+    this.enterKey = this.input.keyboard?.addKey('ENTER');
     this.input.keyboard?.on('keydown-F', () => this.goToField());
     this.input.keyboard?.on('keydown-Q', () => this.goToWorldMap());
     this.input.keyboard?.on('keydown-ESC', () => {
@@ -251,6 +268,7 @@ export class TownScene extends Phaser.Scene {
     }
 
     this.player.update(time, delta);
+    this.minimap.updatePlayerPosition(this.player.x, this.player.y, this.mapBounds.width, this.mapBounds.height);
 
     // Update wandering NPCs
     this.updateWanderingNPCs(delta);
@@ -270,11 +288,19 @@ export class TownScene extends Phaser.Scene {
       }
     }
 
-    // Check NPC interaction or chest interaction
-    if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+    // Check NPC interaction or chest interaction (Z, SPACE, or ENTER)
+    const justInteract = (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey))
+      || (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey))
+      || (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey));
+    if (justInteract) {
       if (!this.checkChestInteraction()) {
         this.checkNPCInteraction();
       }
+    }
+
+    // Edge transition: walk to south edge → field
+    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 0.5) {
+      this.goToField();
     }
   }
 
@@ -353,14 +379,14 @@ export class TownScene extends Phaser.Scene {
       const py = gy * TILE_SIZE + TILE_SIZE / 2;
 
       const sprite = this.add.sprite(px, py, 'deco_chest')
-        .setDepth(DEPTH.objects + 1);
+        .setDepth(DEPTH.objects + 1).setScale(0.5);
 
-      const chestBody = this.add.rectangle(px, py, TILE_SIZE - 8, TILE_SIZE - 8);
+      const chestBody = this.add.rectangle(px, py, TILE_SIZE / 2 - 4, TILE_SIZE / 2 - 4);
       this.physics.add.existing(chestBody, true);
       wallBodies.add(chestBody);
       chestBody.setVisible(false);
 
-      this.chests.push({ sprite, gx, gy, flagKey, opened: false });
+      this.chests.push({ sprite, gx, gy, flagKey, opened: false, collisionBody: chestBody });
     }
   }
 
@@ -390,7 +416,13 @@ export class TownScene extends Phaser.Scene {
     // Fade out after a short delay
     this.time.delayedCall(800, () => {
       if (chest.sprite) {
-        this.tweens.add({ targets: chest.sprite, alpha: 0, duration: 600, ease: 'Power2' });
+        this.tweens.add({
+          targets: chest.sprite, alpha: 0, duration: 600, ease: 'Power2',
+          onComplete: () => {
+            chest.collisionBody?.destroy();
+            chest.collisionBody = undefined;
+          },
+        });
       }
     });
 
