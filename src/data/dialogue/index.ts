@@ -105,7 +105,7 @@ const dialogues: Record<string, DialogueTree> = {
     startNode: 'start',
     nodes: {
       start: {
-        id: 'start', speaker: '旅店老闆', text: '歡迎來到旅店！住一晚就能完全恢復體力。要住宿嗎？',
+        id: 'start', speaker: '旅店老闆', text: '歡迎來到旅店！住一晚 {innCost} 金幣就能完全恢復體力。要住宿嗎？',
         choices: [
           { text: '好的，住一晚', next: 'rest' },
           { text: '不了，謝謝', next: 'bye' },

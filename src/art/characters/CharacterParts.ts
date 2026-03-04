@@ -30,7 +30,7 @@ export const HERO_APPEARANCE: CharacterAppearance = {
   headgear: 'circlet',
   bodyType: 'armor',
   bodyColor: '#5577bb',
-  capeColor: '#cc2222',
+  capeColor: '#881a2a',
   cape: true,
   weapon: 'sword',
   weaponColor: MEDIEVAL.ironLight,
@@ -127,11 +127,20 @@ export const COMPANION_APPEARANCES: Record<string, CharacterAppearance> = {
 /** NPC type → base appearance */
 export const NPC_TYPE_APPEARANCES: Record<string, Partial<CharacterAppearance>> = {
   shop: {
-    headgear: 'none',
+    headgear: 'hood',
     bodyType: 'tunic',
     bodyColor: '#886644',
     weapon: 'none',
-    cape: false,
+    cape: true,
+    capeColor: '#665533',
+  },
+  inn: {
+    headgear: 'none',
+    bodyType: 'tunic',
+    bodyColor: '#cc7744',
+    weapon: 'none',
+    cape: true,
+    capeColor: '#aa5533',
   },
   quest: {
     headgear: 'crown',

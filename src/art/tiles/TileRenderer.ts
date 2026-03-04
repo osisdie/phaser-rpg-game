@@ -40,6 +40,12 @@ export class TileRenderer {
     // Battle background (wide) — normal + boss variant
     this.regSize(scene, `battle_bg_${rid}`, GAME_WIDTH, GAME_HEIGHT, ctx => this.drawBattleBg(ctx, pal, rid, false));
     this.regSize(scene, `battle_bg_${rid}_boss`, GAME_WIDTH, GAME_HEIGHT, ctx => this.drawBattleBg(ctx, pal, rid, true));
+    // Cave tiles — dark stone variants
+    for (let v = 0; v < 3; v++) {
+      this.reg(scene, `tile_cave_ground_${rid}_${v}`, ctx => this.drawCaveGround(ctx, pal, v));
+    }
+    this.reg(scene, `tile_cave_wall_${rid}`, ctx => this.drawCaveWall(ctx, pal));
+    this.regSize(scene, `battle_bg_cave_${rid}`, GAME_WIDTH, GAME_HEIGHT, ctx => this.drawCaveBattleBg(ctx, pal));
   }
 
   // ─── Registration helpers ──────────────────────────────────────────
@@ -337,6 +343,180 @@ export class TileRenderer {
       ctx.fillRect(sx, sy, 1, 1);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // ─── Cave ground ────────────────────────────────────────────────
+
+  private static drawCaveGround(ctx: CanvasRenderingContext2D, pal: RegionPalette, variant: number): void {
+    const S = TILE_SIZE;
+    const baseDark = darken(MEDIEVAL.stoneDark, 0.3);
+    const baseMid = darken(MEDIEVAL.stoneMedium, 0.25);
+    const baseLight = darken(MEDIEVAL.stoneLight, 0.25);
+    // Slight tint from region accent
+    const tintR = parseInt(pal.accent.slice(1, 3), 16) / 255;
+    const tintG = parseInt(pal.accent.slice(3, 5), 16) / 255;
+    const tintB = parseInt(pal.accent.slice(5, 7), 16) / 255;
+
+    // Per-pixel stone fill with region tint
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        const base = varyColor(baseMid, 6);
+        // Apply subtle region tint (10% blend)
+        const r = parseInt(base.slice(1, 3), 16);
+        const g = parseInt(base.slice(3, 5), 16);
+        const b = parseInt(base.slice(5, 7), 16);
+        const tr = Math.round(r * 0.9 + tintR * 255 * 0.1);
+        const tg = Math.round(g * 0.9 + tintG * 255 * 0.1);
+        const tb = Math.round(b * 0.9 + tintB * 255 * 0.1);
+        ctx.fillStyle = `rgb(${Math.min(255, tr)},${Math.min(255, tg)},${Math.min(255, tb)})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Dark cracks
+    for (let i = 0; i < 2 + variant; i++) {
+      const cx = Math.floor(Math.random() * (S - 8)) + 3;
+      const cy = Math.floor(Math.random() * (S - 6)) + 2;
+      ctx.fillStyle = varyColor(baseDark, 4);
+      ctx.fillRect(cx, cy, 1 + Math.floor(Math.random() * 6), 1);
+      ctx.fillRect(cx + 1, cy + 1, 1 + Math.floor(Math.random() * 3), 1);
+    }
+
+    // Small highlight spots (moisture / mineral)
+    if (variant >= 1) {
+      for (let i = 0; i < 2; i++) {
+        const hx = Math.floor(Math.random() * (S - 2)) + 1;
+        const hy = Math.floor(Math.random() * (S - 2)) + 1;
+        ctx.fillStyle = varyColor(baseLight, 10);
+        ctx.fillRect(hx, hy, 1, 1);
+      }
+    }
+
+    // Occasional small stone/pebble on variant 2
+    if (variant === 2) {
+      const sx = Math.round(S * 0.3) + Math.floor(Math.random() * Math.round(S * 0.4));
+      const sy = Math.round(S * 0.3) + Math.floor(Math.random() * Math.round(S * 0.4));
+      ctx.fillStyle = varyColor(baseDark, 8);
+      ctx.fillRect(sx, sy, 3, 2);
+      ctx.fillStyle = varyColor(baseLight, 8);
+      ctx.fillRect(sx, sy, 2, 1);
+    }
+  }
+
+  // ─── Cave wall ─────────────────────────────────────────────────
+
+  private static drawCaveWall(ctx: CanvasRenderingContext2D, pal: RegionPalette): void {
+    const S = TILE_SIZE;
+    const baseDark = darken(MEDIEVAL.stoneDark, 0.4);
+    const baseMid = darken(MEDIEVAL.stoneMedium, 0.35);
+    const baseLight = darken(MEDIEVAL.stoneLight, 0.3);
+
+    // Rough rocky texture fill
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        // Random rough stone pattern
+        const noise = ((x * 7 + y * 13) % 11) / 11;
+        const col = noise < 0.3 ? baseDark : noise < 0.7 ? baseMid : baseLight;
+        ctx.fillStyle = varyColor(col, 5);
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Horizontal crevice lines (cave rock strata)
+    for (let row = 0; row < 3; row++) {
+      const ly = Math.round(S * (0.25 + row * 0.25));
+      ctx.fillStyle = varyColor(baseDark, 3);
+      for (let x = 0; x < S; x++) {
+        const offset = Math.floor(Math.sin(x * 0.3 + row) * 2);
+        ctx.fillRect(x, ly + offset, 1, 1);
+      }
+    }
+
+    // Dark edge (cave wall feels closed-in)
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(0, 0, S, 2);
+    ctx.fillRect(0, S - 2, S, 2);
+    ctx.fillRect(0, 0, 2, S);
+    ctx.fillRect(S - 2, 0, 2, S);
+  }
+
+  // ─── Cave battle background ────────────────────────────────────
+
+  private static drawCaveBattleBg(ctx: CanvasRenderingContext2D, pal: RegionPalette): void {
+    const W = GAME_WIDTH, H = GAME_HEIGHT;
+    const ceilCol = darken(MEDIEVAL.stoneDark, 0.35);
+    const wallCol = darken(MEDIEVAL.stoneMedium, 0.3);
+    const floorCol = darken(MEDIEVAL.stoneMedium, 0.2);
+
+    // Cave ceiling (top 35%)
+    const ceilH = Math.floor(H * 0.35);
+    for (let y = 0; y < ceilH; y++) {
+      const t = y / ceilH;
+      ctx.fillStyle = blendHex(ceilCol, wallCol, t);
+      ctx.fillRect(0, y, W, 1);
+    }
+
+    // Cave floor (bottom 65%)
+    for (let y = ceilH; y < H; y++) {
+      const t = (y - ceilH) / (H - ceilH);
+      ctx.fillStyle = blendHex(wallCol, floorCol, t);
+      ctx.fillRect(0, y, W, 1);
+    }
+
+    // Stalactites from ceiling
+    for (let sx = 30; sx < W; sx += 40 + Math.floor(Math.random() * 50)) {
+      const sh = 25 + Math.floor(Math.random() * 45);
+      const sw = 4 + Math.floor(Math.random() * 6);
+      ctx.fillStyle = varyColor(ceilCol, 8);
+      // Tapered shape
+      for (let dy = 0; dy < sh; dy++) {
+        const w = Math.max(1, Math.round(sw * (1 - dy / sh)));
+        ctx.fillRect(sx - Math.floor(w / 2), dy, w, 1);
+      }
+    }
+
+    // Stalagmites from floor
+    for (let sx = 50; sx < W; sx += 50 + Math.floor(Math.random() * 60)) {
+      const sh = 20 + Math.floor(Math.random() * 35);
+      const sw = 5 + Math.floor(Math.random() * 6);
+      ctx.fillStyle = varyColor(floorCol, 8);
+      for (let dy = 0; dy < sh; dy++) {
+        const w = Math.max(1, Math.round(sw * (1 - dy / sh)));
+        ctx.fillRect(sx - Math.floor(w / 2), H - dy, w, 1);
+      }
+    }
+
+    // Crystal clusters (region accent color, dim glow)
+    const accentDim = darken(pal.accent, 0.3);
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = accentDim;
+    const crystals = [150, 420, 680, 900];
+    for (const cx of crystals) {
+      ctx.fillRect(cx, H - 50, 4, 18);
+      ctx.fillRect(cx + 7, H - 44, 3, 14);
+      ctx.fillRect(cx - 5, H - 38, 3, 10);
+    }
+    ctx.globalAlpha = 1.0;
+
+    // Dim lighting — vignette effect (always present in caves)
+    ctx.fillStyle = '#000000';
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(0, 0, W, 60);
+    ctx.fillRect(0, H - 60, W, 60);
+    ctx.fillRect(0, 0, 60, H);
+    ctx.fillRect(W - 60, 0, 60, H);
+    ctx.globalAlpha = 0.15;
+    ctx.fillRect(0, 0, W, 30);
+    ctx.fillRect(0, H - 30, W, 30);
+    ctx.globalAlpha = 1.0;
+
+    // Ground texture
+    for (let i = 0; i < 80; i++) {
+      const gx = Math.floor(Math.random() * W);
+      const gy = ceilH + 30 + Math.floor(Math.random() * (H - ceilH - 30));
+      ctx.fillStyle = varyColor(floorCol, 12);
+      ctx.fillRect(gx, gy, 2 + Math.floor(Math.random() * 3), 1);
+    }
   }
 
   // ─── Battle background (full screen) ─────────────────────────────

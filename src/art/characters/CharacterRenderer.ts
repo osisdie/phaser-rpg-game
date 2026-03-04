@@ -41,7 +41,7 @@ export class CharacterRenderer {
     }
 
     // NPC types (6 variants each — no battle sheets needed)
-    const npcTypes = ['shop', 'quest', 'save', 'info'];
+    const npcTypes = ['shop', 'quest', 'save', 'info', 'inn'];
     for (const type of npcTypes) {
       for (let i = 0; i < 6; i++) {
         const appearance = generateNPCAppearance(type, i);
@@ -141,7 +141,7 @@ export class CharacterRenderer {
       const cY = oy + 18 + bounce;
       if (dir === 'down') {
         // Cape base — wider than body for visibility
-        ctx.fillStyle = darken(app.capeColor, 0.15);
+        ctx.fillStyle = darken(app.capeColor, 0.25);
         ctx.fillRect(ox + 6, cY + 2, 20, 22);
         ctx.fillStyle = app.capeColor;
         ctx.fillRect(ox + 7, cY, 18, 21);
@@ -158,7 +158,7 @@ export class CharacterRenderer {
         const capeX = dir === 'left' ? ox + 14 : ox + 2;
         const sideWave = dir === 'left' ? capeWave : -capeWave;
         // Shadow layer
-        ctx.fillStyle = darken(app.capeColor, 0.15);
+        ctx.fillStyle = darken(app.capeColor, 0.25);
         ctx.fillRect(capeX, cY + 1, 16, 23);
         // Body layer
         ctx.fillStyle = app.capeColor;
@@ -279,7 +279,7 @@ export class CharacterRenderer {
     if (app.cape && dir === 'up') {
       const cY = oy + 14 + bounce; // Start higher — near neck/shoulders
       // Cape shadow (widest layer — nearly full character width)
-      ctx.fillStyle = darken(app.capeColor, 0.2);
+      ctx.fillStyle = darken(app.capeColor, 0.3);
       ctx.fillRect(ox + 3, cY + 1, 26, 28);
       // Cape body (main color — dominant back coverage)
       ctx.fillStyle = app.capeColor;
@@ -490,7 +490,7 @@ export class CharacterRenderer {
     if (app.cape) {
       const cY = oy + 18 + bounce;
       // Cape shadow
-      ctx.fillStyle = darken(app.capeColor, 0.15);
+      ctx.fillStyle = darken(app.capeColor, 0.25);
       ctx.fillRect(ox + mRect(15, 14), cY + 1, 14, 23);
       // Cape body
       ctx.fillStyle = app.capeColor;
@@ -778,7 +778,7 @@ export class CharacterRenderer {
     if (app.cape) {
       const cY = oy + 16 + bounce;
       // Cape shadow (widest layer)
-      ctx.fillStyle = darken(app.capeColor, 0.2);
+      ctx.fillStyle = darken(app.capeColor, 0.3);
       ctx.fillRect(ox + mRect(5, 22), cY + 1, 22, 25);
       // Cape body (main color — very wide)
       ctx.fillStyle = app.capeColor;

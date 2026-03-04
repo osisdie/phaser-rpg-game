@@ -525,13 +525,41 @@ class AudioManagerClass {
     return this.preRecorded.has(key);
   }
 
+  /** Fade out current BGM over durationMs, then stop */
+  fadeOutBgm(durationMs = 800): void {
+    if (!this.bgmGain || !this.audioContext) {
+      this.stopBgm();
+      return;
+    }
+    const ctx = this.audioContext;
+    const savedVolume = this.bgmMuted ? 0 : this.bgmVolume;
+    this.bgmGain.gain.linearRampToValueAtTime(0, ctx.currentTime + durationMs / 1000);
+    setTimeout(() => {
+      this.stopBgm();
+      // Restore gain for next track
+      if (this.bgmGain) this.bgmGain.gain.value = savedVolume;
+    }, durationMs);
+  }
+
   // ─── Region-aware BGM mapping ───
   playBgm(type: string, regionId?: string): void {
     const trackKey = this.resolveTrackKey(type, regionId);
     if (trackKey === this.currentTrackKey) return; // already playing
-    this.stopBgm();
+    // Fade out if currently playing, otherwise just stop
+    if (this.currentTrackKey) {
+      this.fadeOutBgm(600);
+      // Delay starting new track until fade completes
+      setTimeout(() => {
+        this.currentTrackKey = trackKey;
+        this.startTrackInternal(type, trackKey);
+      }, 620);
+      return;
+    }
     this.currentTrackKey = trackKey;
+    this.startTrackInternal(type, trackKey);
+  }
 
+  private startTrackInternal(type: string, trackKey: string): void {
     // AI first: check for pre-recorded audio
     const aiKey = this.resolveBgmAIKey(type);
     const buffer = aiKey ? this.preRecorded.get(aiKey) : undefined;
@@ -894,7 +922,7 @@ class AudioManagerClass {
       const gain = ctx.createGain();
       osc.type = wave;
       osc.frequency.value = tone.f;
-      gain.gain.setValueAtTime(vol * this.sfxVolume, t);
+      gain.gain.setValueAtTime(vol, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + tone.d);
       osc.connect(gain);
       gain.connect(this.sfxGain!);
@@ -912,7 +940,7 @@ class AudioManagerClass {
     filter.type = 'lowpass';
     filter.frequency.value = filterFreq;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(vol * this.sfxVolume, ctx.currentTime);
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     source.connect(filter);
     filter.connect(gain);

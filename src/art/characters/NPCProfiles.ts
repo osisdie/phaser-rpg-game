@@ -8,7 +8,7 @@ import { generateNPCAppearance } from './CharacterParts';
 
 /** Get the texture key for an NPC based on type and a numeric seed */
 export function getNPCTextureKey(npcType: string, seed: number): string {
-  const validTypes = ['shop', 'quest', 'save', 'info'];
+  const validTypes = ['shop', 'quest', 'save', 'info', 'inn'];
   const type = validTypes.includes(npcType) ? npcType : 'info';
   const variant = seed % 6;
   return `char_npc_${type}_${variant}`;

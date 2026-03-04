@@ -117,6 +117,10 @@ export class BattleScene extends Phaser.Scene {
   // Death animation tracking (prevent re-triggering)
   private deadSet: Set<string> = new Set();
 
+  // Visual HP/MP tracking — reveals damage progressively during action animation
+  // When null, HUD uses actual combat state values. When set, HUD uses these instead.
+  private visualHP: { hp: number; mp: number }[] | null = null;
+
   // Victory flow — bypass old advanceResult() when new phased flow handles input
   private resultHandledByCallback = false;
 
@@ -136,7 +140,7 @@ export class BattleScene extends Phaser.Scene {
     super('BattleScene');
   }
 
-  create(data: { monsters: MonsterData[]; regionId: string; isBoss?: boolean; returnScene: string; returnData: object; skipIntro?: boolean; onVictory?: () => void }): void {
+  create(data: { monsters: MonsterData[]; regionId: string; isBoss?: boolean; returnScene: string; returnData: object; skipIntro?: boolean; onVictory?: () => void; battleBgKey?: string }): void {
     this.monsters = data.monsters;
     this.regionId = data.regionId;
     this.isBoss = data.isBoss ?? false;
@@ -150,8 +154,9 @@ export class BattleScene extends Phaser.Scene {
     this.combat = new CombatSystem(party, this.monsters);
     this.combat.startTurn();
 
-    // Battle background — use boss variant when applicable
-    const bgKey = this.isBoss ? `battle_bg_${this.regionId}_boss` : `battle_bg_${this.regionId}`;
+    // Battle background — caller override > boss variant > normal variant > fallback
+    const bgKey = data.battleBgKey
+      ?? (this.isBoss ? `battle_bg_${this.regionId}_boss` : `battle_bg_${this.regionId}`);
     if (this.textures.exists(bgKey)) {
       this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey);
     } else {
@@ -217,6 +222,9 @@ export class BattleScene extends Phaser.Scene {
         .setDepth(DEPTH.characters + 10);
       const fill = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, COLORS.hpBar)
         .setDepth(DEPTH.characters + 10);
+      // Hidden by default — shown only during targeting and briefly after damage
+      bg.setAlpha(0);
+      fill.setAlpha(0);
       this.enemyHpBars.push({ bg, fill });
     });
 
@@ -278,17 +286,8 @@ export class BattleScene extends Phaser.Scene {
       }).setOrigin(0.5, 0).setDepth(DEPTH.characters + slot.depthOffset + 1);
     });
 
-    // ─── Party HP bars (centered above each party sprite) ───
+    // Party HP is shown in BattleHUD — no floating bars needed (clean JRPG style)
     this.partyHpBars = [];
-    this.partySprites.forEach(sprite => {
-      const barX = sprite.x;
-      const barY = sprite.y - sprite.displayHeight / 2 - 8;
-      const bg = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, 0x333333)
-        .setDepth(DEPTH.characters + 10);
-      const fill = this.add.rectangle(barX, barY, HP_BAR_W, HP_BAR_H, COLORS.hpBar)
-        .setDepth(DEPTH.characters + 10);
-      this.partyHpBars.push({ bg, fill });
-    });
 
     // Spawn region-specific ambient particles (fireflies, snow, bubbles, etc.)
     BattleEffects.spawnEnvironmentParticles(this, this.regionId, { width: GAME_WIDTH, height: GAME_HEIGHT });
@@ -547,9 +546,17 @@ export class BattleScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     this.textBox.update(time, delta);
 
-    // Update HUD
+    // Update HUD — use visual HP during action animations for per-hit display
     const state = this.combat.getState();
-    this.hud.updateDisplay(state.party, state.enemies, state.turn);
+    if (this.visualHP) {
+      const visualParty = state.party.map((m, i) => ({
+        ...m,
+        stats: { ...m.stats, hp: this.visualHP![i]?.hp ?? m.stats.hp, mp: this.visualHP![i]?.mp ?? m.stats.mp },
+      }));
+      this.hud.updateDisplay(visualParty, state.enemies, state.turn);
+    } else {
+      this.hud.updateDisplay(state.party, state.enemies, state.turn);
+    }
 
     // Update sprite visibility for dead combatants + enemy HP bars
     state.enemies.forEach((e, i) => {
@@ -560,7 +567,7 @@ export class BattleScene extends Phaser.Scene {
           BattleEffects.playDeathAnimation(this, this.enemySprites[i]);
         }
       }
-      // Update floating HP bar position & fill (centered above sprite)
+      // Update floating HP bar position & fill (hidden by default, shown during targeting)
       const bar = this.enemyHpBars[i];
       const sprite = this.enemySprites[i];
       if (bar && sprite) {
@@ -572,11 +579,10 @@ export class BattleScene extends Phaser.Scene {
           const fillW = 60 * ratio;
           bar.fill.setSize(fillW, 5);
           bar.fill.setPosition(barX - (60 - fillW) / 2, barY);
-          bar.fill.setAlpha(1);
-          bar.bg.setAlpha(1);
+          // Alpha managed by showTargetSelect / flashEnemyHpBar — don't override here
         } else {
           bar.fill.setAlpha(0);
-          bar.bg.setAlpha(0.2);
+          bar.bg.setAlpha(0);
         }
       }
     });
@@ -610,25 +616,7 @@ export class BattleScene extends Phaser.Scene {
       if (this.nearDeathLabels[i]) {
         this.nearDeathLabels[i].setVisible(isNearDeath);
       }
-      // Update floating party HP bar position & fill
-      const bar = this.partyHpBars[i];
-      const sprite = this.partySprites[i];
-      if (bar && sprite) {
-        const barX = sprite.x;
-        const barY = sprite.y - sprite.displayHeight / 2 - 8;
-        bar.bg.setPosition(barX, barY);
-        if (p.stats.hp > 0) {
-          const ratio = p.stats.hp / p.stats.maxHP;
-          const fillW = 60 * ratio;
-          bar.fill.setSize(fillW, 5);
-          bar.fill.setPosition(barX - (60 - fillW) / 2, barY);
-          bar.fill.setAlpha(1);
-          bar.bg.setAlpha(1);
-        } else {
-          bar.fill.setAlpha(0);
-          bar.bg.setAlpha(0.2);
-        }
-      }
+      // Party HP bars removed — displayed in BattleHUD (JRPG style)
     });
 
     // Update status icons
@@ -922,6 +910,16 @@ export class BattleScene extends Phaser.Scene {
     let selectedIdx = targets.findIndex(isValidTarget);
     if (selectedIdx === -1) selectedIdx = 0; // fallback
 
+    // Show enemy HP bars during target selection (JRPG: reveal HP when choosing target)
+    if (!isAlly) {
+      this.enemyHpBars.forEach((bar, idx) => {
+        if (targets[idx] && targets[idx].stats.hp > 0) {
+          bar.bg.setAlpha(1);
+          bar.fill.setAlpha(1);
+        }
+      });
+    }
+
     const updateCursor = () => {
       const sprite = sprites[selectedIdx];
       if (sprite) {
@@ -938,6 +936,13 @@ export class BattleScene extends Phaser.Scene {
     const cleanup = () => {
       this.targetCursor?.setVisible(false);
       this.targetCursor?.setAngle(0);
+      // Hide enemy HP bars after target selection (JRPG style)
+      if (!isAlly) {
+        this.enemyHpBars.forEach(bar => {
+          bar.bg.setAlpha(0);
+          bar.fill.setAlpha(0);
+        });
+      }
       this.input.keyboard?.off('keydown-UP', onPrev);
       this.input.keyboard?.off('keydown-DOWN', onNext);
       this.input.keyboard?.off('keydown-LEFT', onPrev);
@@ -1014,8 +1019,8 @@ export class BattleScene extends Phaser.Scene {
 
     // Description text below the skill list
     const descText = this.add.text(panelX, panelY + 100, '', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#bbccdd',
-      stroke: '#000000', strokeThickness: 2,
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#eeeeff',
+      stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
 
     skills.forEach((skill, i) => {
@@ -1032,11 +1037,17 @@ export class BattleScene extends Phaser.Scene {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: canUse ? COLORS.textPrimary : '#666666',
       }).setDepth(DEPTH.overlay + 1);
 
-      // Right-aligned MP cost
-      const mpText = this.add.text(panelX + 120, iy, `MP ${skill.mpCost}`, {
+      // Right-aligned MP cost + level
+      const mpText = this.add.text(panelX + 100, iy, `MP ${skill.mpCost}`, {
         fontFamily: FONT_FAMILY, fontSize: '12px', color: canUse ? '#88aacc' : '#555555',
+        stroke: '#000000', strokeThickness: 2,
       }).setOrigin(1, 0).setDepth(DEPTH.overlay + 1);
       mpTexts.push(mpText);
+      const lvText = this.add.text(panelX + 135, iy + 1, `Lv.${skill.levelRequired}`, {
+        fontFamily: FONT_FAMILY, fontSize: '11px', color: '#7799aa',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(1, 0).setDepth(DEPTH.overlay + 1);
+      skillIcons.push(lvText as any); // reuse cleanup array
 
       if (canUse) {
         text.setInteractive({ useHandCursor: true });
@@ -1143,20 +1154,20 @@ export class BattleScene extends Phaser.Scene {
 
     // Description text below the item list
     const descText = this.add.text(panelX, panelY + 100, '', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#bbccdd',
-      stroke: '#000000', strokeThickness: 2,
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#eeeeff',
+      stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
 
     const itemIcons: Phaser.GameObjects.Image[] = [];
     usable.forEach((entry, i) => {
-      const iy = panelY - 80 + i * 28;
+      const iy = panelY - 80 + i * 34;
       // Icon
       const iconKey = ItemIconRenderer.getIconKey(entry.item.id);
       if (this.textures.exists(iconKey)) {
-        const icon = this.add.image(panelX - 130, iy + 9, iconKey).setScale(0.65).setDepth(DEPTH.overlay + 1);
+        const icon = this.add.image(panelX - 130, iy + 9, iconKey).setScale(0.45).setDepth(DEPTH.overlay + 1);
         itemIcons.push(icon);
       }
-      const text = this.add.text(panelX - 115, iy, `  ${entry.item.name} ×${entry.quantity}`, {
+      const text = this.add.text(panelX - 100, iy, `  ${entry.item.name} ×${entry.quantity}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textPrimary,
       }).setDepth(DEPTH.overlay + 1).setInteractive({ useHandCursor: true });
 
@@ -1230,6 +1241,10 @@ export class BattleScene extends Phaser.Scene {
       this.combat.queueAction(action);
     }
 
+    // Snapshot party HP/MP BEFORE combat resolves — for progressive visual display
+    const state = this.combat.getState();
+    this.visualHP = state.party.map(m => ({ hp: m.stats.hp, mp: m.stats.mp }));
+
     // Execute all actions (combat resolves instantly, we animate sequentially)
     const results = this.combat.executeActions();
     this.actionLog = [];
@@ -1244,7 +1259,8 @@ export class BattleScene extends Phaser.Scene {
     index: number,
   ): void {
     if (index >= results.length) {
-      // All animations done — go directly to check result (no TextBox log needed)
+      // All animations done — clear visual HP override so HUD shows actual values
+      this.visualHP = null;
       this.checkBattleResult();
       return;
     }
@@ -1303,6 +1319,7 @@ export class BattleScene extends Phaser.Scene {
             const isBossHit = action.isEnemy && this.isBoss;
             BattleEffects.playScreenShake(this, isBossHit ? 0.012 : 0.004, isBossHit ? 250 : 120);
             this.showDamageFromMessages(msgs);
+            this.revealVisualHPFromMessages(msgs);
             // Add messages to battle log
             for (const msg of msgs) this.addBattleLogMessage(msg);
 
@@ -1381,6 +1398,7 @@ export class BattleScene extends Phaser.Scene {
               }
             }
             this.showDamageFromMessages(msgs);
+            this.revealVisualHPFromMessages(msgs);
             // Add messages to battle log
             for (const msg of msgs) this.addBattleLogMessage(msg);
 
@@ -1409,6 +1427,7 @@ export class BattleScene extends Phaser.Scene {
           audioManager.playSfx('heal');
           BattleEffects.playHealingAura(this, targetSprite.x, targetSprite.y);
           this.showDamageFromMessages(msgs);
+          this.revealVisualHPFromMessages(msgs);
         }
         // Add messages to battle log
         for (const msg of msgs) this.addBattleLogMessage(msg);
@@ -1498,6 +1517,8 @@ export class BattleScene extends Phaser.Scene {
           const sprite = enemy ? this.enemySprites[enemy.index] : ally ? this.partySprites[ally.index] : null;
           if (sprite) {
             showDamageNumber(this, sprite.x, sprite.y - sprite.displayHeight / 2 - 10, parseInt(dmgMatch[1]), 'damage');
+            // Flash enemy HP bar briefly after taking damage (JRPG style)
+            if (enemy) this.flashEnemyHpBar(enemy.index);
           }
         }
       }
@@ -1526,6 +1547,62 @@ export class BattleScene extends Phaser.Scene {
           if (statusMatch[2] === '中毒') BattleEffects.playPoisonEffect(this, sprite.x, sprite.y);
           else if (statusMatch[2] === '麻痺') BattleEffects.playParalysisEffect(this, sprite.x, sprite.y);
           else if (statusMatch[2] === '混亂') BattleEffects.playConfusionEffect(this, sprite.x, sprite.y);
+        }
+      }
+    }
+  }
+
+  /** Briefly flash an enemy HP bar visible after taking damage (2s fade-out) */
+  private flashEnemyHpBar(enemyIndex: number): void {
+    const bar = this.enemyHpBars[enemyIndex];
+    if (!bar) return;
+    // Show immediately
+    bar.bg.setAlpha(1);
+    bar.fill.setAlpha(1);
+    // Fade out after 1.5s
+    this.tweens.add({
+      targets: [bar.bg, bar.fill],
+      alpha: 0,
+      delay: 1500,
+      duration: 500,
+      ease: 'Power2',
+    });
+  }
+
+  /** Update visualHP to reveal damage/heal from action messages for progressive HUD display */
+  private revealVisualHPFromMessages(msgs: string[]): void {
+    if (!this.visualHP) return;
+    const state = this.combat.getState();
+    for (const msg of msgs) {
+      // Damage to party member
+      const dmgMatch = msg.match(/對 (.+?) 造成 (\d+) 點傷害/);
+      if (dmgMatch) {
+        const name = dmgMatch[1];
+        const damage = parseInt(dmgMatch[2]);
+        const idx = state.party.findIndex(p => p.name === name);
+        if (idx >= 0 && this.visualHP[idx]) {
+          this.visualHP[idx].hp = Math.max(0, this.visualHP[idx].hp - damage);
+        }
+      }
+      // Heal on party member
+      const healMatch = msg.match(/(.+?) 恢復了? (\d+)/);
+      if (healMatch) {
+        const name = healMatch[1];
+        const amount = parseInt(healMatch[2]);
+        const idx = state.party.findIndex(p => p.name === name);
+        if (idx >= 0 && this.visualHP[idx]) {
+          const max = state.party[idx].stats.maxHP;
+          this.visualHP[idx].hp = Math.min(max, this.visualHP[idx].hp + amount);
+        }
+      }
+      // MP cost (from skill usage)
+      const mpMatch = msg.match(/(.+?) 消耗了? (\d+) MP/);
+      if (mpMatch) {
+        const name = mpMatch[1];
+        const cost = parseInt(mpMatch[2]);
+        const idx = state.party.findIndex(p => p.name === name);
+        if (idx >= 0 && this.visualHP[idx]) {
+          this.visualHP[idx].mp = Math.max(0, this.visualHP[idx].mp - cost);
         }
       }
     }
@@ -1702,7 +1779,7 @@ export class BattleScene extends Phaser.Scene {
     // EXP line with counting animation
     const expLabel = this.add.text(cx - 160, panelTop + 50, `EXP: 0`, {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: '#88ccff',
-      stroke: '#000000', strokeThickness: 1,
+      stroke: '#000000', strokeThickness: 2,
     }).setDepth(DEPTH.overlay + 12);
     panelElements.push(expLabel);
 
@@ -1717,7 +1794,7 @@ export class BattleScene extends Phaser.Scene {
     // Gold line with counting animation
     const goldLabel = this.add.text(cx + 20, panelTop + 50, `Gold: 0`, {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: '#ffdd44',
-      stroke: '#000000', strokeThickness: 1,
+      stroke: '#000000', strokeThickness: 2,
     }).setDepth(DEPTH.overlay + 12);
     panelElements.push(goldLabel);
 
@@ -1733,7 +1810,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.monsters.some(m => m.id === 'r12_mini_boss')) {
       const mbText = this.add.text(cx, panelTop + 80, '魔王護衛已被擊敗！', {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ff8844',
-        stroke: '#000000', strokeThickness: 1,
+        stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setDepth(DEPTH.overlay + 12);
       panelElements.push(mbText);
     }
@@ -1742,7 +1819,7 @@ export class BattleScene extends Phaser.Scene {
     if (hasDrops) {
       const dropTitle = this.add.text(cx - 160, panelTop + 90, '取得道具:', {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textHighlight,
-        stroke: '#000000', strokeThickness: 1,
+        stroke: '#000000', strokeThickness: 2,
       }).setDepth(DEPTH.overlay + 12);
       panelElements.push(dropTitle);
 
@@ -1763,7 +1840,7 @@ export class BattleScene extends Phaser.Scene {
         // Item name
         const nameText = this.add.text(ix, iy + 38, dropName, {
           fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary,
-          stroke: '#000000', strokeThickness: 1,
+          stroke: '#000000', strokeThickness: 2,
         }).setDepth(DEPTH.overlay + 12);
         panelElements.push(nameText);
       });
@@ -1821,18 +1898,6 @@ export class BattleScene extends Phaser.Scene {
       onComplete: () => flash.destroy(),
     });
 
-    // "LEVEL UP!" bounce text
-    const luText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 'LEVEL UP!', {
-      fontFamily: FONT_FAMILY, fontSize: '32px', color: '#ffd700',
-      stroke: '#000000', strokeThickness: 4,
-    }).setOrigin(0.5).setScale(0).setDepth(DEPTH.overlay + 21);
-    this.tweens.add({
-      targets: luText, scale: { from: 0, to: 1.3 }, duration: 300, ease: 'Back.easeOut',
-      onComplete: () => {
-        this.tweens.add({ targets: luText, scale: 1.0, duration: 200 });
-      },
-    });
-
     // Particle effect on correct party sprite
     const state = this.combat.getState();
     const charIndex = state.party.findIndex(p => p.id === lu.characterId);
@@ -1841,29 +1906,128 @@ export class BattleScene extends Phaser.Scene {
       BattleEffects.playLevelUpEffect(this, charSprite.x, charSprite.y - 40);
     }
 
-    // Build stat gains text
-    const statLabels: Record<string, string> = { maxHP: 'HP', maxMP: 'MP', atk: '攻擊', def: '防禦', agi: '速度', luck: '幸運' };
-    const gainParts: string[] = [];
-    for (const [key, val] of Object.entries(lu.statGains)) {
-      if (val && (val as number) > 0) gainParts.push(`${statLabels[key] ?? key}+${val}`);
+    // ─── Celebration panel ───
+    const panelContainer = this.add.container(0, 0).setDepth(DEPTH.overlay + 21);
+
+    // Panel background
+    const panelW = 360;
+    const panelCX = GAME_WIDTH / 2;
+    const panelTopY = 120;
+    const panelBg = this.add.rectangle(panelCX, panelTopY + 160, panelW + 4, 320 + 4, COLORS.panelBorder);
+    const panelBgInner = this.add.rectangle(panelCX, panelTopY + 160, panelW, 320, COLORS.panel, 0.95);
+    panelContainer.add([panelBg, panelBgInner]);
+
+    // "LEVEL UP!" header with bounce
+    const charName = state.party[charIndex >= 0 ? charIndex : 0]?.name ?? lu.characterId;
+    const headerText = this.add.text(panelCX, panelTopY + 16, `✦ ${charName} LEVEL UP! ✦`, {
+      fontFamily: FONT_FAMILY, fontSize: '22px', color: '#ffd700',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScale(0);
+    panelContainer.add(headerText);
+    this.tweens.add({
+      targets: headerText, scale: { from: 0, to: 1.2 }, duration: 300, ease: 'Back.easeOut',
+      onComplete: () => this.tweens.add({ targets: headerText, scale: 1.0, duration: 200 }),
+    });
+
+    // Level line
+    const levelLine = this.add.text(panelCX, panelTopY + 52, `Lv ${lu.oldLevel}  →  Lv ${lu.newLevel}`, {
+      fontFamily: FONT_FAMILY, fontSize: '18px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setAlpha(0);
+    panelContainer.add(levelLine);
+    this.tweens.add({ targets: levelLine, alpha: 1, y: levelLine.y - 4, duration: 300, delay: 200 });
+
+    // Per-stat gain lines with staggered animation
+    const statLabels: Record<string, string> = { maxHP: 'HP', maxMP: 'MP', atk: '攻擊', def: '防禦', agi: '敏捷', luck: '幸運' };
+    const statColors: Record<string, string> = { maxHP: '#ff6666', maxMP: '#6699ff', atk: '#ff9944', def: '#66cc66', agi: '#cccc44', luck: '#cc88ff' };
+    const statOrder = ['maxHP', 'maxMP', 'atk', 'def', 'agi', 'luck'];
+
+    let lineY = panelTopY + 84;
+    let lineDelay = 400;
+    for (const key of statOrder) {
+      const gain = (lu.statGains as Record<string, number>)[key];
+      if (!gain || gain <= 0) continue;
+
+      const label = statLabels[key] ?? key;
+      const color = statColors[key] ?? '#ffffff';
+
+      // Stat label (left-aligned)
+      const statLabel = this.add.text(panelCX - panelW / 2 + 40, lineY, label, {
+        fontFamily: FONT_FAMILY, fontSize: '16px', color: '#cccccc',
+        stroke: '#000000', strokeThickness: 2,
+      }).setAlpha(0);
+      panelContainer.add(statLabel);
+
+      // Gain value (right side, highlighted)
+      const gainText = this.add.text(panelCX + panelW / 2 - 40, lineY, `+${gain}`, {
+        fontFamily: FONT_FAMILY, fontSize: '18px', color,
+        stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(1, 0).setAlpha(0);
+      panelContainer.add(gainText);
+
+      // Animate in with stagger
+      this.tweens.add({ targets: statLabel, alpha: 1, x: statLabel.x + 8, duration: 250, delay: lineDelay });
+      this.tweens.add({
+        targets: gainText, alpha: 1, scale: { from: 1.4, to: 1.0 }, duration: 300, delay: lineDelay + 50,
+      });
+
+      lineY += 32;
+      lineDelay += 120;
     }
-    let statLine = `Lv ${lu.oldLevel} → ${lu.newLevel}`;
-    if (gainParts.length > 0) statLine += `  ${gainParts.join(' ')}`;
+
+    // Stat points gained
+    if (lu.statPoints > 0) {
+      const spText = this.add.text(panelCX, lineY + 4, `可分配點數 +${lu.statPoints}`, {
+        fontFamily: FONT_FAMILY, fontSize: '15px', color: '#ffd700',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setAlpha(0);
+      panelContainer.add(spText);
+      this.tweens.add({ targets: spText, alpha: 1, duration: 300, delay: lineDelay });
+      lineY += 28;
+      lineDelay += 120;
+    }
 
     // New skills
-    const newSkillLines: string[] = [];
     for (const skillId of lu.newSkills) {
       const skill = getSkillById(skillId);
-      if (skill) newSkillLines.push(`★ 習得新技能：${skill.name}！`);
+      if (!skill) continue;
+      const skillText = this.add.text(panelCX, lineY + 4, `★ 習得新技能：${skill.name}！`, {
+        fontFamily: FONT_FAMILY, fontSize: '15px', color: '#44ffaa',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setAlpha(0);
+      panelContainer.add(skillText);
+      this.tweens.add({ targets: skillText, alpha: 1, scale: { from: 0.8, to: 1.0 }, duration: 400, delay: lineDelay, ease: 'Back.easeOut' });
+      lineY += 28;
+      lineDelay += 150;
     }
 
-    const charName = state.party[charIndex >= 0 ? charIndex : 0]?.name ?? lu.characterId;
-    const allLines = [`${charName} ${t('battle.level_up', lu.characterId, lu.newLevel)}`, statLine, ...newSkillLines];
+    // Resize panel to fit content
+    const totalH = lineY - panelTopY + 30;
+    panelBg.setSize(panelW + 4, totalH + 4).setY(panelTopY + totalH / 2);
+    panelBgInner.setSize(panelW, totalH).setY(panelTopY + totalH / 2);
 
-    // Show in textbox and wait for user to advance through all lines
-    this.showTextSequence(allLines, 0, () => {
-      luText.destroy();
+    // "Press Enter" hint (appears after all animations)
+    const hintText = this.add.text(panelCX, panelTopY + totalH - 8, '▼ 按 Enter 繼續', {
+      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#999999',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setAlpha(0);
+    panelContainer.add(hintText);
+    this.tweens.add({
+      targets: hintText, alpha: { from: 0, to: 0.8 }, duration: 400, delay: lineDelay + 200,
+      yoyo: true, repeat: -1, hold: 600,
+    });
+
+    // Wait for user input to dismiss
+    const dismiss = () => {
+      panelContainer.destroy();
       this.showLevelUps(levelUps, index + 1, onComplete);
+    };
+
+    this.time.delayedCall(lineDelay + 300, () => {
+      this.input.keyboard?.once('keydown-ENTER', dismiss);
+      this.input.keyboard?.once('keydown-SPACE', dismiss);
+      this.input.keyboard?.once('keydown-Z', dismiss);
+      this.input.once('pointerdown', dismiss);
     });
   }
 
@@ -2033,7 +2197,7 @@ export class BattleScene extends Phaser.Scene {
     statLines.forEach((line, i) => {
       const st = this.add.text(cx + 60, portraitY - 5 + i * 22, line, {
         fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textPrimary,
-        stroke: '#000000', strokeThickness: 1,
+        stroke: '#000000', strokeThickness: 2,
       }).setDepth(DEPTH.overlay + 33).setAlpha(0);
       ceremonyElements.push(st);
       this.tweens.add({ targets: st, alpha: 1, duration: 300, delay: 1200 + i * 100 });

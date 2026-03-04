@@ -9,8 +9,8 @@ export class PanelRenderer {
   static generateAll(scene: Phaser.Scene): void {
     // Main dialogue panel (920×140)
     this.generatePanel(scene, 'ui_panel_dialogue', 920, 140);
-    // Menu panel (880×580)
-    this.generatePanel(scene, 'ui_panel_menu', 880, 580);
+    // Menu panel — matches MenuScene fallback rect (GAME_WIDTH-80 × GAME_HEIGHT-60)
+    this.generatePanel(scene, 'ui_panel_menu', 944, 708);
     // Battle menu (150×170)
     this.generatePanel(scene, 'ui_panel_battle_menu', 180, 200);
     // Skill/item select (300×250)

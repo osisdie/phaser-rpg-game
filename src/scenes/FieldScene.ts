@@ -40,6 +40,12 @@ export class FieldScene extends Phaser.Scene {
   private bossMarkerPos?: { x: number; y: number };
   private fieldMiniBossPos?: { x: number; y: number };
   private fieldMiniBossData?: import('../types').MonsterData;
+  private caveEntrancePos?: { x: number; y: number };
+  private caveExitPos?: { x: number; y: number };
+  private showingCavePrompt = false;
+  private caveHintText?: Phaser.GameObjects.Text;
+  private southHintText?: Phaser.GameObjects.Text;
+  private mapWidth = 68; // store for use in update()
 
   constructor() {
     super('FieldScene');
@@ -57,16 +63,22 @@ export class FieldScene extends Phaser.Scene {
     this.bossMarkerPos = undefined;
     this.fieldMiniBossPos = undefined;
     this.fieldMiniBossData = undefined;
+    this.caveEntrancePos = undefined;
+    this.caveExitPos = undefined;
+    this.showingCavePrompt = false;
+    this.caveHintText = undefined;
+    this.southHintText = undefined;
 
     // Create field map
     const mapConfig = MapFactory.getFieldConfig(this.regionId, region.color);
     const { wallBodies, bounds } = MapFactory.createMap(this, mapConfig);
     this.mapBounds = bounds;
+    this.mapWidth = mapConfig.width;
 
     // Physics bounds
     this.physics.world.setBounds(0, 0, bounds.width, bounds.height);
 
-    // Player — restore position if returning from battle, otherwise center-bottom
+    // Player — restore position if returning from battle, otherwise bottom (from town)
     const spawnX = data.playerX ?? Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
     const spawnY = data.playerY ?? (mapConfig.height - 3) * TILE_SIZE + TILE_SIZE / 2;
     this.player = new Player(this, spawnX, spawnY);
@@ -114,26 +126,18 @@ export class FieldScene extends Phaser.Scene {
       fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textHighlight,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
 
-    // Controls footer with background bar for visibility
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 12, GAME_WIDTH, 24, 0x000000, 0.6)
-      .setScrollFactor(0).setDepth(DEPTH.ui);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | SPACE寶箱 | T城鎮 | B Boss戰 | M選單 | Q世界地圖', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ddddcc',
-      stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
 
     // Keys
     this.interactKey = this.input.keyboard?.addKey('Z');
     this.spaceKey = this.input.keyboard?.addKey('SPACE');
     this.enterKey = this.input.keyboard?.addKey('ENTER');
-    this.input.keyboard?.on('keydown-T', () => { if (!this.inChestDialogue) this.goToTown(); });
     this.input.keyboard?.on('keydown-Q', () => { if (!this.inChestDialogue) this.goToWorldMap(); });
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.inChestDialogue) { this.dismissChestDialogue(); }
       else { this.openMenu(); }
     });
     this.input.keyboard?.on('keydown-M', () => { if (!this.inChestDialogue) this.openMenu(); });
-    this.input.keyboard?.on('keydown-B', () => { if (!this.inChestDialogue) this.triggerBoss(); });
+    this.input.keyboard?.on('keydown-T', () => { if (!this.inChestDialogue) this.goToTown(); });
 
     // Boss marker on map + minimap
     const boss = getBossForRegion(this.regionId);
@@ -159,8 +163,8 @@ export class FieldScene extends Phaser.Scene {
       this.minimap.setBossPosition(bossX, bossY);
     }
 
-    // Post-liberation field mini-boss
-    if (gameState.isRegionLiberated(this.regionId) && gameState.canSpawnMiniBoss(this.regionId)) {
+    // Field mini-boss — can appear before or after liberation (with cooldown)
+    if (gameState.canSpawnMiniBoss(this.regionId)) {
       const miniBoss = generateFieldMiniBoss(this.regionId);
       if (miniBoss) {
         this.fieldMiniBossData = miniBoss;
@@ -176,8 +180,33 @@ export class FieldScene extends Phaser.Scene {
           stroke: '#000000', strokeThickness: 2,
         }).setOrigin(0.5).setDepth(DEPTH.characters + 1);
         this.tweens.add({ targets: mbMarker, scale: { from: 0.9, to: 1.05 }, duration: 1000, yoyo: true, repeat: -1 });
+
+        // Orange dot on minimap for mini-boss location
+        this.minimap.setMiniBossPosition(mbX, mbY);
       }
     }
+
+    // ── Cave entrance & exit markers ──
+    this.placeCaveEntrance(mapConfig);
+
+    // Brown dot on minimap for cave entrance (placeCaveEntrance sets this.caveEntrancePos)
+    const cavePos = this.caveEntrancePos as { x: number; y: number } | undefined;
+    if (cavePos) {
+      this.minimap.setCavePosition(cavePos.x, cavePos.y);
+    }
+
+    // ── South signpost — "城鎮" indicator near spawn ──
+    const signX = Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
+    const signY = (mapConfig.height - 4) * TILE_SIZE;
+    // Signpost pole
+    this.add.rectangle(signX, signY, 6, 40, 0x6b4f3a).setDepth(DEPTH.objects);
+    // Sign board
+    this.add.rectangle(signX, signY - 24, 72, 22, 0x5a4020)
+      .setDepth(DEPTH.objects + 1).setStrokeStyle(1, 0x3a2a10);
+    this.add.text(signX, signY - 24, '▼ 城鎮', {
+      fontFamily: FONT_FAMILY, fontSize: '11px', color: '#ffcc44',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH.objects + 2);
 
     // Landing animation — expanding ring to help locate player spawn
     this.spawnLandingEffect(spawnX, spawnY);
@@ -197,6 +226,10 @@ export class FieldScene extends Phaser.Scene {
           this.input.keyboard?.checkDown(this.input.keyboard.addKey('SPACE'), 200)) {
         this.dismissChestDialogue();
       }
+      return;
+    }
+    if (this.showingCavePrompt) {
+      this.textBox.update(time, delta);
       return;
     }
 
@@ -221,9 +254,57 @@ export class FieldScene extends Phaser.Scene {
       }
     }
 
-    // Edge transition: walk to south edge → town
-    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 0.5) {
+    // Cave entrance — show hint when near, confirm to enter
+    if (this.caveEntrancePos && !this.showingCavePrompt) {
+      const caveDist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y, this.caveEntrancePos.x, this.caveEntrancePos.y
+      );
+      if (caveDist < TILE_SIZE * 2.5) {
+        // Show hint text
+        if (!this.caveHintText) {
+          this.caveHintText = this.add.text(
+            this.caveEntrancePos.x, this.caveEntrancePos.y + 50,
+            '按 Enter 進入洞窟', {
+              fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ffcc44',
+              stroke: '#000000', strokeThickness: 3,
+            }).setOrigin(0.5).setDepth(DEPTH.ui);
+        }
+        // Confirm to enter (within closer range)
+        if (caveDist < TILE_SIZE * 1.5 && justInteract) {
+          this.showCaveConfirm();
+        }
+      } else {
+        // Remove hint when far
+        if (this.caveHintText) {
+          this.caveHintText.destroy();
+          this.caveHintText = undefined;
+        }
+      }
+    }
+
+    // Edge transition: walk through south gate gap → town (with X check for narrow exit)
+    const fieldMidX = Math.floor(this.mapWidth / 2) * TILE_SIZE + TILE_SIZE / 2;
+    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 1.5
+        && Math.abs(this.player.x - fieldMidX) < TILE_SIZE * 2) {
       this.goToTown();
+    }
+
+    // South approach indicator
+    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 4
+        && Math.abs(this.player.x - fieldMidX) < TILE_SIZE * 3) {
+      if (!this.southHintText) {
+        this.southHintText = this.add.text(
+          fieldMidX, this.mapBounds.height - TILE_SIZE * 2.5,
+          '▼ 返回城鎮', {
+            fontFamily: FONT_FAMILY, fontSize: '12px', color: '#88ccff',
+            stroke: '#000000', strokeThickness: 3,
+          }).setOrigin(0.5).setDepth(DEPTH.ui);
+      }
+    } else {
+      if (this.southHintText) {
+        this.southHintText.destroy();
+        this.southHintText = undefined;
+      }
     }
   }
 
@@ -241,21 +322,29 @@ export class FieldScene extends Phaser.Scene {
     // Truly random each visit: 0-3 chests in field
     const chestCount = Math.max(1, Math.floor(Math.random() * 4)); // 1-3 (guaranteed at least 1)
 
-    // Divide map into 3 horizontal zones to avoid clustering
-    const zoneW = Math.floor((mapConfig.width - 6) / 3);
-    const zones = [
-      { minX: 3, maxX: 3 + zoneW },
-      { minX: 3 + zoneW, maxX: 3 + zoneW * 2 },
-      { minX: 3 + zoneW * 2, maxX: mapConfig.width - 3 },
+    // Place chests near interesting spots: cave entrance, cave exit, map corners
+    const caveGx = Math.floor(mapConfig.width * 0.65);
+    const caveGy = Math.floor(mapConfig.height * 0.2);
+    const exitGx = Math.floor(mapConfig.width * 0.2);
+    const exitGy = Math.floor(mapConfig.height * 0.15);
+    const interestingSpots = [
+      { gx: caveGx + 4, gy: caveGy + 4 },    // near cave entrance (south-east)
+      { gx: exitGx + 3, gy: exitGy + 3 },     // near cave exit
+      { gx: 4, gy: 4 },                        // top-left corner
+      { gx: mapConfig.width - 5, gy: 4 },      // top-right corner
+      { gx: 4, gy: mapConfig.height - 6 },     // bottom-left corner
+      { gx: mapConfig.width - 5, gy: mapConfig.height - 6 }, // bottom-right corner
     ];
 
     for (let ci = 0; ci < chestCount; ci++) {
       const flagKey = `chest_field_${this.regionId}_${ci}`;
 
-      // Each chest goes in a different zone (no two in same third)
-      const zone = zones[ci % zones.length];
-      const gx = zone.minX + Math.floor(Math.random() * (zone.maxX - zone.minX));
-      const gy = 4 + Math.floor(Math.random() * (mapConfig.height - 8));
+      // Pick from interesting spots with ±1 tile jitter
+      const spot = interestingSpots[ci % interestingSpots.length];
+      const jitterX = Math.floor(Math.random() * 3) - 1;
+      const jitterY = Math.floor(Math.random() * 3) - 1;
+      const gx = Math.max(2, Math.min(mapConfig.width - 3, spot.gx + jitterX));
+      const gy = Math.max(3, Math.min(mapConfig.height - 4, spot.gy + jitterY));
 
       const px = gx * TILE_SIZE + TILE_SIZE / 2;
       const py = gy * TILE_SIZE + TILE_SIZE / 2;
@@ -276,6 +365,7 @@ export class FieldScene extends Phaser.Scene {
   private checkChestInteraction(): void {
     const playerPos = this.player.getGridPosition();
     for (const chest of this.chests) {
+      if (chest.opened) continue; // Skip opened chests — they fade out visually
       const dist = Math.abs(playerPos.gx - chest.gx) + Math.abs(playerPos.gy - chest.gy);
       if (dist <= 2) {
         this.openChest(chest);
@@ -285,11 +375,7 @@ export class FieldScene extends Phaser.Scene {
   }
 
   private openChest(chest: TreasureChest): void {
-    if (chest.opened || !chest.sprite) {
-      this.inChestDialogue = true;
-      this.textBox.show('', t('chest.already_opened'));
-      return;
-    }
+    if (chest.opened || !chest.sprite) return; // Silently skip — opened chests filtered in checkChestInteraction
 
     chest.opened = true;
     chest.sprite.setTexture('deco_chest_open');
@@ -587,6 +673,245 @@ export class FieldScene extends Phaser.Scene {
       returnScene: 'FieldScene',
       returnData: { regionId: this.regionId, playerX: this.player.x, playerY: this.player.y },
     });
+  }
+
+  private placeCaveEntrance(mapConfig: { width: number; height: number }): void {
+    // Cave entrance: north-central area of field (deeper territory)
+    const entrGx = Math.floor(mapConfig.width * 0.65);
+    const entrGy = Math.floor(mapConfig.height * 0.2);
+    const entrPx = entrGx * TILE_SIZE + TILE_SIZE / 2;
+    const entrPy = entrGy * TILE_SIZE + TILE_SIZE / 2;
+    this.caveEntrancePos = { x: entrPx, y: entrPy };
+
+    // Generate cave entrance texture if not exists
+    if (!this.textures.exists('deco_cave_entrance')) {
+      this.generateCaveEntranceTexture();
+    }
+    this.add.image(entrPx, entrPy, 'deco_cave_entrance')
+      .setDepth(DEPTH.objects).setScale(1.2);
+
+    // Label with glow effect
+    this.add.text(entrPx, entrPy - 60, '洞窟入口', {
+      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ffcc44',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH.characters + 1);
+
+    // Mountain ring around cave entrance (C-shape with south gap for approach)
+    const rockKey = this.textures.exists('deco_large_rock') ? 'deco_large_rock' : 'deco_rock';
+    const hasRockTex = this.textures.exists(rockKey);
+    // Ring offsets: positions around the cave entrance (gap at south for approach path)
+    const ringOffsets = [
+      { dx: -2, dy: -2 }, { dx: -1, dy: -2 }, { dx: 0, dy: -2 }, { dx: 1, dy: -2 }, { dx: 2, dy: -2 },
+      { dx: -2, dy: -1 }, { dx: 2, dy: -1 },
+      { dx: -2, dy: 0 }, { dx: 2, dy: 0 },
+      { dx: -2, dy: 1 }, { dx: 2, dy: 1 },
+      // Gap at south center (dx=0,dy=2) left open for approach
+      { dx: -2, dy: 2 }, { dx: 2, dy: 2 },
+    ];
+    for (const off of ringOffsets) {
+      const rx = (entrGx + off.dx) * TILE_SIZE + TILE_SIZE / 2;
+      const ry = (entrGy + off.dy) * TILE_SIZE + TILE_SIZE / 2;
+      if (hasRockTex) {
+        this.add.image(rx, ry, rockKey)
+          .setDepth(DEPTH.objects).setScale(0.8 + Math.random() * 0.3);
+      } else {
+        this.add.rectangle(rx, ry, TILE_SIZE - 4, TILE_SIZE - 4, 0x555555)
+          .setDepth(DEPTH.objects);
+      }
+      // Add collision body for mountain rocks
+      const body = this.add.rectangle(rx, ry, TILE_SIZE - 8, TILE_SIZE - 8);
+      this.physics.add.existing(body, true);
+      body.setVisible(false);
+      this.physics.add.collider(this.player, body);
+    }
+
+    // Approach path: 2-tile-wide dirt/stone path from south gap toward open area
+    const pathKey = this.textures.exists('tile_path') ? 'tile_path' : null;
+    for (let py = entrGy + 3; py <= entrGy + 5; py++) {
+      for (let px2 = entrGx - 1; px2 <= entrGx + 1; px2++) {
+        const ppx = px2 * TILE_SIZE + TILE_SIZE / 2;
+        const ppy = py * TILE_SIZE + TILE_SIZE / 2;
+        if (pathKey) {
+          this.add.image(ppx, ppy, pathKey).setDepth(DEPTH.ground + 1).setAlpha(0.6);
+        } else {
+          this.add.rectangle(ppx, ppy, TILE_SIZE, TILE_SIZE, 0x887755, 0.3)
+            .setDepth(DEPTH.ground + 1);
+        }
+      }
+    }
+
+    // Cave exit: left side, upper area (different position)
+    const exitGx = Math.floor(mapConfig.width * 0.2);
+    const exitGy = Math.floor(mapConfig.height * 0.15);
+    const exitPx = exitGx * TILE_SIZE + TILE_SIZE / 2;
+    const exitPy = exitGy * TILE_SIZE + TILE_SIZE / 2;
+    this.caveExitPos = { x: exitPx, y: exitPy };
+
+    // Exit marker (visual only, non-interactive — shows as a small rocky opening)
+    if (!this.textures.exists('deco_cave_exit')) {
+      this.generateCaveExitTexture();
+    }
+    this.add.image(exitPx, exitPy, 'deco_cave_exit')
+      .setDepth(DEPTH.objects).setScale(0.9);
+
+    this.add.text(exitPx, exitPy - 36, '洞窟出口', {
+      fontFamily: FONT_FAMILY, fontSize: '10px', color: '#888888',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH.characters + 1);
+  }
+
+  private showCaveConfirm(): void {
+    if (this.showingCavePrompt || this.inChestDialogue) return;
+    this.showingCavePrompt = true;
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.setVelocity(0);
+
+    this.textBox.show('', '進入洞窟？');
+    this.textBox.showChoices([{ text: '是', index: 0 }, { text: '否', index: 1 }], (index) => {
+      this.textBox.hide();
+      this.showingCavePrompt = false;
+      if (index === 0) {
+        this.enterCave();
+      }
+    });
+  }
+
+  private enterCave(): void {
+    if (!this.caveExitPos) return;
+    audioManager.playSfx('select');
+    TransitionEffect.transition(this, 'CaveScene', {
+      regionId: this.regionId,
+      fieldReturnX: this.caveExitPos.x,
+      fieldReturnY: this.caveExitPos.y,
+    });
+  }
+
+  private generateCaveEntranceTexture(): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S * 2; canvas.height = S * 2;
+    const ctx = canvas.getContext('2d')!;
+    const cx = S, cy = S;
+
+    // Larger rock frame with rough edges (mountain-like)
+    ctx.fillStyle = '#4a4a4a';
+    for (let a = 0; a < Math.PI; a += 0.015) {
+      const rx = 46 + Math.sin(a * 3) * 4;
+      const ry = 50 + Math.cos(a * 5) * 3;
+      const x = cx + Math.cos(a + Math.PI) * rx;
+      const y = cy + Math.sin(a + Math.PI) * ry * 0.7 - 8;
+      ctx.fillRect(Math.round(x) - 4, Math.round(y) - 4, 8, 8);
+    }
+
+    // Inner rock layer (lighter)
+    ctx.fillStyle = '#5a5a5a';
+    for (let a = 0; a < Math.PI; a += 0.02) {
+      const rx = 38 + Math.sin(a * 4) * 3;
+      const ry = 42 + Math.cos(a * 3) * 2;
+      const x = cx + Math.cos(a + Math.PI) * rx;
+      const y = cy + Math.sin(a + Math.PI) * ry * 0.7 - 6;
+      ctx.fillRect(Math.round(x) - 3, Math.round(y) - 3, 6, 6);
+    }
+
+    // Dark interior (cave opening) — deeper
+    ctx.fillStyle = '#0a0a0a';
+    for (let y = cy - 22; y < cy + 28; y++) {
+      const t = (y - (cy - 22)) / 50;
+      const w = Math.round(30 * Math.sin(Math.min(1, t * 1.4) * Math.PI));
+      ctx.fillRect(cx - w, y, w * 2, 1);
+    }
+    // Gradient depth effect
+    ctx.fillStyle = '#1a1a1a';
+    for (let y = cy - 16; y < cy + 20; y++) {
+      const t = (y - (cy - 16)) / 36;
+      const w = Math.round(22 * Math.sin(Math.min(1, t * 1.3) * Math.PI));
+      ctx.fillRect(cx - w, y, w * 2, 1);
+    }
+
+    // Rock details with highlights
+    ctx.fillStyle = '#6a6a6a';
+    ctx.fillRect(cx - 36, cy - 18, 10, 7);
+    ctx.fillRect(cx + 26, cy - 14, 9, 6);
+    ctx.fillRect(cx - 30, cy + 14, 8, 9);
+    ctx.fillRect(cx + 24, cy + 10, 8, 12);
+
+    // Top keystone
+    ctx.fillStyle = '#777777';
+    ctx.fillRect(cx - 8, cy - 30, 16, 6);
+    ctx.fillStyle = '#888888';
+    ctx.fillRect(cx - 6, cy - 30, 12, 3);
+
+    // Ground rocks at base
+    ctx.fillStyle = '#444444';
+    ctx.fillRect(cx - 38, cy + 26, 14, 7);
+    ctx.fillRect(cx + 24, cy + 24, 16, 9);
+
+    // ── Torches on each side ──
+    // Left torch bracket
+    ctx.fillStyle = '#6b4f3a';
+    ctx.fillRect(cx - 38, cy - 6, 4, 16);
+    // Right torch bracket
+    ctx.fillRect(cx + 34, cy - 6, 4, 16);
+    // Left flame (orange-yellow)
+    ctx.fillStyle = '#ff8822';
+    ctx.fillRect(cx - 39, cy - 12, 6, 6);
+    ctx.fillStyle = '#ffcc44';
+    ctx.fillRect(cx - 38, cy - 14, 4, 4);
+    ctx.fillStyle = '#ffee88';
+    ctx.fillRect(cx - 37, cy - 13, 2, 2);
+    // Right flame
+    ctx.fillStyle = '#ff8822';
+    ctx.fillRect(cx + 33, cy - 12, 6, 6);
+    ctx.fillStyle = '#ffcc44';
+    ctx.fillRect(cx + 34, cy - 14, 4, 4);
+    ctx.fillStyle = '#ffee88';
+    ctx.fillRect(cx + 35, cy - 13, 2, 2);
+
+    // Torch glow (soft orange circles)
+    ctx.fillStyle = 'rgba(255, 140, 40, 0.15)';
+    for (let r = 12; r > 0; r -= 3) {
+      ctx.beginPath();
+      ctx.arc(cx - 36, cy - 10, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + 36, cy - 10, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    this.textures.addCanvas('deco_cave_entrance', canvas);
+  }
+
+  private generateCaveExitTexture(): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    const cx = S / 2, cy = S / 2;
+
+    // Smaller rocky opening (exit hole)
+    ctx.fillStyle = '#555555';
+    for (let a = 0; a < Math.PI; a += 0.04) {
+      const rx = 18 + Math.sin(a * 4) * 2;
+      const ry = 20;
+      const x = cx + Math.cos(a + Math.PI) * rx;
+      const y = cy + Math.sin(a + Math.PI) * ry * 0.6;
+      ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
+    }
+
+    // Dark center
+    ctx.fillStyle = '#1a1a1a';
+    for (let y = cy - 8; y < cy + 10; y++) {
+      const t = (y - (cy - 8)) / 18;
+      const w = Math.round(12 * Math.sin(Math.min(1, t * 1.4) * Math.PI));
+      ctx.fillRect(cx - w, y, w * 2, 1);
+    }
+
+    // Rocks around
+    ctx.fillStyle = '#4a4a4a';
+    ctx.fillRect(cx - 16, cy + 8, 8, 5);
+    ctx.fillRect(cx + 8, cy + 6, 9, 6);
+
+    this.textures.addCanvas('deco_cave_exit', canvas);
   }
 
   private goToTown(): void {

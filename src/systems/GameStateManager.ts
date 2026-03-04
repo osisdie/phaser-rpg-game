@@ -58,7 +58,33 @@ class GameStateManager {
 
   loadState(data: GameState): void {
     this.state = data;
+    // Ensure fields added in later versions exist for old saves
+    if (!this.state.miniBossDefeatedTimes) this.state.miniBossDefeatedTimes = {};
+    if (!this.state.flags) this.state.flags = {};
+    // Migrate old stat field names (maxHp→maxHP, attack→atk, etc.)
+    this.migrateStats(this.state.hero.stats as unknown as Record<string, unknown>);
+    for (const comp of Object.values(this.state.companions)) {
+      this.migrateStats(comp.stats as unknown as Record<string, unknown>);
+    }
     this.playTimeStart = Date.now();
+  }
+
+  /** Migrate old save stat field names to current schema */
+  private migrateStats(stats: Record<string, unknown>): void {
+    const remap: Record<string, string> = {
+      maxHp: 'maxHP', maxMp: 'maxMP',
+      attack: 'atk', defense: 'def', speed: 'agi',
+    };
+    for (const [oldKey, newKey] of Object.entries(remap)) {
+      if (oldKey in stats && !(newKey in stats)) {
+        (stats as Record<string, unknown>)[newKey] = stats[oldKey];
+        delete stats[oldKey];
+      }
+    }
+    // Ensure hp/mp don't exceed max (null hp fix for dead companions)
+    const s = stats as Record<string, number | null>;
+    if (s.hp == null && s.maxHP != null) s.hp = s.maxHP;
+    if (s.mp == null && s.maxMP != null) s.mp = s.maxMP;
   }
 
   // ─── Hero ───

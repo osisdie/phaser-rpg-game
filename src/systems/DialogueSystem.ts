@@ -70,6 +70,12 @@ export class DialogueSystem {
     return this.tree !== null;
   }
 
+  /** Reset dialogue state — clears tree and current node to prevent stale flag leaks */
+  reset(): void {
+    this.tree = null;
+    this.currentNodeId = '';
+  }
+
   private checkCondition(condition?: string): boolean {
     if (!condition) return true;
     // Simple flag-based conditions: "flag:some_flag" or "!flag:some_flag"
