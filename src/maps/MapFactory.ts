@@ -10,9 +10,284 @@ export interface MapConfig {
   groundColor: number;
   wallColor: number;
   decorColor: number;
-  type: 'town' | 'field';
+  type: 'town' | 'field' | 'cave';
   regionId: string;
 }
+
+interface BuildingPlacement {
+  gx: number; gy: number;
+  type: 'inn' | 'shop' | 'church' | 'house';
+}
+
+interface SpecialDeco {
+  key: string; gx: number; gy: number;
+  scale?: number; blocking?: boolean;
+}
+
+interface KingdomTownLayout {
+  castle: { gx: number; gy: number; size: number };
+  buildings: BuildingPlacement[];
+  gate: { gx: number; gy: number };
+  mainRoadY: number;
+  specialDecos: SpecialDeco[];
+  treeDensity: number;  // 0-1, fraction of eligible tiles that get trees
+  noTrees?: boolean;    // dwarf/cave kingdoms with no trees
+  canalY?: number;      // merfolk: horizontal water channel row
+}
+
+const KINGDOM_LAYOUTS: Record<string, KingdomTownLayout> = {
+  // 1. Hero (勇者王國) — Classic medieval town
+  r1: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 6, type: 'inn' },
+      { gx: 10, gy: 8, type: 'house' },
+      { gx: 28, gy: 6, type: 'shop' },
+      { gx: 32, gy: 8, type: 'house' },
+      { gx: 4, gy: 20, type: 'church' },
+      { gx: 10, gy: 20, type: 'house' },
+      { gx: 28, gy: 20, type: 'house' },
+      { gx: 32, gy: 20, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    specialDecos: [
+      { key: 'well', gx: 20, gy: 14, blocking: true },
+      { key: 'deco_training_dummy', gx: 16, gy: 26, blocking: true },
+    ],
+    treeDensity: 0.3,
+  },
+  // 2. Elf (精靈王國) — Forest settlement
+  r2: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 6, gy: 10, type: 'inn' },
+      { gx: 30, gy: 12, type: 'shop' },
+      { gx: 8, gy: 24, type: 'church' },
+      { gx: 24, gy: 8, type: 'house' },
+      { gx: 16, gy: 18, type: 'house' },
+      { gx: 34, gy: 20, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 15,
+    specialDecos: [
+      { key: 'deco_vine_arch', gx: 19, gy: 26, blocking: false },
+      { key: 'deco_hanging_lantern', gx: 12, gy: 14, blocking: false },
+      { key: 'deco_hanging_lantern', gx: 26, gy: 16, blocking: false },
+    ],
+    treeDensity: 0.8,
+  },
+  // 3. Treant (樹人王國) — Ancient grove
+  r3: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 12, type: 'inn' },
+      { gx: 32, gy: 10, type: 'shop' },
+      { gx: 6, gy: 22, type: 'church' },
+      { gx: 14, gy: 14, type: 'house' },
+      { gx: 24, gy: 14, type: 'house' },
+      { gx: 28, gy: 22, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    specialDecos: [
+      { key: 'deco_ancient_tree', gx: 19, gy: 8, blocking: true, scale: 2 },
+      { key: 'deco_mushroom_large', gx: 10, gy: 18, blocking: false },
+      { key: 'deco_mushroom_large', gx: 30, gy: 18, blocking: false },
+    ],
+    treeDensity: 0.6,
+  },
+  // 4. Beast (獸人王國) — Tribal camp
+  r4: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 6, gy: 8, type: 'inn' },
+      { gx: 30, gy: 8, type: 'shop' },
+      { gx: 6, gy: 22, type: 'church' },
+      { gx: 30, gy: 22, type: 'house' },
+      { gx: 14, gy: 20, type: 'house' },
+      { gx: 24, gy: 20, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 15,
+    specialDecos: [
+      { key: 'deco_fire_pit', gx: 19, gy: 15, blocking: true },
+      { key: 'deco_totem', gx: 14, gy: 12, blocking: true },
+      { key: 'deco_totem', gx: 24, gy: 12, blocking: true },
+      { key: 'deco_arena', gx: 18, gy: 20, blocking: false },
+    ],
+    treeDensity: 0.15,
+  },
+  // 5. Merfolk (人魚王國) — Waterfront settlement
+  r5: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 8, type: 'inn' },
+      { gx: 28, gy: 6, type: 'shop' },
+      { gx: 4, gy: 22, type: 'church' },
+      { gx: 34, gy: 8, type: 'house' },
+      { gx: 14, gy: 22, type: 'house' },
+      { gx: 28, gy: 22, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 12,
+    canalY: 15,
+    specialDecos: [
+      { key: 'deco_canal_bridge', gx: 19, gy: 15, blocking: false },
+      { key: 'deco_canal_bridge', gx: 10, gy: 15, blocking: false },
+      { key: 'deco_canal_bridge', gx: 30, gy: 15, blocking: false },
+      { key: 'deco_dock', gx: 36, gy: 14, blocking: true },
+    ],
+    treeDensity: 0.2,
+  },
+  // 6. Giant (巨人王國) — Mountain fortress
+  r6: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 8, type: 'inn' },
+      { gx: 30, gy: 8, type: 'shop' },
+      { gx: 6, gy: 22, type: 'church' },
+      { gx: 30, gy: 22, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    specialDecos: [
+      { key: 'rock', gx: 14, gy: 14, blocking: true },
+      { key: 'rock', gx: 24, gy: 14, blocking: true },
+      { key: 'rock', gx: 10, gy: 20, blocking: true },
+      { key: 'rock', gx: 28, gy: 18, blocking: true },
+    ],
+    treeDensity: 0.1,
+  },
+  // 7. Dwarf (矮人王國) — Underground city
+  r7: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 6, type: 'inn' },
+      { gx: 28, gy: 6, type: 'shop' },
+      { gx: 4, gy: 14, type: 'church' },
+      { gx: 10, gy: 6, type: 'house' },
+      { gx: 14, gy: 14, type: 'house' },
+      { gx: 28, gy: 14, type: 'house' },
+      { gx: 10, gy: 22, type: 'house' },
+      { gx: 28, gy: 22, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    noTrees: true,
+    specialDecos: [
+      { key: 'deco_crystal', gx: 16, gy: 10, blocking: false },
+      { key: 'deco_crystal', gx: 24, gy: 10, blocking: false },
+      { key: 'deco_mushroom_large', gx: 20, gy: 20, blocking: false },
+      { key: 'deco_mine_entrance_sm', gx: 34, gy: 14, blocking: true },
+    ],
+    treeDensity: 0,
+  },
+  // 8. Undead (不死王國) — Haunted ruins
+  r8: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 6, gy: 10, type: 'inn' },
+      { gx: 26, gy: 8, type: 'shop' },
+      { gx: 8, gy: 24, type: 'church' },
+      { gx: 32, gy: 6, type: 'house' },
+      { gx: 14, gy: 20, type: 'house' },
+      { gx: 30, gy: 22, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 15,
+    specialDecos: [
+      { key: 'deco_gravestone', gx: 16, gy: 14, blocking: true },
+      { key: 'deco_gravestone', gx: 18, gy: 13, blocking: true },
+      { key: 'deco_gravestone', gx: 20, gy: 14, blocking: true },
+      { key: 'deco_gravestone', gx: 22, gy: 13, blocking: true },
+    ],
+    treeDensity: 0.15,
+  },
+  // 9. Volcano (火山族) — Obsidian stronghold
+  r9: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 8, type: 'inn' },
+      { gx: 30, gy: 8, type: 'shop' },
+      { gx: 4, gy: 22, type: 'church' },
+      { gx: 32, gy: 8, type: 'house' },
+      { gx: 10, gy: 20, type: 'house' },
+      { gx: 28, gy: 20, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    specialDecos: [
+      { key: 'deco_lava_vent', gx: 14, gy: 14, blocking: false },
+      { key: 'deco_lava_vent', gx: 24, gy: 14, blocking: false },
+      { key: 'deco_lava_vent', gx: 20, gy: 20, blocking: false },
+    ],
+    treeDensity: 0.05,
+  },
+  // 10. Hotspring (溫泉族) — Onsen village
+  r10: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 10, type: 'inn' },
+      { gx: 34, gy: 8, type: 'shop' },
+      { gx: 6, gy: 24, type: 'church' },
+      { gx: 14, gy: 6, type: 'house' },
+      { gx: 24, gy: 6, type: 'house' },
+      { gx: 28, gy: 24, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    specialDecos: [
+      { key: 'hotspring', gx: 16, gy: 14, blocking: false },
+      { key: 'hotspring', gx: 24, gy: 14, blocking: false },
+      { key: 'deco_stone_lantern', gx: 12, gy: 18, blocking: true },
+      { key: 'deco_stone_lantern', gx: 28, gy: 18, blocking: true },
+      { key: 'deco_bamboo_fence', gx: 14, gy: 18, blocking: false },
+    ],
+    treeDensity: 0.25,
+  },
+  // 11. Mountain (高山族) — Alpine village
+  r11: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 10, type: 'inn' },
+      { gx: 30, gy: 6, type: 'shop' },
+      { gx: 6, gy: 24, type: 'church' },
+      { gx: 32, gy: 12, type: 'house' },
+      { gx: 12, gy: 18, type: 'house' },
+      { gx: 26, gy: 20, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 15,
+    specialDecos: [
+      { key: 'deco_prayer_flag', gx: 16, gy: 10, blocking: false },
+      { key: 'deco_prayer_flag', gx: 22, gy: 10, blocking: false },
+      { key: 'deco_cairn', gx: 20, gy: 14, blocking: true },
+      { key: 'deco_cairn', gx: 14, gy: 22, blocking: true },
+    ],
+    treeDensity: 0.2,
+  },
+  // 12. Demon (魔王城) — Dark fortress
+  r12: {
+    castle: { gx: 18, gy: 2, size: 5 },
+    buildings: [
+      { gx: 4, gy: 8, type: 'inn' },
+      { gx: 32, gy: 8, type: 'shop' },
+      { gx: 4, gy: 22, type: 'church' },
+      { gx: 32, gy: 22, type: 'house' },
+      { gx: 14, gy: 14, type: 'house' },
+      { gx: 24, gy: 14, type: 'house' },
+    ],
+    gate: { gx: 19, gy: 27 },
+    mainRoadY: 16,
+    specialDecos: [
+      { key: 'deco_rune_circle', gx: 18, gy: 14, blocking: false },
+      { key: 'deco_rune_circle', gx: 10, gy: 20, blocking: false },
+      { key: 'deco_rune_circle', gx: 28, gy: 20, blocking: false },
+    ],
+    treeDensity: 0.05,
+  },
+};
 
 /** Procedurally generates tile-based maps using art textures */
 export class MapFactory {
@@ -27,25 +302,52 @@ export class MapFactory {
     const mapH = config.height * TILE_SIZE;
     const rid = config.regionId;
 
+    // Gate openings in border walls
+    const midX = Math.floor(config.width / 2);
+    const hasSouthGate = config.type === 'town' || config.type === 'field';
+    const hasWestGate = config.type === 'town';
+    // Field maps use narrower south gate (3 tiles) vs town (5 tiles)
+    const southGateHalf = config.type === 'field' ? 1 : 2;
+    // West gate: 3-tile gap on left border, southwest area (y = height-8 to height-6)
+    const westGateY = config.height - 8;
+
     // Generate ground + wall tiles
     for (let y = 0; y < config.height; y++) {
       for (let x = 0; x < config.width; x++) {
         const px = x * TILE_SIZE + TILE_SIZE / 2;
         const py = y * TILE_SIZE + TILE_SIZE / 2;
-        const isWall = x === 0 || y === 0 || x === config.width - 1 || y === config.height - 1;
+        const isBorder = x === 0 || y === 0 || x === config.width - 1 || y === config.height - 1;
+        // Skip collision body at gate openings (visual wall tile still rendered)
+        const isSouthGate = hasSouthGate && y === config.height - 1
+          && x >= midX - southGateHalf && x <= midX + southGateHalf;
+        const isWestGate = hasWestGate && x === 0
+          && y >= westGateY && y <= westGateY + 2;
+        const isWall = isBorder && !isSouthGate && !isWestGate;
 
-        if (isWall) {
-          const wallKey = `tile_wall_${rid}`;
-          const wall = scene.add.image(px, py, wallKey).setDepth(DEPTH.ground);
-          groundLayer.push(wall);
-          const wallBody = scene.add.rectangle(px, py, TILE_SIZE, TILE_SIZE);
-          scene.physics.add.existing(wallBody, true);
-          wallBodies.add(wallBody);
-          wallBody.setVisible(false);
+        if (isBorder) {
+          const isGate = isSouthGate || isWestGate;
+          if (isGate) {
+            // Gate openings render as ground — visible opening in the wall
+            const variant = Math.floor(Math.random() * 3);
+            const prefix = config.type === 'cave' ? 'tile_cave_ground' : 'tile_ground';
+            const groundKey = `${prefix}_${rid}_${variant}`;
+            scene.add.image(px, py, groundKey).setDepth(DEPTH.ground);
+          } else {
+            const wallKey = config.type === 'cave' ? `tile_cave_wall_${rid}` : `tile_wall_${rid}`;
+            const wall = scene.add.image(px, py, wallKey).setDepth(DEPTH.ground);
+            groundLayer.push(wall);
+            if (isWall) {
+              const wallBody = scene.add.rectangle(px, py, TILE_SIZE, TILE_SIZE);
+              scene.physics.add.existing(wallBody, true);
+              wallBodies.add(wallBody);
+              wallBody.setVisible(false);
+            }
+          }
         } else {
           // Randomize between 3 ground variants
           const variant = Math.floor(Math.random() * 3);
-          const groundKey = `tile_ground_${rid}_${variant}`;
+          const prefix = config.type === 'cave' ? 'tile_cave_ground' : 'tile_ground';
+          const groundKey = `${prefix}_${rid}_${variant}`;
           const ground = scene.add.image(px, py, groundKey).setDepth(DEPTH.ground);
           groundLayer.push(ground);
         }
@@ -55,6 +357,8 @@ export class MapFactory {
     // Add decorations
     if (config.type === 'town') {
       this.addTownDecorations(scene, config, wallBodies, rid);
+    } else if (config.type === 'cave') {
+      this.addCaveDecorations(scene, config, wallBodies, rid);
     } else {
       this.addFieldDecorations(scene, config, wallBodies, rid);
     }
@@ -66,18 +370,22 @@ export class MapFactory {
     scene: Phaser.Scene, config: MapConfig,
     wallBodies: Phaser.Physics.Arcade.StaticGroup, regionId: string,
   ): void {
-    // ── Castle (5×5 tiles) in upper-center ──
-    const castleKey = `bld_castle_${regionId}`;
-    const castleGx = Math.floor(config.width / 2) - 2;
-    const castleGy = 2;
-    if (scene.textures.exists(castleKey)) {
-      const castleCx = (castleGx + 2.5) * TILE_SIZE;
-      const castleCy = (castleGy + 2.5) * TILE_SIZE;
-      scene.add.image(castleCx, castleCy, castleKey).setDepth(DEPTH.objects);
+    const layout = KINGDOM_LAYOUTS[regionId] ?? KINGDOM_LAYOUTS.r1;
+    const occupied = new Set<string>(); // "gx,gy" keys to prevent overlap
+    const mark = (gx: number, gy: number, w = 1, h = 1) => {
+      for (let dy = 0; dy < h; dy++)
+        for (let dx = 0; dx < w; dx++) occupied.add(`${gx + dx},${gy + dy}`);
+    };
 
-      // Collision for 5×5 area
-      for (let dy = 0; dy < 5; dy++) {
-        for (let dx = 0; dx < 5; dx++) {
+    // ── Castle ──
+    const { gx: castleGx, gy: castleGy, size: castleSize } = layout.castle;
+    const castleKey = `bld_castle_${regionId}`;
+    if (scene.textures.exists(castleKey)) {
+      const castleCx = (castleGx + castleSize / 2) * TILE_SIZE;
+      const castleCy = (castleGy + castleSize / 2) * TILE_SIZE;
+      scene.add.image(castleCx, castleCy, castleKey).setDepth(DEPTH.objects);
+      for (let dy = 0; dy < castleSize; dy++) {
+        for (let dx = 0; dx < castleSize; dx++) {
           const px = (castleGx + dx) * TILE_SIZE + TILE_SIZE / 2;
           const py = (castleGy + dy) * TILE_SIZE + TILE_SIZE / 2;
           const body = scene.add.rectangle(px, py, TILE_SIZE, TILE_SIZE);
@@ -86,38 +394,28 @@ export class MapFactory {
           body.setVisible(false);
         }
       }
+      mark(castleGx, castleGy, castleSize, castleSize);
 
-      // ── Kingdom banner above castle ──
+      // Kingdom banner
       const bannerKey = `banner_${regionId}`;
-      if (!scene.textures.exists(bannerKey)) {
-        this.generateBannerTexture(scene, bannerKey, regionId);
-      }
-      const bannerCx = castleCx;
-      const bannerCy = castleGy * TILE_SIZE - TILE_SIZE * 0.3;
-      const bannerImg = scene.add.image(bannerCx, bannerCy, bannerKey).setDepth(DEPTH.objects + 1);
-      // Gentle sway animation
+      if (!scene.textures.exists(bannerKey)) this.generateBannerTexture(scene, bannerKey, regionId);
+      const bannerImg = scene.add.image(castleCx, castleGy * TILE_SIZE - TILE_SIZE * 0.3, bannerKey)
+        .setDepth(DEPTH.objects + 1);
       scene.tweens.add({
         targets: bannerImg,
         angle: { from: -3, to: 3 }, duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
       });
     }
 
-    // ── Guardian statues at gate entrance ──
+    // ── Guardian statues at gate ──
     {
-      const midX = Math.floor(config.width / 2);
-      const gateGy = config.height - 5;
+      const { gx: gateGx, gy: gateGy } = layout.gate;
+      const midX = gateGx + 1;
       const statueKey = `statue_${regionId}`;
-      if (!scene.textures.exists(statueKey)) {
-        this.generateGuardianStatue(scene, statueKey, regionId);
-      }
-      // Statues flanking the gate path
+      if (!scene.textures.exists(statueKey)) this.generateGuardianStatue(scene, statueKey, regionId);
       const statueY = (gateGy + 2) * TILE_SIZE + TILE_SIZE / 2;
-      const leftStatue = scene.add.image((midX - 1) * TILE_SIZE, statueY, statueKey)
-        .setDepth(DEPTH.objects);
-      const rightStatue = scene.add.image((midX + 2) * TILE_SIZE, statueY, statueKey)
-        .setDepth(DEPTH.objects).setFlipX(true);
-
-      // Collision for statues
+      scene.add.image((midX - 1) * TILE_SIZE, statueY, statueKey).setDepth(DEPTH.objects);
+      scene.add.image((midX + 2) * TILE_SIZE, statueY, statueKey).setDepth(DEPTH.objects).setFlipX(true);
       for (const sx of [(midX - 1) * TILE_SIZE, (midX + 2) * TILE_SIZE]) {
         const sb = scene.add.rectangle(sx, statueY, TILE_SIZE - 8, TILE_SIZE - 8);
         scene.physics.add.existing(sb, true);
@@ -126,131 +424,162 @@ export class MapFactory {
       }
     }
 
-    // ── Regular buildings (2×2) — arranged asymmetrically around castle ──
-    // Building positions for 40×32 grid (castle at ~(18,2), path at y=16, gate at y=22)
-    const buildingPositions = [
-      { x: 4, y: 6, w: 2, h: 2 },
-      { x: 10, y: 8, w: 2, h: 2 },
-      { x: 28, y: 6, w: 2, h: 2 },
-      { x: 32, y: 8, w: 2, h: 2 },
-      { x: 4, y: 20, w: 2, h: 2 },
-      { x: 10, y: 20, w: 2, h: 2 },
-      { x: 28, y: 20, w: 2, h: 2 },
-      { x: 32, y: 20, w: 2, h: 2 },
-    ];
-
-    const buildingKeys = [
+    // ── Buildings from layout ──
+    const bldHouseKeys = [
       `bld_region_${regionId}_0`, `bld_region_${regionId}_1`,
       `bld_region_${regionId}_2`, `bld_region_${regionId}_3`,
     ];
-
-    // Building type assignment: pos 0=inn, 2=shop, 4=church, rest=houses
-    const typedBuildingKeys: Record<number, string> = {
-      0: `bld_inn_${regionId}`,
-      2: `bld_shop_${regionId}`,
-      4: `bld_church_${regionId}`,
+    const signMap: Record<string, { key: string; type: 'inn' | 'shop' | 'church' }> = {
+      inn:    { key: 'sign_inn', type: 'inn' },
+      shop:   { key: 'sign_shop', type: 'shop' },
+      church: { key: 'sign_church', type: 'church' },
     };
+    let houseIdx = 0;
+    for (const bld of layout.buildings) {
+      const w = 2, h = 2;
+      if (bld.gx + w >= config.width - 1 || bld.gy + h >= config.height - 1) continue;
 
-    // Building type banner texture keys (universal across all kingdoms)
-    const buildingTypeBanners: Record<number, { key: string; type: 'inn' | 'shop' | 'church' }> = {
-      0: { key: 'sign_inn', type: 'inn' },
-      2: { key: 'sign_shop', type: 'shop' },
-      4: { key: 'sign_church', type: 'church' },
-    };
+      const bldCx = bld.gx * TILE_SIZE + TILE_SIZE;
+      const bldCy = bld.gy * TILE_SIZE + TILE_SIZE;
+      let bldKey: string;
+      if (bld.type === 'inn') bldKey = `bld_inn_${regionId}`;
+      else if (bld.type === 'shop') bldKey = `bld_shop_${regionId}`;
+      else if (bld.type === 'church') bldKey = `bld_church_${regionId}`;
+      else { bldKey = bldHouseKeys[houseIdx % bldHouseKeys.length]; houseIdx++; }
 
-    for (let i = 0; i < buildingPositions.length; i++) {
-      const bld = buildingPositions[i];
-      if (bld.x + bld.w >= config.width - 1 || bld.y + bld.h >= config.height - 1) continue;
-
-      const bldCx = bld.x * TILE_SIZE + TILE_SIZE;
-      const bldCy = bld.y * TILE_SIZE + TILE_SIZE;
-      const bldKey = typedBuildingKeys[i] ?? buildingKeys[i % buildingKeys.length];
       const bldScale = 1.0 + Math.random() * 0.25;
       scene.add.image(bldCx, bldCy, bldKey).setDepth(DEPTH.objects).setScale(bldScale);
 
-      // Add building type sign banner for inn/shop/church
-      const bannerInfo = buildingTypeBanners[i];
-      if (bannerInfo) {
-        if (!scene.textures.exists(bannerInfo.key)) {
-          this.generateBuildingSign(scene, bannerInfo.key, bannerInfo.type);
-        }
-        // Place sign to the right of building, slightly above center
-        const signX = (bld.x + bld.w) * TILE_SIZE + TILE_SIZE * 0.3;
-        const signY = bld.y * TILE_SIZE + TILE_SIZE * 0.5;
-        scene.add.image(signX, signY, bannerInfo.key).setDepth(DEPTH.objects + 1);
+      // Type sign for inn/shop/church
+      const si = signMap[bld.type];
+      if (si) {
+        if (!scene.textures.exists(si.key)) this.generateBuildingSign(scene, si.key, si.type);
+        const signX = (bld.gx + w) * TILE_SIZE + TILE_SIZE * 0.3;
+        const signY = bld.gy * TILE_SIZE + TILE_SIZE * 0.5;
+        scene.add.image(signX, signY, si.key).setDepth(DEPTH.objects + 1);
       }
 
-      for (let dy = 0; dy < bld.h; dy++) {
-        for (let dx = 0; dx < bld.w; dx++) {
-          const px = (bld.x + dx) * TILE_SIZE + TILE_SIZE / 2;
-          const py = (bld.y + dy) * TILE_SIZE + TILE_SIZE / 2;
+      // Collision
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          const px = (bld.gx + dx) * TILE_SIZE + TILE_SIZE / 2;
+          const py = (bld.gy + dy) * TILE_SIZE + TILE_SIZE / 2;
           const body = scene.add.rectangle(px, py, TILE_SIZE, TILE_SIZE);
           scene.physics.add.existing(body, true);
           wallBodies.add(body);
           body.setVisible(false);
         }
       }
+      mark(bld.gx, bld.gy, w, h);
     }
 
-    // ── Paths (horizontal main road + vertical to castle) ──
-    const midY = Math.floor(config.height / 2);
+    // ── Paths ──
     const pathKey = `tile_path_${regionId}`;
-    for (let x = 1; x < config.width - 1; x++) {
-      const px = x * TILE_SIZE + TILE_SIZE / 2;
-      const py = midY * TILE_SIZE + TILE_SIZE / 2;
-      scene.add.image(px, py, pathKey).setDepth(DEPTH.ground + 1);
-    }
-    // Vertical path from castle to main road
+    const roadY = layout.mainRoadY;
     const midX = Math.floor(config.width / 2);
-    for (let y = castleGy + 5; y <= midY; y++) {
-      const px = (castleGx + 2) * TILE_SIZE + TILE_SIZE / 2;
-      const py = y * TILE_SIZE + TILE_SIZE / 2;
-      scene.add.image(px, py, pathKey).setDepth(DEPTH.ground + 1);
+    // Horizontal main road
+    for (let x = 1; x < config.width - 1; x++) {
+      scene.add.image(x * TILE_SIZE + TILE_SIZE / 2, roadY * TILE_SIZE + TILE_SIZE / 2, pathKey)
+        .setDepth(DEPTH.ground + 1);
+      mark(x, roadY);
+    }
+    // Vertical: castle to road
+    for (let y = castleGy + layout.castle.size; y <= roadY; y++) {
+      scene.add.image(midX * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, pathKey)
+        .setDepth(DEPTH.ground + 1);
+      mark(midX, y);
+    }
+    // Vertical: road to gate
+    const { gy: gateGy } = layout.gate;
+    for (let y = roadY + 1; y <= gateGy + 1; y++) {
+      scene.add.image(midX * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, pathKey)
+        .setDepth(DEPTH.ground + 1);
+      mark(midX, y);
     }
 
-    // ── Gate at south entrance ──
+    // Gate
     const gateKey = `bld_gate_${regionId}`;
-    const gateGx = midX - 1;
-    const gateGy = config.height - 5;
     if (scene.textures.exists(gateKey)) {
-      const gateCx = (gateGx + 1.5) * TILE_SIZE;
+      const gateCx = (layout.gate.gx + 1.5) * TILE_SIZE;
       const gateCy = (gateGy + 1) * TILE_SIZE;
       scene.add.image(gateCx, gateCy, gateKey).setDepth(DEPTH.objects);
     }
 
-    // Vertical path from main road to south gate
-    for (let y = midY + 1; y <= gateGy + 1; y++) {
-      const px = midX * TILE_SIZE + TILE_SIZE / 2;
-      const py = y * TILE_SIZE + TILE_SIZE / 2;
-      scene.add.image(px, py, pathKey).setDepth(DEPTH.ground + 1);
+    // ── Canal (Merfolk) ──
+    if (layout.canalY != null) {
+      const waterKey = `tile_water_${regionId}`;
+      const fallbackWater = 'tile_ground_r5_0'; // blue-ish ground fallback
+      const wk = scene.textures.exists(waterKey) ? waterKey : fallbackWater;
+      for (let x = 1; x < config.width - 1; x++) {
+        for (let row = 0; row < 2; row++) {
+          const cy = layout.canalY + row;
+          const px = x * TILE_SIZE + TILE_SIZE / 2;
+          const py = cy * TILE_SIZE + TILE_SIZE / 2;
+          scene.add.image(px, py, wk).setDepth(DEPTH.ground + 1).setAlpha(0.85);
+          // Canal is blocking except where bridges are placed
+          const hasBridge = layout.specialDecos.some(
+            d => d.key === 'deco_canal_bridge' && d.gx === x && d.gy === layout.canalY,
+          );
+          if (!hasBridge) {
+            const wb = scene.add.rectangle(px, py, TILE_SIZE, TILE_SIZE);
+            scene.physics.add.existing(wb, true);
+            wallBodies.add(wb);
+            wb.setVisible(false);
+          }
+          mark(x, cy);
+        }
+      }
     }
 
-    // ── Well ──
-    const wellX = (castleGx - 2) * TILE_SIZE + TILE_SIZE / 2;
-    const wellY = (midY - 2) * TILE_SIZE + TILE_SIZE / 2;
-    scene.add.image(wellX, wellY, 'deco_well').setDepth(DEPTH.objects);
-    const wellBody = scene.add.rectangle(wellX, wellY, TILE_SIZE - 4, TILE_SIZE - 4);
-    scene.physics.add.existing(wellBody, true);
-    wallBodies.add(wellBody);
-    wellBody.setVisible(false);
+    // ── Special decorations from layout ──
+    for (const deco of layout.specialDecos) {
+      const dk = scene.textures.exists(deco.key) ? deco.key
+        : deco.key === 'well' ? 'deco_well'
+        : deco.key === 'rock' ? `deco_rock_${regionId}`
+        : deco.key === 'hotspring' ? (scene.textures.exists(`deco_hotspring_${regionId}`) ? `deco_hotspring_${regionId}` : 'deco_pond')
+        : null;
+      if (!dk) continue; // texture not yet generated — skip gracefully
+      const px = deco.gx * TILE_SIZE + TILE_SIZE / 2;
+      const py = deco.gy * TILE_SIZE + TILE_SIZE / 2;
+      const scale = deco.scale ?? 1;
+      scene.add.image(px, py, dk).setDepth(DEPTH.objects).setScale(scale);
+      if (deco.blocking) {
+        const db = scene.add.rectangle(px, py, TILE_SIZE - 4, TILE_SIZE - 4);
+        scene.physics.add.existing(db, true);
+        wallBodies.add(db);
+        db.setVisible(false);
+      }
+      mark(deco.gx, deco.gy);
+    }
 
-    // ── Bushes & flowers scattered around town ──
+    // ── Trees (density-based, skip if noTrees) ──
+    if (!layout.noTrees) {
+      const treeKey = `deco_tree_${regionId}`;
+      for (let y = 2; y < config.height - 2; y++) {
+        for (let x = 2; x < config.width - 2; x++) {
+          if (occupied.has(`${x},${y}`)) continue;
+          if (Math.random() > layout.treeDensity) continue;
+          // Also skip tiles adjacent to buildings/paths for breathing room
+          const adjOccupied = occupied.has(`${x - 1},${y}`) || occupied.has(`${x + 1},${y}`)
+            || occupied.has(`${x},${y - 1}`) || occupied.has(`${x},${y + 1}`);
+          if (adjOccupied && Math.random() < 0.7) continue;
+          const tk = scene.textures.exists(treeKey) ? treeKey : 'deco_tree_r1';
+          scene.add.image(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, tk)
+            .setDepth(DEPTH.objects).setScale(0.8 + Math.random() * 0.4);
+          mark(x, y);
+        }
+      }
+    }
+
+    // ── Bushes scattered (fewer than trees) ──
     const bushKey = `deco_bush_${regionId}`;
-    for (let i = 0; i < 12; i++) {
+    const bk = scene.textures.exists(bushKey) ? bushKey : 'deco_bush_green';
+    for (let i = 0; i < 8; i++) {
       const bx = 2 + Math.floor(Math.random() * (config.width - 4));
-      const by = Math.floor(config.height * 0.4) + Math.floor(Math.random() * Math.floor(config.height * 0.4));
-      scene.add.image(
-        bx * TILE_SIZE + TILE_SIZE / 2,
-        by * TILE_SIZE + TILE_SIZE / 2,
-        scene.textures.exists(bushKey) ? bushKey : 'deco_bush_green',
-      ).setDepth(DEPTH.ground + 1).setScale(0.7 + Math.random() * 0.3);
-    }
-
-    // ── Town pond ──
-    if (scene.textures.exists('deco_pond')) {
-      const pondX = (castleGx + 6) * TILE_SIZE + TILE_SIZE / 2;
-      const pondY = (midY - 3) * TILE_SIZE + TILE_SIZE / 2;
-      scene.add.image(pondX, pondY, 'deco_pond').setDepth(DEPTH.ground + 1).setScale(1.3);
+      const by = Math.floor(config.height * 0.3) + Math.floor(Math.random() * Math.floor(config.height * 0.5));
+      if (occupied.has(`${bx},${by}`)) continue;
+      scene.add.image(bx * TILE_SIZE + TILE_SIZE / 2, by * TILE_SIZE + TILE_SIZE / 2, bk)
+        .setDepth(DEPTH.ground + 1).setScale(0.7 + Math.random() * 0.3);
     }
   }
 
@@ -266,11 +595,36 @@ export class MapFactory {
     const isMountain = regionId.includes('mountain') || regionId.includes('giant');
     const isForest = regionId.includes('elf') || regionId.includes('treant') || regionId.includes('hero');
 
-    // Determine decoration palette for this region
+    // ── Overlap detection (same pattern as addTownDecorations) ──
+    const occupied = new Set<string>();
+    const mark = (gx: number, gy: number, w = 1, h = 1) => {
+      for (let dy = 0; dy < h; dy++)
+        for (let dx = 0; dx < w; dx++) occupied.add(`${gx + dx},${gy + dy}`);
+    };
+    const midX = Math.floor(config.width / 2);
+
+    // Pre-mark reserved zones: south gate, cave entrance/exit, boss area, spawn
+    // South gate area (center bottom ±3)
+    for (let sx = midX - 3; sx <= midX + 3; sx++)
+      for (let sy = config.height - 5; sy < config.height; sy++) mark(sx, sy);
+    // Cave entrance area (~7×6 around width*0.65, height*0.2)
+    const caveGx = Math.floor(config.width * 0.65);
+    const caveGy = Math.floor(config.height * 0.2);
+    mark(caveGx - 3, caveGy - 3, 7, 8);
+    // Cave exit area (~5×5 around width*0.2, height*0.15)
+    const exitGx = Math.floor(config.width * 0.2);
+    const exitGy = Math.floor(config.height * 0.15);
+    mark(exitGx - 2, exitGy - 2, 5, 5);
+    // Boss marker area (center, row 4-8)
+    mark(midX - 3, 3, 6, 6);
+    // Spawn zone (bottom center)
+    mark(midX - 2, config.height - 4, 5, 4);
+
+    // Determine decoration palette for this region (capped scales to avoid neighbor bleed)
     const decoTypes: { key: string; weight: number; scale: [number, number]; blocking: boolean }[] = [
-      { key: treeKey, weight: 35, scale: [0.8, 1.5], blocking: true },
+      { key: treeKey, weight: 35, scale: [0.9, 1.05], blocking: true },
       { key: 'deco_rock', weight: 15, scale: [0.7, 1.1], blocking: true },
-      { key: 'deco_large_rock', weight: 8, scale: [0.9, 1.3], blocking: true },
+      { key: 'deco_large_rock', weight: 8, scale: [0.9, 1.15], blocking: true },
       { key: bushKey, weight: 12, scale: [0.6, 1.0], blocking: false },
     ];
 
@@ -289,35 +643,59 @@ export class MapFactory {
       decoTypes.push({ key: 'deco_large_rock', weight: 15, scale: [1.0, 1.5], blocking: true });
     }
 
+    // ── Kingdom-specific field landmarks ──
+    if (regionId.includes('elf')) {
+      if (scene.textures.exists('deco_mushroom_large'))
+        decoTypes.push({ key: 'deco_mushroom_large', weight: 8, scale: [0.7, 1.0], blocking: false });
+      if (scene.textures.exists('deco_hanging_lantern'))
+        decoTypes.push({ key: 'deco_hanging_lantern', weight: 5, scale: [0.8, 1.0], blocking: false });
+    }
+    if (regionId.includes('treant')) {
+      if (scene.textures.exists('deco_mushroom_large'))
+        decoTypes.push({ key: 'deco_mushroom_large', weight: 12, scale: [0.8, 1.2], blocking: false });
+    }
+    if (regionId.includes('beast')) {
+      if (scene.textures.exists('deco_totem'))
+        decoTypes.push({ key: 'deco_totem', weight: 5, scale: [0.8, 1.0], blocking: true });
+    }
+    if (regionId.includes('merfolk')) {
+      if (scene.textures.exists('deco_dock'))
+        decoTypes.push({ key: 'deco_dock', weight: 6, scale: [0.9, 1.1], blocking: true });
+    }
+    if (regionId.includes('dwarf')) {
+      if (scene.textures.exists('deco_crystal'))
+        decoTypes.push({ key: 'deco_crystal', weight: 10, scale: [0.7, 1.0], blocking: false });
+    }
+    if (regionId.includes('undead')) {
+      if (scene.textures.exists('deco_gravestone'))
+        decoTypes.push({ key: 'deco_gravestone', weight: 12, scale: [0.8, 1.1], blocking: true });
+    }
+    if (regionId.includes('volcano')) {
+      if (scene.textures.exists('deco_lava_vent'))
+        decoTypes.push({ key: 'deco_lava_vent', weight: 10, scale: [0.9, 1.2], blocking: false });
+    }
+    if (regionId.includes('hotspring')) {
+      if (scene.textures.exists('deco_stone_lantern'))
+        decoTypes.push({ key: 'deco_stone_lantern', weight: 6, scale: [0.8, 1.0], blocking: true });
+      if (scene.textures.exists('deco_bamboo_fence'))
+        decoTypes.push({ key: 'deco_bamboo_fence', weight: 5, scale: [0.9, 1.0], blocking: false });
+    }
+    if (regionId.includes('mountain')) {
+      if (scene.textures.exists('deco_cairn'))
+        decoTypes.push({ key: 'deco_cairn', weight: 8, scale: [0.8, 1.1], blocking: true });
+      if (scene.textures.exists('deco_prayer_flag'))
+        decoTypes.push({ key: 'deco_prayer_flag', weight: 5, scale: [0.9, 1.0], blocking: false });
+    }
+    if (regionId.includes('demon')) {
+      if (scene.textures.exists('deco_rune_circle'))
+        decoTypes.push({ key: 'deco_rune_circle', weight: 8, scale: [0.9, 1.1], blocking: false });
+    }
+
     // Total weight for weighted random selection
     const totalWeight = decoTypes.reduce((sum, d) => sum + d.weight, 0);
 
-    // Scattered obstacles
-    const obstacleCount = Math.floor((config.width * config.height) * 0.06);
-    for (let i = 0; i < obstacleCount; i++) {
-      const x = 2 + Math.floor(Math.random() * (config.width - 4));
-      const y = 2 + Math.floor(Math.random() * (config.height - 4));
-      const px = x * TILE_SIZE + TILE_SIZE / 2;
-      const py = y * TILE_SIZE + TILE_SIZE / 2;
-
-      // Weighted random decoration type
-      let roll = Math.random() * totalWeight;
-      let chosen = decoTypes[0];
-      for (const d of decoTypes) {
-        roll -= d.weight;
-        if (roll <= 0) { chosen = d; break; }
-      }
-
-      const decoScale = chosen.scale[0] + Math.random() * (chosen.scale[1] - chosen.scale[0]);
-      scene.add.image(px, py, chosen.key).setDepth(chosen.blocking ? DEPTH.objects : DEPTH.ground + 1).setScale(decoScale);
-
-      if (chosen.blocking) {
-        const body = scene.add.rectangle(px, py, TILE_SIZE - 8, TILE_SIZE - 8);
-        scene.physics.add.existing(body, true);
-        wallBodies.add(body);
-        body.setVisible(false);
-      }
-    }
+    // ── Placement order: rivers → multi-tile features → obstacles → flowers/ponds ──
+    // (previously obstacles came first and got overwritten by later features)
 
     // River — meandering water path for aquatic regions
     if (isWater) {
@@ -327,54 +705,14 @@ export class MapFactory {
         rx = Math.max(2, Math.min(config.width - 4, rx));
         const rw = 2 + Math.floor(Math.random() * 2);
         for (let dx = 0; dx < rw; dx++) {
+          const tileX = rx + dx;
+          mark(tileX, ry);
           scene.add.image(
-            (rx + dx) * TILE_SIZE + TILE_SIZE / 2,
+            tileX * TILE_SIZE + TILE_SIZE / 2,
             ry * TILE_SIZE + TILE_SIZE / 2,
             'deco_water',
           ).setDepth(DEPTH.ground + 1);
         }
-      }
-    }
-
-    // Flower patches (non-blocking, skip for dark/volcanic regions)
-    if (!isDark && !isVolcanic) {
-      const flowerCount = 6 + Math.floor(Math.random() * 6);
-      for (let i = 0; i < flowerCount; i++) {
-        const fx = 2 + Math.floor(Math.random() * (config.width - 4));
-        const fy = 2 + Math.floor(Math.random() * (config.height - 4));
-        scene.add.image(
-          fx * TILE_SIZE + TILE_SIZE / 2,
-          fy * TILE_SIZE + TILE_SIZE / 2,
-          'deco_flowers',
-        ).setDepth(DEPTH.ground + 1);
-      }
-    }
-
-    // Ponds — most non-volcanic regions get occasional ponds
-    if (!isVolcanic && scene.textures.exists('deco_pond')) {
-      const pondCount = isWater ? 3 + Math.floor(Math.random() * 3) : Math.random() > 0.5 ? 1 : 0;
-      for (let i = 0; i < pondCount; i++) {
-        const px = 4 + Math.floor(Math.random() * (config.width - 8));
-        const py = 4 + Math.floor(Math.random() * (config.height - 8));
-        scene.add.image(
-          px * TILE_SIZE + TILE_SIZE / 2,
-          py * TILE_SIZE + TILE_SIZE / 2,
-          'deco_pond',
-        ).setDepth(DEPTH.ground + 1);
-      }
-    }
-
-    // Hot springs — hotspring region
-    if (regionId.includes('hotspring') && scene.textures.exists('deco_hotspring')) {
-      const hsCount = 2 + Math.floor(Math.random() * 2);
-      for (let i = 0; i < hsCount; i++) {
-        const hx = 3 + Math.floor(Math.random() * (config.width - 6));
-        const hy = 3 + Math.floor(Math.random() * (config.height - 6));
-        scene.add.image(
-          hx * TILE_SIZE + TILE_SIZE / 2,
-          hy * TILE_SIZE + TILE_SIZE / 2,
-          'deco_hotspring',
-        ).setDepth(DEPTH.ground + 1);
       }
     }
 
@@ -384,14 +722,17 @@ export class MapFactory {
       for (let i = 0; i < wfCount; i++) {
         const wx = 4 + Math.floor(Math.random() * (config.width - 8));
         const wy = 3 + Math.floor(Math.random() * Math.max(1, config.height - 10));
-        this.placeMultiTileFeature(scene, wallBodies, wx, wy, 'waterfall');
+        if (this.placeMultiTileFeature(scene, wallBodies, wx, wy, 'waterfall', occupied)) {
+          mark(wx, wy, 2, 3);
+        }
       }
     } else if (isMountain && scene.textures.exists('deco_waterfall')) {
-      // Fallback: old single-tile waterfall
       const wfCount = 1 + Math.floor(Math.random() * 2);
       for (let i = 0; i < wfCount; i++) {
         const wx = 2 + Math.floor(Math.random() * (config.width - 4));
         const wy = 2 + Math.floor(Math.random() * (config.height - 4));
+        if (occupied.has(`${wx},${wy}`)) continue;
+        mark(wx, wy);
         const wpx = wx * TILE_SIZE + TILE_SIZE / 2;
         const wpy = wy * TILE_SIZE + TILE_SIZE / 2;
         scene.add.image(wpx, wpy, 'deco_waterfall').setDepth(DEPTH.objects);
@@ -407,7 +748,9 @@ export class MapFactory {
       if (Math.random() > 0.4) {
         const cx = 5 + Math.floor(Math.random() * (config.width - 10));
         const cy = 4 + Math.floor(Math.random() * Math.max(1, config.height - 8));
-        this.placeMultiTileFeature(scene, wallBodies, cx, cy, 'cave');
+        if (this.placeMultiTileFeature(scene, wallBodies, cx, cy, 'cave', occupied)) {
+          mark(cx, cy, 3, 2);
+        }
       }
     }
 
@@ -417,18 +760,267 @@ export class MapFactory {
       for (let i = 0; i < groveCount; i++) {
         const gx = 4 + Math.floor(Math.random() * (config.width - 8));
         const gy = 3 + Math.floor(Math.random() * Math.max(1, config.height - 7));
-        this.placeMultiTileFeature(scene, wallBodies, gx, gy, 'forest');
+        if (this.placeMultiTileFeature(scene, wallBodies, gx, gy, 'forest', occupied)) {
+          mark(gx, gy, 2, 2);
+        }
+      }
+    }
+
+    // Scattered obstacles (with overlap check)
+    const obstacleCount = Math.floor((config.width * config.height) * 0.05);
+    for (let i = 0; i < obstacleCount; i++) {
+      const x = 2 + Math.floor(Math.random() * (config.width - 4));
+      const y = 2 + Math.floor(Math.random() * (config.height - 4));
+      if (occupied.has(`${x},${y}`)) continue;
+
+      const px = x * TILE_SIZE + TILE_SIZE / 2;
+      const py = y * TILE_SIZE + TILE_SIZE / 2;
+
+      // Weighted random decoration type
+      let roll = Math.random() * totalWeight;
+      let chosen = decoTypes[0];
+      for (const d of decoTypes) {
+        roll -= d.weight;
+        if (roll <= 0) { chosen = d; break; }
+      }
+
+      // Skip trees adjacent to existing obstacles to avoid patchwork look
+      if (chosen.key.includes('tree')) {
+        const adjOccupied = occupied.has(`${x-1},${y}`) || occupied.has(`${x+1},${y}`)
+          || occupied.has(`${x},${y-1}`) || occupied.has(`${x},${y+1}`);
+        if (adjOccupied && Math.random() < 0.6) continue;
+      }
+
+      const decoScale = chosen.scale[0] + Math.random() * (chosen.scale[1] - chosen.scale[0]);
+      scene.add.image(px, py, chosen.key).setDepth(chosen.blocking ? DEPTH.objects : DEPTH.ground + 1).setScale(decoScale);
+
+      // Mark occupied + adjacent tiles for large-scale blocking decos
+      mark(x, y);
+      if (decoScale > 1.1 && chosen.blocking) {
+        mark(x - 1, y); mark(x + 1, y); mark(x, y - 1); mark(x, y + 1);
+      }
+
+      if (chosen.blocking) {
+        const body = scene.add.rectangle(px, py, TILE_SIZE - 8, TILE_SIZE - 8);
+        scene.physics.add.existing(body, true);
+        wallBodies.add(body);
+        body.setVisible(false);
+      }
+    }
+
+    // Flower patches (non-blocking, skip for dark/volcanic regions)
+    if (!isDark && !isVolcanic) {
+      const flowerCount = 6 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < flowerCount; i++) {
+        const fx = 2 + Math.floor(Math.random() * (config.width - 4));
+        const fy = 2 + Math.floor(Math.random() * (config.height - 4));
+        if (occupied.has(`${fx},${fy}`)) continue;
+        mark(fx, fy);
+        scene.add.image(
+          fx * TILE_SIZE + TILE_SIZE / 2,
+          fy * TILE_SIZE + TILE_SIZE / 2,
+          'deco_flowers',
+        ).setDepth(DEPTH.ground + 1);
+      }
+    }
+
+    // Ponds — most non-volcanic regions get occasional ponds
+    if (!isVolcanic && scene.textures.exists('deco_pond')) {
+      const pondCount = isWater ? 3 + Math.floor(Math.random() * 3) : Math.random() > 0.5 ? 1 : 0;
+      for (let i = 0; i < pondCount; i++) {
+        const px2 = 4 + Math.floor(Math.random() * (config.width - 8));
+        const py2 = 4 + Math.floor(Math.random() * (config.height - 8));
+        if (occupied.has(`${px2},${py2}`)) continue;
+        mark(px2, py2);
+        scene.add.image(
+          px2 * TILE_SIZE + TILE_SIZE / 2,
+          py2 * TILE_SIZE + TILE_SIZE / 2,
+          'deco_pond',
+        ).setDepth(DEPTH.ground + 1);
+      }
+    }
+
+    // Hot springs — hotspring region
+    if (regionId.includes('hotspring') && scene.textures.exists('deco_hotspring')) {
+      const hsCount = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < hsCount; i++) {
+        const hx = 3 + Math.floor(Math.random() * (config.width - 6));
+        const hy = 3 + Math.floor(Math.random() * (config.height - 6));
+        if (occupied.has(`${hx},${hy}`)) continue;
+        mark(hx, hy);
+        scene.add.image(
+          hx * TILE_SIZE + TILE_SIZE / 2,
+          hy * TILE_SIZE + TILE_SIZE / 2,
+          'deco_hotspring',
+        ).setDepth(DEPTH.ground + 1);
       }
     }
   }
 
-  /** Place a multi-tile terrain feature and add collision bodies */
+  private static addCaveDecorations(
+    scene: Phaser.Scene, config: MapConfig,
+    wallBodies: Phaser.Physics.Arcade.StaticGroup, regionId: string,
+  ): void {
+    const addBody = (px: number, py: number, w: number, h: number) => {
+      const body = scene.add.rectangle(px, py, w, h);
+      scene.physics.add.existing(body, true);
+      wallBodies.add(body);
+      body.setVisible(false);
+    };
+
+    // Generate cave-specific decoration textures
+    if (!scene.textures.exists('deco_stalactite')) {
+      this.generateStalactiteTexture(scene);
+    }
+    if (!scene.textures.exists('deco_stalagmite')) {
+      this.generateStalagmiteTexture(scene);
+    }
+    if (!scene.textures.exists('deco_cave_rock')) {
+      this.generateCaveRockTexture(scene);
+    }
+
+    // Irregularly shaped inner walls to create winding passages
+    // Add rock clusters to narrow the cave and create atmosphere
+    const obstacleCount = Math.floor(config.width * config.height * 0.05);
+    const safeZones = [
+      // Entrance area (bottom center)
+      { x: config.width / 2 - 3, y: config.height - 4, w: 6, h: 3 },
+      // Exit area (top center)
+      { x: config.width / 2 - 3, y: 1, w: 6, h: 3 },
+      // Boss area (upper center)
+      { x: config.width / 2 - 4, y: 4, w: 8, h: 4 },
+      // Main path (vertical center corridor)
+      { x: config.width / 2 - 2, y: 3, w: 4, h: config.height - 6 },
+    ];
+
+    for (let i = 0; i < obstacleCount; i++) {
+      const gx = 2 + Math.floor(Math.random() * (config.width - 4));
+      const gy = 2 + Math.floor(Math.random() * (config.height - 4));
+
+      // Skip safe zones
+      const inSafe = safeZones.some(z =>
+        gx >= z.x && gx < z.x + z.w && gy >= z.y && gy < z.y + z.h
+      );
+      if (inSafe) continue;
+
+      const px = gx * TILE_SIZE + TILE_SIZE / 2;
+      const py = gy * TILE_SIZE + TILE_SIZE / 2;
+
+      // Choose decoration type
+      const roll = Math.random();
+      if (roll < 0.3) {
+        // Stalactite (non-blocking, visual depth)
+        scene.add.image(px, py, 'deco_stalactite')
+          .setDepth(DEPTH.objects).setScale(0.6 + Math.random() * 0.4);
+      } else if (roll < 0.6) {
+        // Rock (blocking)
+        scene.add.image(px, py, 'deco_cave_rock')
+          .setDepth(DEPTH.objects).setScale(0.7 + Math.random() * 0.4);
+        addBody(px, py, TILE_SIZE - 12, TILE_SIZE - 12);
+      } else if (roll < 0.8) {
+        // Stalagmite (blocking)
+        scene.add.image(px, py, 'deco_stalagmite')
+          .setDepth(DEPTH.objects).setScale(0.6 + Math.random() * 0.4);
+        addBody(px, py, TILE_SIZE / 2, TILE_SIZE / 2);
+      } else {
+        // Cave wall extension (blocking, creates irregular walls)
+        const wallKey = `tile_cave_wall_${regionId}`;
+        scene.add.image(px, py, wallKey).setDepth(DEPTH.ground + 1);
+        addBody(px, py, TILE_SIZE, TILE_SIZE);
+      }
+    }
+
+    // Ambient light pools (non-blocking, subtle glow on floor)
+    const pal = getRegionPalette(regionId);
+    for (let i = 0; i < 4; i++) {
+      const lx = (4 + Math.floor(Math.random() * (config.width - 8))) * TILE_SIZE + TILE_SIZE / 2;
+      const ly = (4 + Math.floor(Math.random() * (config.height - 8))) * TILE_SIZE + TILE_SIZE / 2;
+      const glow = scene.add.circle(lx, ly, TILE_SIZE * 1.5, Phaser.Display.Color.HexStringToColor(pal.accent).color, 0.06);
+      glow.setDepth(DEPTH.ground + 1);
+    }
+  }
+
+  private static generateStalactiteTexture(scene: Phaser.Scene): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    // Hanging rock formation from above
+    const cols = ['#444444', '#555555', '#3a3a3a'];
+    for (let i = 0; i < 3; i++) {
+      const bx = S / 2 - 10 + i * 8;
+      const bh = 20 + Math.floor(Math.random() * 20);
+      ctx.fillStyle = cols[i % cols.length];
+      for (let dy = 0; dy < bh; dy++) {
+        const w = Math.max(1, Math.round((6 - i) * (1 - dy / bh)));
+        ctx.fillRect(bx - Math.floor(w / 2), dy, w, 1);
+      }
+    }
+    scene.textures.addCanvas('deco_stalactite', canvas);
+  }
+
+  private static generateStalagmiteTexture(scene: Phaser.Scene): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    // Rising rock formation from below
+    const baseY = S;
+    for (let i = 0; i < 2; i++) {
+      const bx = S / 2 - 6 + i * 12;
+      const bh = 25 + Math.floor(Math.random() * 15);
+      ctx.fillStyle = i === 0 ? '#555555' : '#4a4a4a';
+      for (let dy = 0; dy < bh; dy++) {
+        const w = Math.max(1, Math.round(7 * (1 - dy / bh)));
+        ctx.fillRect(bx - Math.floor(w / 2), baseY - dy, w, 1);
+      }
+    }
+    // Highlight on leading edge
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(S / 2 - 1, baseY - 25, 1, 10);
+    scene.textures.addCanvas('deco_stalagmite', canvas);
+  }
+
+  private static generateCaveRockTexture(scene: Phaser.Scene): void {
+    const S = TILE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    // Irregular boulder
+    const cx = S / 2, cy = S / 2;
+    const rx = 18, ry = 14;
+    for (let y = cy - ry; y <= cy + ry; y++) {
+      for (let x = cx - rx; x <= cx + rx; x++) {
+        const dx = (x - cx) / rx, dy = (y - cy) / ry;
+        if (dx * dx + dy * dy <= 1) {
+          const shade = 60 + Math.floor(Math.random() * 30);
+          ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    // Highlight (top-left)
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(cx - rx + 4, cy - ry + 3, rx, ry / 2);
+    scene.textures.addCanvas('deco_cave_rock', canvas);
+  }
+
+  /** Place a multi-tile terrain feature and add collision bodies.
+   *  Returns true if placed successfully, false if blocked by occupied tiles. */
   private static placeMultiTileFeature(
     scene: Phaser.Scene,
     wallBodies: Phaser.Physics.Arcade.StaticGroup,
     gx: number, gy: number,
     type: 'waterfall' | 'cave' | 'forest',
-  ): void {
+    occupied?: Set<string>,
+  ): boolean {
+    // Check overlap if occupied set provided
+    if (occupied) {
+      const dims = type === 'waterfall' ? [2, 3] : type === 'cave' ? [3, 2] : [2, 2];
+      for (let dy = 0; dy < dims[1]; dy++)
+        for (let dx = 0; dx < dims[0]; dx++)
+          if (occupied.has(`${gx + dx},${gy + dy}`)) return false;
+    }
     const addBody = (px: number, py: number, w: number, h: number) => {
       const body = scene.add.rectangle(px, py, w, h);
       scene.physics.add.existing(body, true);
@@ -463,6 +1055,7 @@ export class MapFactory {
       scene.add.image(px, py, 'deco_dense_forest').setDepth(DEPTH.objects);
       addBody(px, py, TILE_SIZE * 2 - 8, TILE_SIZE * 2 - 8);
     }
+    return true;
   }
 
   static getTownConfig(regionId: string, regionColor: number): MapConfig {
@@ -485,6 +1078,18 @@ export class MapFactory {
       wallColor: 0x223311,
       decorColor: 0x115511,
       type: 'field',
+      regionId,
+    };
+  }
+
+  static getCaveConfig(regionId: string): MapConfig {
+    return {
+      width: 30,
+      height: 24,
+      groundColor: 0x333333,
+      wallColor: 0x222222,
+      decorColor: 0x444444,
+      type: 'cave',
       regionId,
     };
   }

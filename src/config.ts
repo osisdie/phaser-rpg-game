@@ -4,6 +4,7 @@ import { TitleScene } from './scenes/TitleScene';
 import { NameInputScene } from './scenes/NameInputScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { FieldScene } from './scenes/FieldScene';
+import { CaveScene } from './scenes/CaveScene';
 import { TownScene } from './scenes/TownScene';
 import { BattleScene } from './scenes/BattleScene';
 import { MenuScene } from './scenes/MenuScene';
@@ -34,6 +35,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     NameInputScene,
     WorldMapScene,
     FieldScene,
+    CaveScene,
     TownScene,
     BattleScene,
     MenuScene,

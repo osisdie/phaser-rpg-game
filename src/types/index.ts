@@ -329,6 +329,8 @@ export interface NPCData {
   type: 'quest' | 'shop' | 'info' | 'save' | 'inn' | 'guard' | 'elder';
   /** NPC behavior: idle (default), wander (random walk near home), patrol (back-and-forth) */
   behavior?: 'idle' | 'wander';
+  /** Links to a specific companion texture in COMPANION_APPEARANCES (e.g., 'companion_elf') */
+  companionId?: string;
 }
 
 // ─── 遇敵表 ───

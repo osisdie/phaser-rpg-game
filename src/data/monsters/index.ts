@@ -417,3 +417,68 @@ const encounterTables: Record<string, EncounterTable> = {
 export function getEncounterTable(regionId: string): EncounterTable | undefined {
   return encounterTables[regionId];
 }
+
+// ─── Cave boss per region ───
+const CAVE_BOSS_NAMES: Record<string, string> = {
+  region_hero: '洞窟蜘蛛王',
+  region_elf: '暗穴巨蟒',
+  region_treant: '苔蘚巨獸',
+  region_beast: '穴居暴龍',
+  region_merfolk: '地底水龍',
+  region_giant: '岩洞魔像',
+  region_dwarf: '礦坑守衛',
+  region_undead: '深淵亡靈',
+  region_volcano: '熔岩穴蟲',
+  region_hotspring: '地熱巨蟹',
+  region_mountain: '冰洞巨熊',
+  region_demon: '魔窟看守',
+};
+
+/** Generate a cave boss — stronger than regular monsters, weaker than region boss */
+export function generateCaveBoss(regionId: string): MonsterData | undefined {
+  const regionMonsters = getMonstersForRegion(regionId);
+  if (regionMonsters.length === 0) return undefined;
+
+  const strongest = regionMonsters[regionMonsters.length - 1];
+  const name = CAVE_BOSS_NAMES[regionId] ?? '洞窟守護者';
+  const lv = strongest.stats.atk; // rough level indicator
+  const tier = getTierForLevel(Math.floor(lv / 3));
+  const nextTier = getNextTier(tier);
+
+  return {
+    id: `cave_boss_${regionId}`,
+    name,
+    stats: {
+      maxHP: Math.floor(strongest.stats.maxHP * 2.5),
+      hp: Math.floor(strongest.stats.maxHP * 2.5),
+      maxMP: Math.floor(strongest.stats.maxMP * 2),
+      mp: Math.floor(strongest.stats.maxMP * 2),
+      atk: Math.floor(strongest.stats.atk * 1.25),
+      def: Math.floor(strongest.stats.def * 1.15),
+      agi: Math.floor(strongest.stats.agi * 1.1),
+      luck: 12,
+    },
+    ai: 'aggressive',
+    exp: Math.floor((strongest.exp ?? 10) * 4),
+    gold: Math.floor((strongest.gold ?? 10) * 3),
+    drops: [
+      { itemId: getPotionForLevel(Math.floor(lv / 3) + 10), rate: 1.0 },
+      { itemId: `equip_${nextTier}_sword`, rate: 0.5 },
+      { itemId: `equip_${nextTier}_armor`, rate: 0.3 },
+    ],
+    skills: ['skill_boss_smash', 'skill_monster_fire', 'skill_monster_bite'],
+    element: strongest.element ?? 'none',
+    isBoss: true,
+    spriteColor: (strongest.spriteColor ?? 0x888888) & 0x888888,
+  };
+}
+
+/** Get encounter table for cave (same monsters, higher encounter rate) */
+export function getCaveEncounterTable(regionId: string): EncounterTable | undefined {
+  const baseTable = encounterTables[regionId];
+  if (!baseTable) return undefined;
+  return {
+    ...baseTable,
+    baseRate: Math.max(8, Math.floor(baseTable.baseRate * 0.65)), // ~35% more frequent
+  };
+}
