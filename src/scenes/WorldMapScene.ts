@@ -11,7 +11,7 @@ import { audioManager } from '../systems/AudioManager';
 import { getNodeIconKey } from '../art/worldmap/WorldMapRenderer';
 import { COLORS as COLOR_HEX, FONT_FAMILY as FONT } from '../utils/constants';
 
-/** Demon Lord taunts shown when ≥3 kingdoms liberated */
+/** Demon Lord taunts shown when ≥1 kingdom liberated */
 const DEMON_TAUNTS = [
   '哈哈哈...你以為解放幾個王國就能打敗我？',
   '可笑的勇者...你們的反抗毫無意義！',
@@ -106,34 +106,93 @@ export class WorldMapScene extends Phaser.Scene {
       }
     });
 
-    // Draw nodes with Harry Potter-style floating animation
+    // Draw nodes with visual status indicators (no text labels for status)
     this.nodes.forEach((node, i) => {
       const container = this.add.container(node.screenX, node.screenY);
-      const alpha = node.accessible ? 1 : 0.3;
+
+      // ── Visual status: determine node state ──
+      const isLiberated = node.liberated;
+      const isOccupied = node.visited && !node.liberated;
+      const isUnexplored = !node.accessible;
+      const isAccessibleNew = node.accessible && !node.visited && !node.liberated;
 
       // Region node icon
       const iconKey = getNodeIconKey(node.region.id);
       let nodeVisual: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
 
       if (this.textures.exists(iconKey)) {
-        nodeVisual = this.add.image(0, 0, iconKey).setAlpha(alpha);
-        if (node.liberated) {
-          nodeVisual.setTint(0x88ff88);
-        } else if (!node.visited) {
-          nodeVisual.setTint(0x888888);
+        nodeVisual = this.add.image(0, 0, iconKey);
+        if (isUnexplored) {
+          // Greyed out + fog overlay
+          nodeVisual.setTint(0x555555).setAlpha(0.35);
+        } else if (isOccupied) {
+          // Dark red tint + desaturated
+          nodeVisual.setTint(0xcc4444).setAlpha(0.85);
+        } else if (isLiberated) {
+          // Full color, bright
+          nodeVisual.setAlpha(1);
+        } else {
+          nodeVisual.setAlpha(node.accessible ? 1 : 0.3);
         }
       } else {
         const size = node.region.type === 'final' ? 20 : node.region.type === 'side' ? 12 : 16;
-        const color = node.liberated ? 0x44ff44 : node.visited ? node.region.color : 0x666666;
+        const color = isUnexplored ? 0x444444 : isOccupied ? 0x882222 : (node.visited || isLiberated) ? node.region.color : 0x666666;
+        const alpha = isUnexplored ? 0.35 : node.accessible ? 1 : 0.3;
         nodeVisual = this.add.circle(0, 0, size, color, alpha);
-        if (node.liberated) {
-          (nodeVisual as Phaser.GameObjects.Arc).setStrokeStyle(2, 0xffffff);
-        }
+      }
+
+      // ── Occupied overlay: dark red ring + subtle skull-like cross mark ──
+      if (isOccupied) {
+        const occGfx = this.add.graphics();
+        occGfx.lineStyle(2, 0xcc2222, 0.7);
+        occGfx.strokeCircle(0, 0, 22);
+        // Small cross/chain marks around node
+        occGfx.lineStyle(1, 0x882222, 0.5);
+        occGfx.lineBetween(-6, -6, 6, 6);
+        occGfx.lineBetween(6, -6, -6, 6);
+        container.add(occGfx);
+      }
+
+      // ── Unexplored overlay: fog circle ──
+      if (isUnexplored) {
+        const fogGfx = this.add.graphics();
+        fogGfx.fillStyle(0x222222, 0.4);
+        fogGfx.fillCircle(0, 0, 24);
+        container.add(fogGfx);
+      }
+
+      // ── Liberated: golden glow ring + pulse ──
+      if (isLiberated) {
+        const glowRing = this.add.circle(0, 0, 24, 0xffdd44, 0).setStrokeStyle(2, 0xffcc22, 0.6);
+        container.add(glowRing);
+        this.tweens.add({
+          targets: glowRing,
+          alpha: { from: 0.3, to: 0.8 },
+          scale: { from: 0.95, to: 1.1 },
+          duration: 1800,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+
+      // ── Accessible but not visited: beacon pulse to draw attention ──
+      if (isAccessibleNew) {
+        const beacon = this.add.circle(0, 0, 18, 0xffffff, 0).setStrokeStyle(2, 0x88ccff, 0.5);
+        container.add(beacon);
+        this.tweens.add({
+          targets: beacon,
+          scale: { from: 0.8, to: 1.4 },
+          alpha: { from: 0.6, to: 0 },
+          duration: 1500,
+          repeat: -1,
+          ease: 'Cubic.easeOut',
+        });
       }
 
       // Floating animation — each node bobs gently at its own phase
       if (node.accessible) {
-        const phase = i * 400; // stagger phases
+        const phase = i * 400;
         this.tweens.add({
           targets: nodeVisual,
           y: { from: -2, to: 3 },
@@ -143,8 +202,8 @@ export class WorldMapScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
           delay: phase,
         });
-        // Subtle scale pulse for liberated/boss nodes
-        if (node.liberated || node.region.type === 'final') {
+        // Stronger scale pulse for liberated nodes
+        if (isLiberated || node.region.type === 'final') {
           this.tweens.add({
             targets: nodeVisual,
             scaleX: { from: 1.0, to: 1.08 },
@@ -158,32 +217,38 @@ export class WorldMapScene extends Phaser.Scene {
         }
       }
 
-      // Label
+      // Label (kept — short, necessary for navigation)
+      const labelColor = isUnexplored ? '#666666' : isOccupied ? '#cc8888' : isLiberated ? '#ffffcc' : '#ffffff';
       const label = this.add.text(0, 26, node.region.name, {
-        fontFamily: FONT_FAMILY, fontSize: '15px', color: node.accessible ? '#ffffff' : '#888888',
+        fontFamily: FONT_FAMILY, fontSize: '15px', color: labelColor,
         stroke: '#000000', strokeThickness: 4,
         shadow: { offsetX: 1, offsetY: 1, color: '#000000', blur: 2, fill: true },
       }).setOrigin(0.5, 0);
 
-      // Level range
+      // Level range (kept — small, useful)
+      const levelColor = isUnexplored ? '#777766' : isOccupied ? '#cc9977' : '#ddddaa';
       const levelText = this.add.text(0, 44, `Lv.${node.region.levelRange[0]}-${node.region.levelRange[1]}`, {
-        fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ddddaa',
+        fontFamily: FONT_FAMILY, fontSize: '13px', color: levelColor,
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 0);
 
-      // Status indicator
-      let statusText = '';
-      if (node.liberated) statusText = t('world.liberated');
-      else if (node.visited) statusText = t('world.occupied');
-      else if (!node.accessible) statusText = t('world.unexplored');
+      container.add([nodeVisual, label, levelText]);
 
-      const status = this.add.text(0, -28, statusText, {
-        fontFamily: FONT_FAMILY, fontSize: '12px',
-        color: node.liberated ? '#44ff44' : '#ffaa44',
-        stroke: '#000000', strokeThickness: 3,
-      }).setOrigin(0.5, 1);
-
-      container.add([nodeVisual, label, levelText, status]);
+      // Alliance flag for liberated kingdoms (kingdom color + hero color)
+      if (isLiberated && node.region.type !== 'final' && node.region.id !== 'region_hero') {
+        const heroColor = 0x8888cc;
+        const flagGfx = this.add.graphics();
+        const poleX = 14, poleY = -20;
+        flagGfx.lineStyle(1, 0xaaaaaa);
+        flagGfx.lineBetween(poleX, poleY, poleX, poleY + 18);
+        flagGfx.fillStyle(node.region.color);
+        flagGfx.fillRect(poleX + 1, poleY, 10, 5);
+        flagGfx.fillStyle(heroColor);
+        flagGfx.fillRect(poleX + 1, poleY + 5, 10, 5);
+        flagGfx.lineStyle(1, 0xddaa44, 0.6);
+        flagGfx.strokeRect(poleX + 1, poleY, 10, 10);
+        container.add(flagGfx);
+      }
 
       // Interactivity
       nodeVisual.setInteractive({ useHandCursor: node.accessible });
@@ -217,14 +282,9 @@ export class WorldMapScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Progress
-    this.progressUI = new ProgressUI(this, 16, GAME_HEIGHT - 30);
+    this.progressUI = new ProgressUI(this, 24, GAME_HEIGHT - 74);
     this.progressUI.refresh();
 
-    // Controls hint — strong stroke so it's visible on any background
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, '方向鍵選擇 | Enter 進入 | M 選單', {
-      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ddddcc',
-      stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5);
 
     // Keyboard
     this.input.keyboard?.on('keydown-LEFT', () => this.navigate(-1));
@@ -249,8 +309,8 @@ export class WorldMapScene extends Phaser.Scene {
     // 7A. Slow background particles
     this.spawnBackgroundParticles(liberatedCount);
 
-    // 7B. Demon lord taunts (≥3 kingdoms liberated)
-    if (this.demonNode && liberatedCount >= 3) {
+    // 7B. Demon lord taunts (≥1 kingdom liberated)
+    if (this.demonNode && liberatedCount >= 1) {
       this.startDemonTaunts();
     }
 
@@ -303,72 +363,113 @@ export class WorldMapScene extends Phaser.Scene {
     }
   }
 
-  // ─── 7B: Demon Lord Taunts ───
+  // ─── 7B: Demon Lord Taunts (typewriter + darken map + eerie music) ───
   private startDemonTaunts(): void {
+    let isTaunting = false;
+
     const showTaunt = () => {
-      if (!this.demonNode) return;
-      const taunt = DEMON_TAUNTS[Math.floor(Math.random() * DEMON_TAUNTS.length)];
-      const dx = Phaser.Math.Clamp(this.demonNode.screenX, 160, GAME_WIDTH - 160);
+      if (!this.demonNode || isTaunting) return;
+      isTaunting = true;
+      const taunt = DEMON_TAUNTS[Math.floor(Math.random() * DEMON_TAUNTS.length)] + '...';
+      const dx = Phaser.Math.Clamp(this.demonNode.screenX, 180, GAME_WIDTH - 180);
       const dy = this.demonNode.screenY - 50;
 
-      // Small demon icon (32×32) — horns + red eyes
+      // Darken the entire map
+      const darkOverlay = this.add.rectangle(
+        GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0,
+      ).setDepth(140);
+
+      // Demon face icon — dark purple silhouette with red eyes
       const iconSize = 28;
-      const iconGfx = this.add.graphics().setDepth(152).setAlpha(0);
-      const iconX = dx - 14;
-      const iconY = dy - 28;
+      const iconCanvas = document.createElement('canvas');
+      iconCanvas.width = iconSize; iconCanvas.height = iconSize;
+      const ictx = iconCanvas.getContext('2d')!;
+      // Face silhouette
+      ictx.fillStyle = '#5511aa';
+      ictx.beginPath();
+      ictx.ellipse(14, 16, 10, 11, 0, 0, Math.PI * 2);
+      ictx.fill();
       // Horns
-      iconGfx.fillStyle(0x660033);
-      iconGfx.fillTriangle(iconX - 8, iconY - 6, iconX - 2, iconY + 4, iconX - 12, iconY + 2);
-      iconGfx.fillTriangle(iconX + 8, iconY - 6, iconX + 2, iconY + 4, iconX + 12, iconY + 2);
-      // Face
-      iconGfx.fillStyle(0x440022);
-      iconGfx.fillCircle(iconX, iconY + 6, 8);
-      // Glowing red eyes
-      iconGfx.fillStyle(0xff2222);
-      iconGfx.fillCircle(iconX - 3, iconY + 4, 2);
-      iconGfx.fillCircle(iconX + 3, iconY + 4, 2);
+      ictx.fillStyle = '#440088';
+      ictx.beginPath();
+      ictx.moveTo(4, 12); ictx.lineTo(1, 2); ictx.lineTo(9, 10); ictx.fill();
+      ictx.beginPath();
+      ictx.moveTo(24, 12); ictx.lineTo(27, 2); ictx.lineTo(19, 10); ictx.fill();
+      // Red eyes
+      ictx.fillStyle = '#ff2222';
+      ictx.fillRect(9, 14, 3, 2);
+      ictx.fillRect(17, 14, 3, 2);
+      // Eye glow
+      ictx.fillStyle = '#ff6644';
+      ictx.fillRect(10, 14, 1, 1);
+      ictx.fillRect(18, 14, 1, 1);
+      // Mouth
+      ictx.fillStyle = '#220044';
+      ictx.fillRect(11, 20, 6, 2);
+      const demonIconKey = '__demon_taunt_icon';
+      if (!this.textures.exists(demonIconKey)) {
+        this.textures.addCanvas(demonIconKey, iconCanvas);
+      }
+      const demonIcon = this.add.image(dx - 160, dy, demonIconKey).setDepth(151).setAlpha(0);
+      this.tweens.add({ targets: demonIcon, alpha: 1, duration: 600 });
 
-      // Dark speech bubble — wider for CJK text
-      const bubbleW = Math.min(280, taunt.length * 16 + 28);
-      const bubbleH = 40;
-      const bubble = this.add.rectangle(dx, dy, bubbleW, bubbleH, 0x1a0a2a, 0.85)
-        .setStrokeStyle(1, 0x662288).setDepth(150).setAlpha(0);
-      const text = this.add.text(dx, dy, taunt, {
-        fontFamily: FONT_FAMILY, fontSize: '13px', color: '#cc44ff',
-        stroke: '#000000', strokeThickness: 2,
-        wordWrap: { width: bubbleW - 20 }, align: 'center',
-      }).setOrigin(0.5).setDepth(151).setAlpha(0);
+      // Typewriter text — no box, just floating purple text with stroke
+      const text = this.add.text(dx - 130, dy, '', {
+        fontFamily: FONT_FAMILY, fontSize: '20px', color: '#cc44ff',
+        stroke: '#000000', strokeThickness: 4,
+        wordWrap: { width: 400 }, align: 'center',
+      }).setOrigin(0, 0.5).setDepth(151);
 
-      // Adjust bubble height to fit text
-      const actualH = text.height + 16;
-      bubble.setSize(bubbleW, actualH);
-      const bubbleY = dy - actualH / 2 + 20;
-      bubble.setPosition(dx, bubbleY);
-      text.setPosition(dx, bubbleY);
-      iconGfx.setPosition(0, 0); // icon drawn at absolute coords above bubble
-
-      // Fade in → hold → fade out
+      // Phase 1: Darken map
       this.tweens.add({
-        targets: [bubble, text, iconGfx],
-        alpha: 1,
-        duration: 300,
-        onComplete: () => {
-          this.time.delayedCall(3000, () => {
-            this.tweens.add({
-              targets: [bubble, text, iconGfx],
-              alpha: 0,
-              duration: 500,
-              onComplete: () => { bubble.destroy(); text.destroy(); iconGfx.destroy(); },
+        targets: darkOverlay,
+        alpha: 0.5,
+        duration: 800,
+        ease: 'Sine.easeIn',
+      });
+
+      // Fade in eerie music
+      audioManager.playBgm('world_dark');
+
+      // Phase 2: Typewriter reveal (character by character)
+      let charIndex = 0;
+      const typeTimer = this.time.addEvent({
+        delay: 80,
+        callback: () => {
+          charIndex++;
+          text.setText(taunt.substring(0, charIndex));
+          if (charIndex >= taunt.length) {
+            typeTimer.destroy();
+            // Phase 3: Hold 2.5s, then fade out
+            this.time.delayedCall(2500, () => {
+              this.tweens.add({
+                targets: [darkOverlay, text, demonIcon],
+                alpha: 0,
+                duration: 1200,
+                onComplete: () => {
+                  darkOverlay.destroy();
+                  text.destroy();
+                  demonIcon.destroy();
+                  isTaunting = false;
+                  // Restore normal BGM
+                  const libCount = gameState.getState().liberatedRegions.length;
+                  if (libCount >= 11) audioManager.playBgm('world_dark');
+                  else if (libCount >= 8) audioManager.playBgm('world_epic');
+                  else if (libCount >= 4) audioManager.playBgm('world_rising');
+                  else audioManager.playBgm('field');
+                },
+              });
             });
-          });
+          }
         },
+        repeat: taunt.length - 1,
       });
     };
 
-    // First taunt after 3 seconds, then every 8-12 seconds
-    this.time.delayedCall(3000, showTaunt);
+    // First taunt after 60s, then every 5–10 min
+    this.time.delayedCall(60000, showTaunt);
     this.tauntTimer = this.time.addEvent({
-      delay: 8000 + Math.random() * 4000,
+      delay: 300000 + Math.random() * 300000,
       callback: showTaunt,
       loop: true,
     });
@@ -453,7 +554,7 @@ export class WorldMapScene extends Phaser.Scene {
     }
 
     // Enter town first, then player can go to field
-    TransitionEffect.transition(this, 'TownScene', { regionId: node.region.id });
+    TransitionEffect.transition(this, 'TownScene', { regionId: node.region.id, fromWorldMap: true });
   }
 
   private showDemonConfirm(regionId: string): void {

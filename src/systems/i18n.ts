@@ -89,6 +89,8 @@ const strings: Record<string, string> = {
   // ─── 屬性 ───
   'stat.hp': '體力',
   'stat.mp': '魔力',
+  'stat.maxHP': '體力上限',
+  'stat.maxMP': '魔力上限',
   'stat.atk': '攻擊',
   'stat.def': '防禦',
   'stat.agi': '敏捷',
@@ -147,6 +149,16 @@ const strings: Record<string, string> = {
   'chest.equipment': '獲得了 {0}！',
   'chest.empty': '寶箱是空的…',
   'chest.already_opened': '這個寶箱已經打開過了。',
+
+  // ─── 洞窟 ───
+  'cave.name': '洞窟',
+  'cave.header': '{0} — 洞窟  Lv.{1}-{2}',
+  'cave.controls': 'WASD移動 | M選單 | Q離開洞窟',
+  'cave.boss_guard': '洞窟深處傳來低沉的吼聲…',
+  'cave.chest_guarded': '寶箱被守護者看守著！\n擊敗洞窟守護者後才能開啟。',
+  'cave.treasure_found': '發現了洞窟秘寶！',
+  'cave.treasure_already': '這個寶箱已經開啟過了。',
+  'cave.exit': '找到了洞窟出口！',
 
   // ─── 結局 ───
   'ending.congratulations': '恭喜通關！',

@@ -14,7 +14,7 @@ export class MinimapUI extends Phaser.GameObjects.Container {
   private worldH = 0;
 
   constructor(scene: Phaser.Scene, worldWidth: number, worldHeight: number) {
-    super(scene, GAME_WIDTH - 140, 50);
+    super(scene, GAME_WIDTH - 140, 70);
     scene.add.existing(this);
     this.setDepth(DEPTH.ui);
     this.worldW = worldWidth;
@@ -50,6 +50,46 @@ export class MinimapUI extends Phaser.GameObjects.Container {
       scale: { from: 0.8, to: 1.3 },
       alpha: { from: 1, to: 0.6 },
       duration: 600,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /** Add a pulsing orange mini-boss indicator on the minimap */
+  setMiniBossPosition(mbX: number, mbY: number): void {
+    const relX = (mbX / this.worldW) * this.mapWidth - this.mapWidth / 2;
+    const relY = (mbY / this.worldH) * this.mapHeight - this.mapHeight / 2;
+
+    const dot = this.scene.add.circle(relX, relY, 3, 0xff8822);
+    dot.setStrokeStyle(1, 0xffcc44);
+    this.add(dot);
+    this.bringToTop(this.playerDot);
+
+    this.scene.tweens.add({
+      targets: dot,
+      scale: { from: 0.8, to: 1.3 },
+      alpha: { from: 1, to: 0.6 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /** Add a pulsing brown cave indicator on the minimap */
+  setCavePosition(caveX: number, caveY: number): void {
+    const relX = (caveX / this.worldW) * this.mapWidth - this.mapWidth / 2;
+    const relY = (caveY / this.worldH) * this.mapHeight - this.mapHeight / 2;
+
+    const dot = this.scene.add.circle(relX, relY, 3, 0x886644);
+    dot.setStrokeStyle(1, 0xaa8866);
+    this.add(dot);
+    this.bringToTop(this.playerDot);
+
+    this.scene.tweens.add({
+      targets: dot,
+      scale: { from: 0.8, to: 1.2 },
+      alpha: { from: 1, to: 0.7 },
+      duration: 1000,
       yoyo: true,
       repeat: -1,
     });

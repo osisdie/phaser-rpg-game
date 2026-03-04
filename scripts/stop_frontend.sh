@@ -2,7 +2,7 @@
 # 停止 port 5473 上的所有服務
 set -euo pipefail
 
-PORT=5473
+PORT=${1:-5473}
 
 PIDS=$(lsof -ti:"$PORT" 2>/dev/null || true)
 

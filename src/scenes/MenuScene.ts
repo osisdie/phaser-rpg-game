@@ -9,6 +9,7 @@ import { EquipmentSystem } from '../systems/EquipmentSystem';
 import { InventorySystem } from '../systems/InventorySystem';
 import { SkillSystem } from '../systems/SkillSystem';
 import { getEquipmentById } from '../data/items/index';
+import { getSkillById } from '../data/skills/index';
 import { audioManager } from '../systems/AudioManager';
 import type { EquipmentSlot } from '../types';
 import { getCompanionTextureKey } from '../art/characters/NPCProfiles';
@@ -74,6 +75,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private clearContent(): void {
+    this.tweens.killAll();
     this.contentContainer.removeAll(true);
     this.menuItems = [];
     this.selectedIndex = 0;
@@ -97,14 +99,13 @@ export class MenuScene extends Phaser.Scene {
       { label: t('menu.equipment'), action: () => this.showEquipment() },
       { label: t('menu.party'), action: () => this.showParty() },
       { label: t('menu.skills'), action: () => this.showSkills() },
-      { label: t('menu.save'), action: () => this.showSave() },
       { label: t('menu.system'), action: () => this.showSystem() },
       { label: t('menu.close'), action: () => this.closeMenu() },
     ];
 
-    const startY = 80;
+    const startY = 90;
     tabs.forEach((tab, i) => {
-      const text = this.add.text(100, startY + i * 36, `  ${tab.label}`, {
+      const text = this.add.text(110, startY + i * 36, `  ${tab.label}`, {
         fontFamily: FONT_FAMILY, fontSize: '20px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setInteractive({ useHandCursor: true });
@@ -118,8 +119,8 @@ export class MenuScene extends Phaser.Scene {
     // Party info (right side) with character portraits
     const party = gameState.getParty();
     party.forEach((char, i) => {
-      const x = 400;
-      const y = 80 + i * 100;
+      const x = 420;
+      const y = 90 + i * 100;
 
       // Character portrait (small sprite)
       let portraitKey = 'char_hero';
@@ -135,31 +136,32 @@ export class MenuScene extends Phaser.Scene {
         );
       }
 
-      const statStyle = { fontFamily: FONT_FAMILY, fontSize: '14px', color: '#eeeeff', stroke: '#000000', strokeThickness: 2 };
-      const labelColor = '#aabbdd';
+      const statStyle = { fontFamily: FONT_FAMILY, fontSize: '15px', color: '#eeeeff', stroke: '#000000', strokeThickness: 2 };
       this.contentContainer.add([
         this.add.text(x, y, char.name, { fontFamily: FONT_FAMILY, fontSize: '18px', color: COLORS.textHighlight, stroke: '#000000', strokeThickness: 2 }),
-        this.add.text(x, y + 24, `Lv.${char.level}  HP:${char.stats.hp}/${char.stats.maxHP}  MP:${char.stats.mp}/${char.stats.maxMP}`, { fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 }),
-        this.add.text(x, y + 46, `${t('stat.atk')}:${char.stats.atk}  ${t('stat.def')}:${char.stats.def}  ${t('stat.agi')}:${char.stats.agi}  ${t('stat.luck')}:${char.stats.luck}`, { ...statStyle, color: labelColor }),
-        this.add.text(x, y + 66, `${t('stat.exp')}: ${char.exp}/${LevelSystem.getExpToNextLevel(char)}  可分配點數: ${char.statPoints}`, { ...statStyle, color: char.statPoints > 0 ? COLORS.textHighlight : labelColor }),
+        this.add.text(x, y + 24, `Lv.${char.level}  HP:${char.stats.hp}/${char.stats.maxHP}  MP:${char.stats.mp}/${char.stats.maxMP}`, { fontFamily: FONT_FAMILY, fontSize: '15px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 }),
+        this.add.text(x, y + 46, `${t('stat.atk')}:${char.stats.atk}  ${t('stat.def')}:${char.stats.def}  ${t('stat.agi')}:${char.stats.agi}  ${t('stat.luck')}:${char.stats.luck}`, { ...statStyle, color: '#ffffff' }),
+        this.add.text(x, y + 66, `${t('stat.exp')}: ${char.exp}/${LevelSystem.getExpToNextLevel(char)}  可分配點數: ${char.statPoints}`, { ...statStyle, color: char.statPoints > 0 ? COLORS.textHighlight : '#ccddee' }),
       ]);
     });
 
-    // Gold with coin icon
-    const goldY = GAME_HEIGHT - 80;
-    if (this.textures.exists('icon_coin')) {
-      this.contentContainer.add(this.add.image(110, goldY + 4, 'icon_coin'));
+    // Gold with stacked coin icon
+    const goldY = GAME_HEIGHT - 90;
+    const goldIconKey = this.textures.exists('icon_gold_stack') ? 'icon_gold_stack' : 'icon_coin';
+    if (this.textures.exists(goldIconKey)) {
+      this.contentContainer.add(this.add.image(120, goldY + 4, goldIconKey));
     }
     this.contentContainer.add(
-      this.add.text(125, goldY - 4, `金幣：${gameState.getGold()}`, {
+      this.add.text(140, goldY - 4, gameState.getGold().toLocaleString(), {
         fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
       })
     );
 
     // Play time
     this.contentContainer.add(
-      this.add.text(100, GAME_HEIGHT - 55, `遊戲時間：${gameState.getPlayTimeFormatted()}`, {
+      this.add.text(110, GAME_HEIGHT - 65, `遊戲時間：${gameState.getPlayTimeFormatted()}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textSecondary,
+        stroke: '#000000', strokeThickness: 2,
       })
     );
 
@@ -262,7 +264,7 @@ export class MenuScene extends Phaser.Scene {
           const qtyBg = this.add.rectangle(cx + GRID_CELL_W - 6, cy + 6, 22, 14, 0x000000, 0.7);
           const qty = this.add.text(cx + GRID_CELL_W - 6, cy + 6, `${entry.quantity}`, {
             fontFamily: FONT_FAMILY, fontSize: '10px', color: '#ffdd44',
-            stroke: '#000000', strokeThickness: 1,
+            stroke: '#000000', strokeThickness: 2,
           }).setOrigin(0.5);
           gridContainer.add([qtyBg, qty]);
           cellQtys.push(qty);
@@ -458,22 +460,22 @@ export class MenuScene extends Phaser.Scene {
     const slotActions: (() => void)[] = [];
     slots.forEach((slot, si) => {
       const equipped = EquipmentSystem.getEquippedItems(char)[slot];
-      const y = 100 + si * 40;
+      const y = 100 + si * 64;
 
-      // Equipment slot icon
+      // Equipment slot icon (full size to match inventory)
       const slotIconKey = equipped ? ItemIconRenderer.getIconKey(equipped.id) : null;
       if (slotIconKey && this.textures.exists(slotIconKey)) {
         this.contentContainer.add(
-          this.add.image(95, y + 12, slotIconKey).setScale(0.5)
+          this.add.image(110, y + 24, slotIconKey)
         );
       }
 
-      const slotLabel = this.add.text(115, y, `${slotNames[slot]}：`, {
+      const slotLabel = this.add.text(150, y + 12, `${slotNames[slot]}：`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ccccdd',
         stroke: '#000000', strokeThickness: 2,
       });
 
-      const itemLabel = this.add.text(195, y, `  ${equipped?.name ?? '— 空 —'}`, {
+      const itemLabel = this.add.text(230, y + 12, `  ${equipped?.name ?? '— 空 —'}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px',
         color: equipped ? '#ffffff' : '#888888',
         stroke: '#000000', strokeThickness: 2,
@@ -539,7 +541,7 @@ export class MenuScene extends Phaser.Scene {
       if (equip && equip.slot === slot) {
         const statStr = Object.entries(equip.stats)
           .filter(([, v]) => (v as number) > 0)
-          .map(([k, v]) => `${k}+${v}`)
+          .map(([k, v]) => `${t(`stat.${k}`) || k}+${v}`)
           .join(' ');
         equippableItems.push({ id: equip.id, name: equip.name, stats: statStr });
       }
@@ -565,36 +567,36 @@ export class MenuScene extends Phaser.Scene {
       this.contentContainer.add(
         this.add.text(100, 140, '（背包中沒有可用的裝備）', {
           fontFamily: FONT_FAMILY, fontSize: '14px', color: '#999999',
-          stroke: '#000000', strokeThickness: 1,
+          stroke: '#000000', strokeThickness: 2,
         })
       );
     } else {
       equippableItems.forEach((item, i) => {
-        const y = 140 + i * 38;
+        const y = 140 + i * 72;
         const diff = EquipmentSystem.getEquipmentComparison(char, item.id);
         const diffStr = Object.entries(diff)
           .filter(([, v]) => v !== 0)
-          .map(([k, v]) => `${k}${v > 0 ? '+' : ''}${v}`)
+          .map(([k, v]) => `${t(`stat.${k}`) || k}${v > 0 ? '+' : ''}${v}`)
           .join(' ');
 
-        // Equipment icon
+        // Equipment icon (full size)
         const iconKey = ItemIconRenderer.getIconKey(item.id);
         if (this.textures.exists(iconKey)) {
           this.contentContainer.add(
-            this.add.image(112, y + 10, iconKey).setScale(0.5)
+            this.add.image(120, y + 28, iconKey)
           );
         }
 
-        const text = this.add.text(135, y, `${item.name}  ${item.stats}`, {
+        const text = this.add.text(160, y + 16, `${item.name}  ${item.stats}`, {
           fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ffffff',
           stroke: '#000000', strokeThickness: 2,
         }).setInteractive({ useHandCursor: true });
 
         if (diffStr) {
           this.contentContainer.add(
-            this.add.text(520, y, diffStr, {
+            this.add.text(520, y + 16, diffStr, {
               fontFamily: FONT_FAMILY, fontSize: '13px',
-              color: '#88ff88', stroke: '#000000', strokeThickness: 1,
+              color: '#88ff88', stroke: '#000000', strokeThickness: 2,
             })
           );
         }
@@ -635,46 +637,46 @@ export class MenuScene extends Phaser.Scene {
 
     const party = gameState.getParty();
     party.forEach((char, i) => {
-      const y = 80 + i * 130;
+      const y = 90 + i * 130;
       const partyStatStyle = { fontFamily: FONT_FAMILY, fontSize: '14px', color: '#eeeeff', stroke: '#000000', strokeThickness: 2 };
 
       // Selectable name row for arrow-key navigation
-      const nameText = this.add.text(100, y, `  ${char.name} (${char.race})`, {
+      const nameText = this.add.text(110, y, `  ${char.name} (${char.race})`, {
         fontFamily: FONT_FAMILY, fontSize: '20px', color: COLORS.textHighlight,
         stroke: '#000000', strokeThickness: 2,
       }).setInteractive({ useHandCursor: true });
 
-      const desc = `Lv.${char.level}  HP:${char.stats.hp}/${char.stats.maxHP}  MP:${char.stats.mp}/${char.stats.maxMP}  ${t('stat.atk')}:${char.stats.atk}  ${t('stat.def')}:${char.stats.def}  技能:${char.skills.join(', ')}`;
+      const desc = `Lv.${char.level}  HP:${char.stats.hp}/${char.stats.maxHP}  MP:${char.stats.mp}/${char.stats.maxMP}  ${t('stat.atk')}:${char.stats.atk}  ${t('stat.def')}:${char.stats.def}  技能:${char.skills.map(id => getSkillById(id)?.name ?? id).join('、')}`;
       nameText.on('pointerover', () => { this.selectedIndex = i; this.updateMenuDisplay(); this.descText?.setText(desc); });
       this.menuItems.push(nameText);
 
       this.contentContainer.add([
         nameText,
-        this.add.text(100, y + 28, `Lv.${char.level}  HP: ${char.stats.hp}/${char.stats.maxHP}  MP: ${char.stats.mp}/${char.stats.maxMP}`, { ...partyStatStyle, color: '#ffffff' }),
-        this.add.text(100, y + 50, `${t('stat.atk')}: ${char.stats.atk}  ${t('stat.def')}: ${char.stats.def}  ${t('stat.agi')}: ${char.stats.agi}  ${t('stat.luck')}: ${char.stats.luck}`, { ...partyStatStyle, color: '#aabbdd' }),
-        this.add.text(100, y + 72, `可分配點數: ${char.statPoints}`, { ...partyStatStyle, color: char.statPoints > 0 ? COLORS.textHighlight : '#aabbdd' }),
-        this.add.text(100, y + 92, `技能: ${char.skills.join(', ')}`, { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textSecondary, stroke: '#000000', strokeThickness: 1 }),
+        this.add.text(110, y + 28, `Lv.${char.level}  HP: ${char.stats.hp}/${char.stats.maxHP}  MP: ${char.stats.mp}/${char.stats.maxMP}`, { ...partyStatStyle, color: '#ffffff' }),
+        this.add.text(110, y + 50, `${t('stat.atk')}: ${char.stats.atk}  ${t('stat.def')}: ${char.stats.def}  ${t('stat.agi')}: ${char.stats.agi}  ${t('stat.luck')}: ${char.stats.luck}`, { ...partyStatStyle, color: '#ffffff' }),
+        this.add.text(110, y + 72, `可分配點數: ${char.statPoints}`, { ...partyStatStyle, color: char.statPoints > 0 ? COLORS.textHighlight : '#ccddee' }),
+        this.add.text(110, y + 92, `技能: ${char.skills.map(id => getSkillById(id)?.name ?? id).join('、')}`, { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textSecondary, stroke: '#000000', strokeThickness: 2 }),
       ]);
     });
 
     this.updateMenuDisplay();
     if (party.length > 0) {
       const c = party[0];
-      this.descText?.setText(`Lv.${c.level}  HP:${c.stats.hp}/${c.stats.maxHP}  MP:${c.stats.mp}/${c.stats.maxMP}  ${t('stat.atk')}:${c.stats.atk}  ${t('stat.def')}:${c.stats.def}  技能:${c.skills.join(', ')}`);
+      this.descText?.setText(`Lv.${c.level}  HP:${c.stats.hp}/${c.stats.maxHP}  MP:${c.stats.mp}/${c.stats.maxMP}  ${t('stat.atk')}:${c.stats.atk}  ${t('stat.def')}:${c.stats.def}  技能:${c.skills.map(id => getSkillById(id)?.name ?? id).join('、')}`);
     }
 
     this.input.keyboard?.on('keydown-UP', () => {
       this.selectedIndex = (this.selectedIndex - 1 + party.length) % party.length;
       this.updateMenuDisplay();
       const c = party[this.selectedIndex];
-      this.descText?.setText(`Lv.${c.level}  HP:${c.stats.hp}/${c.stats.maxHP}  MP:${c.stats.mp}/${c.stats.maxMP}  ${t('stat.atk')}:${c.stats.atk}  ${t('stat.def')}:${c.stats.def}  技能:${c.skills.join(', ')}`);
+      this.descText?.setText(`Lv.${c.level}  HP:${c.stats.hp}/${c.stats.maxHP}  MP:${c.stats.mp}/${c.stats.maxMP}  ${t('stat.atk')}:${c.stats.atk}  ${t('stat.def')}:${c.stats.def}  技能:${c.skills.map(id => getSkillById(id)?.name ?? id).join('、')}`);
       audioManager.playSfx('select');
     });
     this.input.keyboard?.on('keydown-DOWN', () => {
       this.selectedIndex = (this.selectedIndex + 1) % party.length;
       this.updateMenuDisplay();
       const c = party[this.selectedIndex];
-      this.descText?.setText(`Lv.${c.level}  HP:${c.stats.hp}/${c.stats.maxHP}  MP:${c.stats.mp}/${c.stats.maxMP}  ${t('stat.atk')}:${c.stats.atk}  ${t('stat.def')}:${c.stats.def}  技能:${c.skills.join(', ')}`);
+      this.descText?.setText(`Lv.${c.level}  HP:${c.stats.hp}/${c.stats.maxHP}  MP:${c.stats.mp}/${c.stats.maxMP}  ${t('stat.atk')}:${c.stats.atk}  ${t('stat.def')}:${c.stats.def}  技能:${c.skills.map(id => getSkillById(id)?.name ?? id).join('、')}`);
       audioManager.playSfx('select');
     });
   }
@@ -693,26 +695,26 @@ export class MenuScene extends Phaser.Scene {
     const allSkillEntries: { charName: string; skill: ReturnType<typeof SkillSystem.getUsableSkills>[0] }[] = [];
 
     party.forEach((char, pi) => {
-      const x = 80 + pi * 280;
+      const x = 100 + pi * 220;
       this.contentContainer.add(
         this.add.text(x, 70, char.name, { fontFamily: FONT_FAMILY, fontSize: '18px', color: COLORS.textHighlight, stroke: '#000000', strokeThickness: 2 })
       );
 
       const skills = SkillSystem.getUsableSkills(char);
       skills.forEach((skill, si) => {
-        const y = 100 + si * 30;
+        const y = 100 + si * 48;
 
-        // Skill icon
+        // Skill icon (larger to match inventory icon size)
         const iconKey = ItemIconRenderer.getSkillIconKey(skill.element, skill.type);
         if (this.textures.exists(iconKey)) {
           this.contentContainer.add(
-            this.add.image(x + 10, y + 9, iconKey).setScale(0.35)
+            this.add.image(x + 24, y + 18, iconKey).setScale(0.85)
           );
         }
 
-        const text = this.add.text(x + 28, y, `${skill.name} (MP:${skill.mpCost})`, {
+        const text = this.add.text(x + 52, y + 8, `${skill.name} (MP:${skill.mpCost})`, {
           fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textPrimary,
-          stroke: '#000000', strokeThickness: 1,
+          stroke: '#000000', strokeThickness: 2,
         }).setInteractive({ useHandCursor: true });
         const idx = allSkillEntries.length;
         text.on('pointerover', () => { this.selectedIndex = idx; this.updateMenuDisplay(); this.descText?.setText(`${skill.description}  [${skill.element}屬性]  威力:${skill.power}`); });
@@ -768,17 +770,16 @@ export class MenuScene extends Phaser.Scene {
       saveItems.push({ label, action: () => {
         if (SaveLoadSystem.save(slot)) {
           audioManager.playSfx('fanfare');
-          // Show brief confirmation overlay
+          // Show brief confirmation overlay then auto-close menu
           const confirmText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '儲存完成！', {
             fontFamily: FONT_FAMILY, fontSize: '28px', color: '#ffd700',
             stroke: '#000000', strokeThickness: 4,
           }).setOrigin(0.5).setDepth(DEPTH.ui + 100);
           this.tweens.add({
             targets: confirmText, alpha: { from: 1, to: 0 }, y: confirmText.y - 30,
-            duration: 1500, ease: 'Cubic.easeOut',
-            onComplete: () => confirmText.destroy(),
+            duration: 1200, ease: 'Cubic.easeOut',
+            onComplete: () => { confirmText.destroy(); this.closeMenu(); },
           });
-          this.showSave();
         }
       } });
     }
@@ -840,7 +841,11 @@ export class MenuScene extends Phaser.Scene {
     const difficulties = ['easy', 'normal', 'hard'] as const;
     const diffLabels = [t('system.easy'), t('system.normal'), t('system.hard')];
     const diffDescs = ['戰鬥傷害降低，經驗值增加', '標準遊戲難度', '戰鬥傷害增加，經驗值減少'];
+    const diffColors = [0x44aa44, 0xddaa44, 0xcc4444]; // green, yellow, red
+    const diffBorderColors = [0x228822, 0xaa8822, 0x882222];
+    const diffStars = ['★', '★★', '★★★'];
 
+    // Difficulty section title
     this.contentContainer.add(
       this.add.text(GAME_WIDTH / 2, 80, t('system.difficulty'), {
         fontFamily: FONT_FAMILY, fontSize: '18px', color: COLORS.textHighlight,
@@ -848,51 +853,169 @@ export class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5)
     );
 
-    // Selectable system items: 3 difficulties + BGM vol + SFX vol + return to title
+    // ── Difficulty toggle buttons (card-style) ──
+    const cardW = 160;
+    const cardH = 72;
+    const cardGap = 20;
+    const totalW = difficulties.length * cardW + (difficulties.length - 1) * cardGap;
+    const startX = (GAME_WIDTH - totalW) / 2;
+
+    // Track system items for keyboard nav (difficulties + volume + return)
     type SystemAction = { label: string; desc: string; action: () => void };
     const systemItems: SystemAction[] = [];
 
     difficulties.forEach((d, i) => {
       const isActive = d === difficulty;
-      const label = isActive ? `● ${diffLabels[i]}` : `  ${diffLabels[i]}`;
-      systemItems.push({ label, desc: diffDescs[i], action: () => { gameState.setDifficulty(d); this.showSystem(); } });
+      const cx = startX + i * (cardW + cardGap) + cardW / 2;
+      const cy = 130;
+
+      // Card border (colored by difficulty)
+      const borderColor = isActive ? diffColors[i] : 0x3a3a5e;
+      const bgColor = isActive ? diffColors[i] : 0x1a1a2e;
+      const bgAlpha = isActive ? 0.35 : 0.7;
+
+      this.contentContainer.add(
+        this.add.rectangle(cx, cy, cardW + 4, cardH + 4, borderColor, isActive ? 1 : 0.5)
+      );
+      this.contentContainer.add(
+        this.add.rectangle(cx, cy, cardW, cardH, bgColor, bgAlpha)
+      );
+
+      // Active glow effect
+      if (isActive) {
+        const glow = this.add.rectangle(cx, cy, cardW + 8, cardH + 8, diffColors[i], 0);
+        glow.setStrokeStyle(2, diffColors[i], 0.6);
+        this.contentContainer.add(glow);
+        this.tweens.add({
+          targets: glow, alpha: { from: 0.2, to: 0.5 },
+          duration: 1200, yoyo: true, repeat: -1,
+        });
+      }
+
+      // Star rating
+      const starColor = isActive ? '#ffffff' : '#bbbbbb';
+      this.contentContainer.add(
+        this.add.text(cx, cy - 16, diffStars[i], {
+          fontFamily: FONT_FAMILY, fontSize: '16px', color: starColor,
+          stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0.5)
+      );
+
+      // Label
+      const labelColor = isActive ? '#ffffff' : '#cccccc';
+      const labelText = this.add.text(cx, cy + 12, diffLabels[i], {
+        fontFamily: FONT_FAMILY, fontSize: '16px', color: labelColor,
+        stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      labelText.on('pointerdown', () => { gameState.setDifficulty(d); audioManager.playSfx('select'); this.showSystem(); });
+      labelText.on('pointerover', () => { this.selectedIndex = i; this.updateMenuDisplay(); this.descText?.setText(diffDescs[i]); });
+
+      this.contentContainer.add(labelText);
+      this.menuItems.push(labelText);
+      systemItems.push({ label: diffLabels[i], desc: diffDescs[i], action: () => { gameState.setDifficulty(d); this.showSystem(); } });
     });
 
-    // Volume items
+    // ── Volume controls ──
     const bgmVol = Math.round(audioManager.getBgmVolume() * 100);
     const sfxVol = Math.round(audioManager.getSfxVolume() * 100);
-    systemItems.push({
-      label: `  ${t('system.bgm_volume')}: ${audioManager.isBgmMuted() ? '靜音' : bgmVol + '%'}`,
-      desc: '← → 調整音量，SPACE 靜音切換',
-      action: () => { audioManager.toggleBgmMute(); this.showSystem(); },
-    });
-    systemItems.push({
-      label: `  ${t('system.sfx_volume')}: ${audioManager.isSfxMuted() ? '靜音' : sfxVol + '%'}`,
-      desc: '← → 調整音量，SPACE 靜音切換',
-      action: () => { audioManager.toggleSfxMute(); this.showSystem(); },
-    });
-    systemItems.push({
-      label: `  ${t('system.return_title')}`,
-      desc: '回到標題畫面（未存檔的進度將會遺失）',
-      action: () => { this.scene.stop(); this.scene.stop(gameState.getState().currentScene); this.scene.start('TitleScene'); },
+    const volItems: SystemAction[] = [
+      {
+        label: `  ${t('system.bgm_volume')}: ${audioManager.isBgmMuted() ? '靜音' : bgmVol + '%'}`,
+        desc: '← → 調整音量，SPACE 靜音切換',
+        action: () => { audioManager.toggleBgmMute(); this.showSystem(); },
+      },
+      {
+        label: `  ${t('system.sfx_volume')}: ${audioManager.isSfxMuted() ? '靜音' : sfxVol + '%'}`,
+        desc: '← → 調整音量，SPACE 靜音切換',
+        action: () => { audioManager.toggleSfxMute(); this.showSystem(); },
+      },
+      {
+        label: `  ${t('system.return_title')}`,
+        desc: '回到標題畫面（未存檔的進度將會遺失）',
+        action: () => { this.scene.stop(); this.scene.stop(gameState.getState().currentScene); this.scene.start('TitleScene'); },
+      },
+    ];
+
+    // ── Controls reference (read-only) ──
+    const controlsY = 300;
+    this.contentContainer.add(
+      this.add.text(GAME_WIDTH / 2, controlsY, '── 操作說明 ──', {
+        fontFamily: FONT_FAMILY, fontSize: '14px', color: '#8899aa',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5)
+    );
+    const controlLines: [string, string][] = [
+      ['WASD / 方向鍵', '移動'],
+      ['Enter / Space / Z', '確認 / 對話'],
+      ['ESC', '選單 / 取消'],
+    ];
+    controlLines.forEach(([key, desc], ci) => {
+      const cy = controlsY + 22 + ci * 20;
+      this.contentContainer.add(
+        this.add.text(GAME_WIDTH / 2 - 120, cy, key, {
+          fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ffdd88',
+          stroke: '#000000', strokeThickness: 3,
+        })
+      );
+      this.contentContainer.add(
+        this.add.text(GAME_WIDTH / 2 + 50, cy, desc, {
+          fontFamily: FONT_FAMILY, fontSize: '12px', color: '#dddddd',
+          stroke: '#000000', strokeThickness: 3,
+        })
+      );
     });
 
-    systemItems.forEach((item, i) => {
-      const y = i < 3 ? 110 + i * 32 : (i === 3 ? 230 : i === 4 ? 270 : 340);
-      const color = i >= 3 && i <= 4 ? '#ccddee' : (i === 5 ? '#ff6666' : COLORS.textPrimary);
+    // ── Hotkey shortcuts (密技) ──
+    const hotkeyY = controlsY + 22 + controlLines.length * 20 + 16;
+    this.contentContainer.add(
+      this.add.text(GAME_WIDTH / 2, hotkeyY, '── 快捷鍵 ──', {
+        fontFamily: FONT_FAMILY, fontSize: '14px', color: '#aa88cc',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5)
+    );
+    const hotkeyLines: [string, string][] = [
+      ['Q', '返回世界地圖（探索中）'],
+      ['T', '返回城鎮（野外中）'],
+      ['F', '前往野外（城鎮中）'],
+      ['M', '開啟選單'],
+      ['A', '自動攻擊（戰鬥中）'],
+      ['F11', '全螢幕切換'],
+    ];
+    hotkeyLines.forEach(([key, desc], hi) => {
+      const hy = hotkeyY + 22 + hi * 20;
+      this.contentContainer.add(
+        this.add.text(GAME_WIDTH / 2 - 120, hy, key, {
+          fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ddbb66',
+          stroke: '#000000', strokeThickness: 3,
+        })
+      );
+      this.contentContainer.add(
+        this.add.text(GAME_WIDTH / 2 + 50, hy, desc, {
+          fontFamily: FONT_FAMILY, fontSize: '12px', color: '#dddddd',
+          stroke: '#000000', strokeThickness: 3,
+        })
+      );
+    });
+
+    volItems.forEach((item, vi) => {
+      const y = vi < 2 ? 210 + vi * 40 : 550; // Push "Return to Title" below hotkeys section
+      const color = vi < 2 ? '#ccddee' : '#ff6666';
       const text = this.add.text(GAME_WIDTH / 2, y, item.label, {
         fontFamily: FONT_FAMILY, fontSize: '16px', color,
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      text.on('pointerover', () => { this.selectedIndex = i; this.updateMenuDisplay(); this.descText?.setText(item.desc); });
+      const idx = 3 + vi; // offset by 3 difficulty buttons
+      text.on('pointerover', () => { this.selectedIndex = idx; this.updateMenuDisplay(); this.descText?.setText(item.desc); });
       text.on('pointerdown', () => item.action());
       this.menuItems.push(text);
       this.contentContainer.add(text);
+      systemItems.push(item);
     });
 
     this.updateMenuDisplay();
-    this.descText?.setText(systemItems[0].desc);
+    this.descText?.setText(diffDescs[difficulties.indexOf(difficulty)]);
 
     this.input.keyboard?.on('keydown-UP', () => {
       this.selectedIndex = (this.selectedIndex - 1 + systemItems.length) % systemItems.length;
@@ -908,7 +1031,7 @@ export class MenuScene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-ENTER', () => systemItems[this.selectedIndex]?.action());
     this.input.keyboard?.on('keydown-SPACE', () => systemItems[this.selectedIndex]?.action());
-    // LEFT/RIGHT to adjust volume when on volume rows
+    // LEFT/RIGHT to adjust volume when on volume rows (indices 3 and 4)
     this.input.keyboard?.on('keydown-LEFT', () => {
       if (this.selectedIndex === 3 && !audioManager.isBgmMuted()) {
         audioManager.setBgmVolume(Math.max(0, audioManager.getBgmVolume() - 0.1));
@@ -916,6 +1039,15 @@ export class MenuScene extends Phaser.Scene {
       } else if (this.selectedIndex === 4 && !audioManager.isSfxMuted()) {
         audioManager.setSfxVolume(Math.max(0, audioManager.getSfxVolume() - 0.1));
         this.showSystem();
+      } else if (this.selectedIndex < 3) {
+        // LEFT on difficulty buttons: select previous
+        const newIdx = Math.max(0, this.selectedIndex - 1);
+        if (newIdx !== this.selectedIndex) {
+          this.selectedIndex = newIdx;
+          this.updateMenuDisplay();
+          this.descText?.setText(systemItems[this.selectedIndex].desc);
+          audioManager.playSfx('select');
+        }
       }
     });
     this.input.keyboard?.on('keydown-RIGHT', () => {
@@ -925,6 +1057,15 @@ export class MenuScene extends Phaser.Scene {
       } else if (this.selectedIndex === 4 && !audioManager.isSfxMuted()) {
         audioManager.setSfxVolume(Math.min(1, audioManager.getSfxVolume() + 0.1));
         this.showSystem();
+      } else if (this.selectedIndex < 3) {
+        // RIGHT on difficulty buttons: select next
+        const newIdx = Math.min(2, this.selectedIndex + 1);
+        if (newIdx !== this.selectedIndex) {
+          this.selectedIndex = newIdx;
+          this.updateMenuDisplay();
+          this.descText?.setText(systemItems[this.selectedIndex].desc);
+          audioManager.playSfx('select');
+        }
       }
     });
   }
@@ -934,7 +1075,7 @@ export class MenuScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private addBackButton(): Phaser.GameObjects.Text {
-    const backBtn = this.add.text(80, GAME_HEIGHT - 60, `← ${t('menu.back')} (ESC)`, {
+    const backBtn = this.add.text(100, GAME_HEIGHT - 65, `← ${t('menu.back')} (ESC)`, {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
       stroke: '#000000', strokeThickness: 2,
     }).setInteractive({ useHandCursor: true });
@@ -944,6 +1085,13 @@ export class MenuScene extends Phaser.Scene {
     // ESC goes back to main menu (not close)
     this.input.keyboard?.on('keydown-ESC', () => this.showMainMenu());
     return backBtn;
+  }
+
+  private goToWorldMap(): void {
+    const currentScene = gameState.getState().currentScene;
+    this.scene.stop(currentScene);
+    this.scene.stop();
+    this.scene.start('WorldMapScene');
   }
 
   private closeMenu(): void {

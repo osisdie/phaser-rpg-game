@@ -17,6 +17,7 @@ export class TextBox extends Phaser.GameObjects.Container {
   private isComplete = false;
   private onComplete?: () => void;
   private choicesContainer?: Phaser.GameObjects.Container;
+  private choicesCleanup?: () => void;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -54,7 +55,7 @@ export class TextBox extends Phaser.GameObjects.Container {
 
     this.nameText = scene.add.text(cLeft, cTop, '', {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
-      stroke: '#000000', strokeThickness: 1,
+      stroke: '#000000', strokeThickness: 3,
     });
     const contentWrapWidth = cRight - cLeft;
     this.contentText = scene.add.text(cLeft, cTop + 24, '', {
@@ -136,19 +137,20 @@ export class TextBox extends Phaser.GameObjects.Container {
     this.choicesContainer.add([choiceBorder, choiceBg]);
 
     const startY = panelTop + 14;
+    // Store choice text bounds for scene-level mouse handler (avoids scrollFactor input mismatch)
+    const choiceBounds: { x: number; y: number; w: number; h: number }[] = [];
     choices.forEach((choice, i) => {
       const y = startY + i * 32;
       const text = this.scene.add.text(panelCX - panelW / 2 + 20, y, `  ${choice.text}`, {
         fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textPrimary,
       });
-      text.setInteractive({ useHandCursor: true });
-      text.on('pointerover', () => text.setColor(COLORS.textHighlight));
-      text.on('pointerout', () => text.setColor(COLORS.textPrimary));
-      text.on('pointerdown', () => onSelect(choice.index));
+      // Don't use setInteractive() — it breaks with scrollFactor(0) + camera scroll.
+      // Mouse input is handled via scene-level pointer handlers below.
+      choiceBounds.push({ x: text.x, y: text.y, w: panelW - 40, h: 28 });
       this.choicesContainer!.add(text);
     });
 
-    // Keyboard support — filter to only text objects (skip bg/border rects)
+    // Keyboard + mouse support
     let selectedIndex = 0;
     const getChoiceTexts = () =>
       this.choicesContainer!.list.filter((c): c is Phaser.GameObjects.Text => c instanceof Phaser.GameObjects.Text);
@@ -168,13 +170,57 @@ export class TextBox extends Phaser.GameObjects.Container {
 
     const onUp = () => { selectedIndex = (selectedIndex - 1 + choices.length) % choices.length; updateSelection(); };
     const onDown = () => { selectedIndex = (selectedIndex + 1) % choices.length; updateSelection(); };
-    const onConfirm = () => {
+
+    let fired = false;
+    const doSelect = (index: number) => {
+      if (fired) return;
+      fired = true;
+      cleanup();
+      onSelect(index);
+    };
+    const onConfirm = () => doSelect(choices[selectedIndex].index);
+
+    // Scene-level mouse handlers — use pointer screen coords (not world coords)
+    // to bypass the scrollFactor + camera scroll input mismatch in Phaser 3
+    const onPointerMove = (pointer: Phaser.Input.Pointer) => {
+      for (let i = 0; i < choiceBounds.length; i++) {
+        const b = choiceBounds[i];
+        if (pointer.x >= b.x && pointer.x <= b.x + b.w &&
+            pointer.y >= b.y && pointer.y <= b.y + b.h) {
+          if (selectedIndex !== i) {
+            selectedIndex = i;
+            updateSelection();
+          }
+          return;
+        }
+      }
+    };
+    const onPointerDown = (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) return;
+      for (let i = 0; i < choiceBounds.length; i++) {
+        const b = choiceBounds[i];
+        if (pointer.x >= b.x && pointer.x <= b.x + b.w &&
+            pointer.y >= b.y && pointer.y <= b.y + b.h) {
+          doSelect(choices[i].index);
+          return;
+        }
+      }
+    };
+    this.scene.input.on('pointermove', onPointerMove);
+    this.scene.input.on('pointerdown', onPointerDown);
+
+    const cleanup = () => {
       upKey?.off('down', onUp);
       downKey?.off('down', onDown);
       enterKey?.off('down', onConfirm);
       spaceKey?.off('down', onConfirm);
-      onSelect(choices[selectedIndex].index);
+      this.scene.input.off('pointermove', onPointerMove);
+      this.scene.input.off('pointerdown', onPointerDown);
+      this.choicesCleanup = undefined;
     };
+
+    // Store cleanup so clearChoices() can remove orphaned handlers
+    this.choicesCleanup = cleanup;
 
     upKey?.on('down', onUp);
     downKey?.on('down', onDown);
@@ -183,6 +229,8 @@ export class TextBox extends Phaser.GameObjects.Container {
   }
 
   private clearChoices(): void {
+    // Remove keyboard handlers BEFORE destroying container to prevent orphaned listeners
+    this.choicesCleanup?.();
     if (this.choicesContainer) {
       this.choicesContainer.destroy();
       this.choicesContainer = undefined;
@@ -226,5 +274,15 @@ export class TextBox extends Phaser.GameObjects.Container {
 
   getIsComplete(): boolean {
     return this.isComplete;
+  }
+
+  /** Returns true if choices are currently displayed */
+  hasActiveChoices(): boolean {
+    return !!this.choicesContainer;
+  }
+
+  /** Returns true if the textBox is currently visible */
+  isVisible(): boolean {
+    return this.visible;
   }
 }

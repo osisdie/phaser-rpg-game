@@ -482,16 +482,17 @@ export class TitleScene extends Phaser.Scene {
     let confirmText: Phaser.GameObjects.Text | null = null;
     let confirmHint: Phaser.GameObjects.Text | null = null;
 
+    const delBtns: Phaser.GameObjects.Text[] = [];
     for (let i = 0; i < maxVisible; i++) {
       const save = allSaves[i];
       const slotLabel = save.slot === -1 ? '自動' : `${save.slot + 1}`;
       const completedMark = save.gameCompleted ? ' ★通關' : '';
       const label = `${save.heroName} [${slotLabel}]  Lv.${save.level}  ${save.playTime}${completedMark}`;
       const y = 330 + i * 40;
-      const text = this.add.text(GAME_WIDTH / 2, y, `  ${label}`, {
+      const text = this.add.text(180, y, `  ${label}`, {
         fontFamily: FONT_FAMILY, fontSize: '18px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
       text.on('pointerover', () => {
         if (confirmingDelete) return;
@@ -503,6 +504,20 @@ export class TitleScene extends Phaser.Scene {
       });
       items.push(text);
       this.menuContainer.add(text);
+
+      // Visible [刪除] button
+      const delBtn = this.add.text(790, y, '[刪除]', {
+        fontFamily: FONT_FAMILY, fontSize: '14px', color: '#aa6666',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      delBtn.on('pointerover', () => { delBtn.setColor('#ff6666'); });
+      delBtn.on('pointerout', () => { delBtn.setColor('#aa6666'); });
+      delBtn.on('pointerdown', () => {
+        if (confirmingDelete) return;
+        selectedIdx = i; updateHighlight(); showDeleteConfirm();
+      });
+      delBtns.push(delBtn);
+      this.menuContainer.add(delBtn);
     }
 
     const updateHighlight = () => {
@@ -521,29 +536,53 @@ export class TitleScene extends Phaser.Scene {
       }
     };
 
+    let deletePhase = 0; // 0=not confirming, 1=first confirm, 2=final confirm
+    let deleteReady = false; // Prevents immediate confirm in phase 2
+
     const showDeleteConfirm = () => {
       if (confirmingDelete) return;
       confirmingDelete = true;
+      deletePhase = 1;
       const save = allSaves[selectedIdx];
       const slotLabel = save.slot === -1 ? '自動' : `${save.slot + 1}`;
 
-      confirmBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 420, 130, 0x000000, 0.85);
+      confirmBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 440, 140, 0x000000, 0.9);
       confirmBg.setStrokeStyle(2, 0xff4444);
-      confirmText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20,
+      confirmText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 25,
         `確定刪除「${save.heroName} [${slotLabel}]」的紀錄嗎？`, {
           fontFamily: FONT_FAMILY, fontSize: '18px', color: '#ff6666',
           stroke: '#000000', strokeThickness: 3,
         }).setOrigin(0.5);
-      confirmHint = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20,
-        'Enter 確認刪除 ｜ ESC 取消', {
+      confirmHint = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15,
+        'Enter 確認 ｜ ESC 取消', {
           fontFamily: FONT_FAMILY, fontSize: '15px', color: '#dddddd',
           stroke: '#000000', strokeThickness: 2,
         }).setOrigin(0.5);
       this.menuContainer.add([confirmBg, confirmText, confirmHint]);
     };
 
+    const showFinalConfirm = () => {
+      deletePhase = 2;
+      deleteReady = false;
+      if (confirmText) confirmText.setText('⚠ 此操作不可復原！');
+      if (confirmHint) {
+        confirmHint.setText('請稍候…');
+        confirmHint.setColor('#888888');
+      }
+      // Delay before enabling final confirm
+      this.time.delayedCall(1500, () => {
+        deleteReady = true;
+        if (confirmHint) {
+          confirmHint.setText('Enter 確認刪除 ｜ ESC 取消');
+          confirmHint.setColor('#ff8888');
+        }
+      });
+    };
+
     const hideDeleteConfirm = () => {
       confirmingDelete = false;
+      deletePhase = 0;
+      deleteReady = false;
       if (confirmBg) { confirmBg.destroy(); confirmBg = null; }
       if (confirmText) { confirmText.destroy(); confirmText = null; }
       if (confirmHint) { confirmHint.destroy(); confirmHint = null; }
@@ -567,14 +606,6 @@ export class TitleScene extends Phaser.Scene {
     });
     this.menuContainer.add(backBtn);
 
-    // Controls hint
-    this.menuContainer.add(
-      this.add.text(GAME_WIDTH / 2, 330 + maxVisible * 40 + 55, '↑↓ 選擇 ｜ Enter 讀取 ｜ D 刪除 ｜ ESC 返回', {
-        fontFamily: FONT_FAMILY, fontSize: '13px', color: '#888888',
-        stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(0.5)
-    );
-
     // Keyboard navigation
     this.time.delayedCall(200, () => {
       this.input.keyboard?.on('keydown-UP', () => {
@@ -590,7 +621,11 @@ export class TitleScene extends Phaser.Scene {
         audioManager.playSfx('select');
       });
       this.input.keyboard?.on('keydown-ENTER', () => {
-        if (confirmingDelete) { executeDelete(); return; }
+        if (confirmingDelete) {
+          if (deletePhase === 1) { showFinalConfirm(); return; }
+          if (deletePhase === 2 && deleteReady) { executeDelete(); return; }
+          return;
+        }
         doLoad(selectedIdx);
       });
       this.input.keyboard?.on('keydown-SPACE', () => {

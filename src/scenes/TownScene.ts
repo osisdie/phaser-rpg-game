@@ -14,9 +14,10 @@ import { MinimapUI } from '../ui/MinimapUI';
 import { TextBox } from '../ui/TextBox';
 import { TransitionEffect } from '../ui/TransitionEffect';
 import { audioManager } from '../systems/AudioManager';
-import { getNPCTextureKey } from '../art/characters/NPCProfiles';
+import { getNPCTextureKey, getCompanionTextureKey } from '../art/characters/NPCProfiles';
 import { BattleEffects } from '../art/effects/BattleEffects';
 import { getAllConsumables, getAllEquipments } from '../data/items/index';
+import { getCompanionForRegion } from '../data/characters/index';
 import type { NPCData } from '../types';
 
 /** Extended NPC tracking with label, marker, and wandering state */
@@ -52,23 +53,35 @@ export class TownScene extends Phaser.Scene {
   private spaceKey?: Phaser.Input.Keyboard.Key;
   private enterKey?: Phaser.Input.Keyboard.Key;
   private inDialogue = false;
+  private isAdvancingDialogue = false; // guard against re-entrant advanceDialogue calls
   private minimap!: MinimapUI;
   private mapBounds = { width: 0, height: 0 };
   private chests: TreasureChest[] = [];
+  private dialogueCooldown = 0; // prevents re-triggering NPC dialogue on dismiss
+  private dialogueStartTime = 0; // safety valve: track when dialogue began
+  private resumeCooldown = 0; // prevents input bleed from paused overlay scenes
 
   constructor() {
     super('TownScene');
   }
 
-  create(data: { regionId: string }): void {
+  create(data: { regionId: string; fromWorldMap?: boolean }): void {
     this.regionId = data.regionId || gameState.getState().currentRegion;
     const region = getRegionById(this.regionId);
     if (!region) { this.scene.start('WorldMapScene'); return; }
 
     gameState.setCurrentScene('TownScene');
     this.inDialogue = false;
+    this.isAdvancingDialogue = false;
+    this.dialogueCooldown = 0;
     this.npcSprites = [];
     this.chests = [];
+
+    // Clear stale dialogue flags to prevent cross-NPC leaks
+    this.dialogueSystem.reset();
+    for (const flag of ['trigger_inn', 'trigger_save', 'open_shop_buy', 'open_shop_sell', 'companion_joined']) {
+      gameState.setFlag(flag, false);
+    }
 
     // Create map
     const mapConfig = MapFactory.getTownConfig(this.regionId, region.color);
@@ -78,11 +91,21 @@ export class TownScene extends Phaser.Scene {
     // Set world bounds
     this.physics.world.setBounds(0, 0, bounds.width, bounds.height);
 
-    // Player — spawn just south of the gate
-    this.player = new Player(this,
-      Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2,
-      (mapConfig.height - 2) * TILE_SIZE + TILE_SIZE / 2,
-    );
+    // Player — dual spawn: from world map → west gate (southwest), from field → south gate
+    const midX = Math.floor(mapConfig.width / 2);
+    const westGateY = mapConfig.height - 8; // matches MapFactory west gate gap position
+    const fromWorldMap = data.fromWorldMap ?? false;
+    let spawnX: number, spawnY: number;
+    if (fromWorldMap) {
+      // Spawn at west gate path — just inside the left border at southwest area
+      spawnX = 3 * TILE_SIZE + TILE_SIZE / 2;
+      spawnY = (westGateY + 1) * TILE_SIZE + TILE_SIZE / 2;
+    } else {
+      // Spawn at south gate (existing, from field)
+      spawnX = midX * TILE_SIZE + TILE_SIZE / 2;
+      spawnY = (mapConfig.height - 3) * TILE_SIZE + TILE_SIZE / 2;
+    }
+    this.player = new Player(this, spawnX, spawnY);
     this.physics.add.collider(this.player, wallBodies);
 
     // Camera
@@ -92,12 +115,11 @@ export class TownScene extends Phaser.Scene {
     // ── Gate guards — 2 kingdom-race guards flanking south entrance, patrolling ──
     const guardKey = `char_guard_${this.regionId}`;
     if (this.textures.exists(guardKey)) {
-      const midX = Math.floor(mapConfig.width / 2);
       const gateGy = mapConfig.height - 5;
-      // Moved guards 2 tiles back from gate so they don't block the entrance
-      const guardY = (gateGy + 4) * TILE_SIZE + TILE_SIZE / 2;
-      const leftGuardX = (midX - 2) * TILE_SIZE + TILE_SIZE / 2;
-      const rightGuardX = (midX + 2) * TILE_SIZE + TILE_SIZE / 2;
+      // Place guards flanking gate — wide enough to not block the arch entrance
+      const guardY = (gateGy + 1) * TILE_SIZE + TILE_SIZE / 2;
+      const leftGuardX = (midX - 3) * TILE_SIZE + TILE_SIZE / 2;
+      const rightGuardX = (midX + 3) * TILE_SIZE + TILE_SIZE / 2;
 
       // Left guard (wandering near gate)
       const leftGuard = this.add.sprite(leftGuardX, guardY, guardKey, 21)
@@ -152,8 +174,10 @@ export class TownScene extends Phaser.Scene {
       const py = npc.y * TILE_SIZE + TILE_SIZE / 2;
       const isWanderer = npc.behavior === 'wander';
 
-      // Use textured sprite
-      const texKey = getNPCTextureKey(npc.type, ni);
+      // Use companion-specific texture if available, otherwise generic NPC type texture
+      const texKey = npc.companionId
+        ? getCompanionTextureKey(npc.companionId)
+        : getNPCTextureKey(npc.type, ni);
       const sprite = this.add.sprite(px, py, texKey, 0);
       sprite.setDepth(DEPTH.characters);
 
@@ -222,32 +246,128 @@ export class TownScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
 
-    // Controls footer with background bar for visibility
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 12, GAME_WIDTH, 24, 0x000000, 0.6)
-      .setScrollFactor(0).setDepth(DEPTH.ui);
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'WASD移動 | SPACE互動 | F野外 | M選單 | Q世界地圖', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ddddcc',
+    // ── West gate visual — stone pillars + arch (southwest entrance to world map) ──
+    const westGateBaseX = 2 * TILE_SIZE;
+    const westGateMidY = (westGateY + 1) * TILE_SIZE + TILE_SIZE / 2;
+    const wPillarW = TILE_SIZE * 1.4;
+    // Stone pillars (horizontal — flanking the vertical gate opening)
+    this.add.rectangle(westGateBaseX, westGateMidY - TILE_SIZE * 1.2, wPillarW, 14, 0x777788)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x555566);
+    this.add.rectangle(westGateBaseX, westGateMidY + TILE_SIZE * 1.2, wPillarW, 14, 0x777788)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x555566);
+    // Arch connecting pillars (vertical)
+    this.add.rectangle(westGateBaseX - wPillarW / 2 + 4, westGateMidY, 10, TILE_SIZE * 2.4 + 14, 0x888899)
+      .setDepth(DEPTH.objects + 1).setStrokeStyle(1, 0x666677);
+
+    // ── South gate visual — stone pillars + arch + signpost ──
+    const gateMidX = midX * TILE_SIZE + TILE_SIZE / 2;
+    const gateBaseY = (mapConfig.height - 4) * TILE_SIZE;
+    const pillarH = TILE_SIZE * 1.4;
+    // Stone pillars
+    this.add.rectangle(gateMidX - TILE_SIZE * 1.2, gateBaseY, 14, pillarH, 0x777788)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x555566);
+    this.add.rectangle(gateMidX + TILE_SIZE * 1.2, gateBaseY, 14, pillarH, 0x777788)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x555566);
+    // Arch connecting pillars
+    this.add.rectangle(gateMidX, gateBaseY - pillarH / 2 + 4, TILE_SIZE * 2.4 + 14, 10, 0x888899)
+      .setDepth(DEPTH.objects + 1).setStrokeStyle(1, 0x666677);
+    // Signpost
+    this.add.text(gateMidX, gateBaseY + pillarH / 2 + 12, '▼ 野外', {
+      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ffcc44',
       stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 1);
+    }).setOrigin(0.5).setDepth(DEPTH.objects + 2);
+
+    // ── South approach path — curved cobblestone from town interior through south gate ──
+    const southTrailRows = [
+      { y: mapConfig.height - 7, xs: [1] },                 // narrow start, offset east
+      { y: mapConfig.height - 6, xs: [0, 1] },              // widen slightly
+      { y: mapConfig.height - 5, xs: [0, 1] },
+      { y: mapConfig.height - 4, xs: [-1, 0, 1] },          // widen
+      { y: mapConfig.height - 3, xs: [-1, 0, 1] },
+      { y: mapConfig.height - 2, xs: [-2, -1, 0, 1, 2] },  // full gate width
+      { y: mapConfig.height - 1, xs: [-2, -1, 0, 1, 2] },  // through gate wall row
+    ];
+    for (const row of southTrailRows) {
+      for (const dx of row.xs) {
+        const sPx = (midX + dx) * TILE_SIZE + TILE_SIZE / 2;
+        const sPy = row.y * TILE_SIZE + TILE_SIZE / 2;
+        this.add.rectangle(sPx, sPy, TILE_SIZE, TILE_SIZE, 0x776655, 0.4)
+          .setDepth(DEPTH.ground + 1);
+      }
+    }
+
+    // ── West gate visual — curved cobblestone trail → World Map (southwest entrance) ──
+    // Trail enters from left border (x=0) at westGateY, curves right and upward into town
+    const westTrailRows = [
+      { x: 0, ys: [0, 1, 2] },    // through gate wall column (at x=0)
+      { x: 1, ys: [0, 1, 2] },    // gate opening: y=westGateY+0..+2
+      { x: 2, ys: [0, 1, 2] },
+      { x: 3, ys: [-1, 0, 1] },   // shift up
+      { x: 4, ys: [-1, 0, 1] },
+      { x: 5, ys: [-2, -1, 0] },  // shift up more
+      { x: 6, ys: [-2, -1, 0] },
+    ];
+    for (const col of westTrailRows) {
+      for (const dy of col.ys) {
+        const pathPx = col.x * TILE_SIZE + TILE_SIZE / 2;
+        const pathPy = (westGateY + dy) * TILE_SIZE + TILE_SIZE / 2;
+        this.add.rectangle(pathPx, pathPy, TILE_SIZE, TILE_SIZE, 0x776655, 0.35)
+          .setDepth(DEPTH.ground + 1);
+      }
+    }
+    // Wooden fence posts — shift with curve edges
+    // At x=2: top at westGateY-0.3, bottom at westGateY+2.3
+    const fence1X = 2 * TILE_SIZE + TILE_SIZE / 2;
+    this.add.rectangle(fence1X, (westGateY - 0.3) * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE * 0.8, 8, 0x6b4f3a)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x4a3528);
+    this.add.rectangle(fence1X, (westGateY + 2.3) * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE * 0.8, 8, 0x6b4f3a)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x4a3528);
+    // At x=5: top at westGateY-2.3, bottom at westGateY+0.3
+    const fence2X = 5 * TILE_SIZE + TILE_SIZE / 2;
+    this.add.rectangle(fence2X, (westGateY - 2.3) * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE * 0.8, 8, 0x6b4f3a)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x4a3528);
+    this.add.rectangle(fence2X, (westGateY + 0.3) * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE * 0.8, 8, 0x6b4f3a)
+      .setDepth(DEPTH.objects).setStrokeStyle(1, 0x4a3528);
+    // Wooden waypost signpost — at curve midpoint (x=4, y=westGateY)
+    const waypostPx = 4 * TILE_SIZE + TILE_SIZE / 2;
+    const waypostY = (westGateY - 1) * TILE_SIZE;
+    // Post pole
+    this.add.rectangle(waypostPx, waypostY, 6, 40, 0x6b4f3a)
+      .setDepth(DEPTH.objects);
+    // Sign board (warm wood color, distinct from south gate's stone)
+    this.add.rectangle(waypostPx, waypostY - 24, 80, 22, 0x7a5a30)
+      .setDepth(DEPTH.objects + 1).setStrokeStyle(1, 0x5a4020);
+    this.add.text(waypostPx, waypostY - 24, '◄ 世界地圖', {
+      fontFamily: FONT_FAMILY, fontSize: '11px', color: '#ffe8a0',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH.objects + 2);
+
+    // Resume cooldown — prevent stale JustDown from paused overlay scenes (Shop/Menu)
+    this.events.on('resume', () => {
+      this.resumeCooldown = this.time.now + 200;
+      // Reset key states to prevent stale JustDown triggers
+      this.interactKey?.reset();
+      this.spaceKey?.reset();
+      this.enterKey?.reset();
+    });
 
     // Keys
     this.interactKey = this.input.keyboard?.addKey('Z');
     this.spaceKey = this.input.keyboard?.addKey('SPACE');
     this.enterKey = this.input.keyboard?.addKey('ENTER');
-    this.input.keyboard?.on('keydown-F', () => this.goToField());
     this.input.keyboard?.on('keydown-Q', () => this.goToWorldMap());
     this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.time.now < this.resumeCooldown) return; // block bleed-through from overlay
       if (this.inDialogue) { this.endDialogue(); audioManager.playSfx('cancel'); }
       else { this.openMenu(); }
     });
-    this.input.keyboard?.on('keydown-M', () => { if (!this.inDialogue) this.openMenu(); });
+    this.input.keyboard?.on('keydown-M', () => { if (!this.inDialogue && this.time.now >= this.resumeCooldown) this.openMenu(); });
+    this.input.keyboard?.on('keydown-F', () => { if (!this.inDialogue) this.goToField(); });
 
     // Environment particles
     BattleEffects.spawnEnvironmentParticles(this, this.regionId, bounds);
 
     // Landing animation — expanding ring to help locate player spawn
-    const spawnX = Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
-    const spawnY = (mapConfig.height - 2) * TILE_SIZE + TILE_SIZE / 2;
     this.spawnLandingEffect(spawnX, spawnY);
 
     TransitionEffect.fadeIn(this);
@@ -258,10 +378,17 @@ export class TownScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     if (this.inDialogue) {
+      // Safety valve: if inDialogue for >5s with no visible textBox, force end
+      if (this.dialogueStartTime > 0 && time - this.dialogueStartTime > 5000 && !this.textBox.isVisible()) {
+        console.warn('[TownScene] Dialogue stuck for >5s with no textBox — forcing endDialogue');
+        this.endDialogue();
+        return;
+      }
       this.textBox.update(time, delta);
-      if (Phaser.Input.Keyboard.JustDown(this.interactKey!) ||
-          this.input.keyboard?.checkDown(this.input.keyboard.addKey('ENTER'), 200) ||
-          this.input.keyboard?.checkDown(this.input.keyboard.addKey('SPACE'), 200)) {
+      // Use JustDown for ALL keys to prevent rapid-fire advances and race conditions
+      if ((this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) ||
+          (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey)) ||
+          (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey))) {
         this.advanceDialogue();
       }
       return;
@@ -289,18 +416,29 @@ export class TownScene extends Phaser.Scene {
     }
 
     // Check NPC interaction or chest interaction (Z, SPACE, or ENTER)
+    // Cooldown prevents accidental re-trigger after dialogue dismiss
     const justInteract = (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey))
       || (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey))
       || (this.enterKey && Phaser.Input.Keyboard.JustDown(this.enterKey));
-    if (justInteract) {
+    if (justInteract && time > this.dialogueCooldown) {
       if (!this.checkChestInteraction()) {
         this.checkNPCInteraction();
       }
     }
 
-    // Edge transition: walk to south edge → field
-    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 0.5) {
+    // Edge transition: walk through south gate gap → field (X must be near gate center)
+    const southGateCenterX = Math.floor(this.mapBounds.width / TILE_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2;
+    if (this.player.y >= this.mapBounds.height - TILE_SIZE * 1.5
+        && Math.abs(this.player.x - southGateCenterX) < TILE_SIZE * 3) {
       this.goToField();
+    }
+
+    // West gate exit → World Map (left border, southwest area near westGateY)
+    const mapH = Math.floor(this.mapBounds.height / TILE_SIZE);
+    const westGateCenterY = (mapH - 8 + 1) * TILE_SIZE + TILE_SIZE / 2; // westGateY + 1 center
+    if (this.player.x <= TILE_SIZE * 1.5
+        && Math.abs(this.player.y - westGateCenterY) < TILE_SIZE * 2) {
+      this.goToWorldMap();
     }
   }
 
@@ -370,10 +508,19 @@ export class TownScene extends Phaser.Scene {
     const chestCount = Math.random() < 0.6 ? 1 : 0;
     if (chestCount === 0) return;
 
+    // Place chests near buildings for more interesting discovery
+    const buildingPositions = [
+      { gx: 4, gy: 6 }, { gx: 10, gy: 8 }, { gx: 28, gy: 6 }, { gx: 32, gy: 8 },
+      { gx: 4, gy: 20 }, { gx: 10, gy: 20 }, { gx: 28, gy: 20 }, { gx: 32, gy: 20 },
+    ];
     for (let ci = 0; ci < chestCount; ci++) {
       const flagKey = `chest_${this.regionId}_${ci}`;
-      const gx = 3 + Math.floor(Math.random() * (mapConfig.width - 6));
-      const gy = 6 + Math.floor(Math.random() * (mapConfig.height - 10));
+      const bldg = buildingPositions[Math.floor(Math.random() * buildingPositions.length)];
+      const offsets = [-2, -1, 1, 2];
+      const dx = offsets[Math.floor(Math.random() * offsets.length)];
+      const dy = offsets[Math.floor(Math.random() * offsets.length)];
+      const gx = Math.max(2, Math.min(mapConfig.width - 3, bldg.gx + dx));
+      const gy = Math.max(4, Math.min(mapConfig.height - 4, bldg.gy + dy));
 
       const px = gx * TILE_SIZE + TILE_SIZE / 2;
       const py = gy * TILE_SIZE + TILE_SIZE / 2;
@@ -393,6 +540,7 @@ export class TownScene extends Phaser.Scene {
   private checkChestInteraction(): boolean {
     const playerPos = this.player.getGridPosition();
     for (const chest of this.chests) {
+      if (chest.opened) continue; // Skip opened chests — they fade out visually
       const dist = Math.abs(playerPos.gx - chest.gx) + Math.abs(playerPos.gy - chest.gy);
       if (dist <= 2) {
         this.openChest(chest);
@@ -403,11 +551,7 @@ export class TownScene extends Phaser.Scene {
   }
 
   private openChest(chest: TreasureChest): void {
-    if (chest.opened || !chest.sprite) {
-      this.inDialogue = true;
-      this.textBox.show('', t('chest.already_opened'));
-      return;
-    }
+    if (chest.opened || !chest.sprite) return; // Silently skip — opened chests filtered in checkChestInteraction
 
     chest.opened = true;
     chest.sprite.setTexture('deco_chest_open');
@@ -622,10 +766,8 @@ export class TownScene extends Phaser.Scene {
   }
 
   private startDialogue(npc: NPCData): void {
-    const tree = getDialogueTree(npc.dialogueId);
-    if (!tree) return;
-
     this.inDialogue = true;
+    this.dialogueStartTime = this.time.now;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(0);
 
@@ -637,61 +779,155 @@ export class TownScene extends Phaser.Scene {
       }
     }
 
-    const node = this.dialogueSystem.start(tree);
-    if (node) {
-      this.textBox.show(node.speaker, node.text);
-    }
-  }
+    try {
+      // ── Companion recruitment NPC — validate before showing join dialogue ──
+      if (npc.dialogueId === 'npc_companion_join') {
+        const companion = getCompanionForRegion(this.regionId);
+        if (!companion) { this.endDialogue(); return; }
 
-  private advanceDialogue(): void {
-    if (!this.textBox.getIsComplete()) {
-      this.textBox.advance();
-      return;
-    }
+        // Already recruited — friendly greeting
+        if (gameState.getCompanion(companion.id)) {
+          this.textBox.show(npc.name, '有你在真是太好了！我們一起加油吧！');
+          return;
+        }
 
-    const choices = this.dialogueSystem.getAvailableChoices();
-    if (choices.length > 0) {
-      this.textBox.showChoices(choices, (index) => {
-        audioManager.playSfx('select');
-        const next = this.dialogueSystem.advance(index);
-        if (next) {
-          this.textBox.show(next.speaker, next.text);
-          this.checkDialogueFlags();
+        // Region not yet liberated — hint dialogue
+        if (!gameState.getState().liberatedRegions.includes(this.regionId)) {
+          this.textBox.show(npc.name, '你就是那位旅行中的勇者嗎？等這片土地恢復和平之後，我想跟你聊聊…');
+          return;
+        }
+
+        // Region liberated, companion not yet recruited — show join dialogue with proper name
+        const tree = getDialogueTree(npc.dialogueId);
+        if (!tree) { this.endDialogue(); return; }
+        const treeCopy = structuredClone(tree);
+        for (const nodeId in treeCopy.nodes) {
+          if (treeCopy.nodes[nodeId].speaker === '???') {
+            treeCopy.nodes[nodeId].speaker = npc.name;
+          }
+        }
+        // Tag which companion this recruitment is for
+        gameState.setFlag('pending_companion_region', false);
+        (gameState.getState().flags as Record<string, any>)['pending_companion_region'] = this.regionId;
+        const node = this.dialogueSystem.start(treeCopy);
+        if (node) {
+          this.textBox.show(node.speaker, node.text);
         } else {
-          this.checkDialogueFlags();
           this.endDialogue();
         }
-      });
-      return;
-    }
+        return;
+      }
 
-    const next = this.dialogueSystem.advance();
-    if (next) {
-      this.textBox.show(next.speaker, next.text);
-      this.checkDialogueFlags();
-    } else {
-      this.checkDialogueFlags();
+      const tree = getDialogueTree(npc.dialogueId);
+      if (!tree) { this.endDialogue(); return; }
+
+      // Inject inn cost into dialogue text
+      let dialogueTree = tree;
+      if (npc.dialogueId === 'npc_inn') {
+        const region = getRegionById(this.regionId);
+        const baseLevel = region?.levelRange[0] ?? 1;
+        const innCost = 20 + baseLevel * 5;
+        dialogueTree = structuredClone(tree);
+        for (const nodeId in dialogueTree.nodes) {
+          dialogueTree.nodes[nodeId].text = dialogueTree.nodes[nodeId].text.replace(/\{innCost\}/g, String(innCost));
+        }
+      }
+
+      const node = this.dialogueSystem.start(dialogueTree);
+      if (node) {
+        this.textBox.show(node.speaker, node.text);
+      } else {
+        this.endDialogue();
+      }
+    } catch (e) {
+      console.error('[TownScene] startDialogue error:', e);
       this.endDialogue();
     }
   }
 
-  private checkDialogueFlags(): void {
+  private advanceDialogue(): void {
+    // Guard against re-entrant calls (e.g. showChoices onConfirm + update both fire)
+    if (this.isAdvancingDialogue) return;
+    this.isAdvancingDialogue = true;
+
+    try {
+      if (!this.textBox.getIsComplete()) {
+        this.textBox.advance();
+        return;
+      }
+
+      // If choices are currently displayed, don't advance — let showChoices handle it
+      if (this.textBox.hasActiveChoices()) return;
+
+      // Guard: if dialogue system was never started (simple textbox-only messages like
+      // companion greetings), just end dialogue — prevents checkDialogueFlags() from
+      // processing stale flags from a previous NPC conversation
+      if (!this.dialogueSystem.isActive()) {
+        this.endDialogue();
+        return;
+      }
+
+      const choices = this.dialogueSystem.getAvailableChoices();
+      if (choices.length > 0) {
+        this.textBox.showChoices(choices, (index) => {
+          // Consume JustDown flags to prevent double-fire — the TextBox key event
+          // handler that triggered this callback sets _justDown on shared Key objects,
+          // which would otherwise cause advanceDialogue() to fire again in the same
+          // frame's update loop, corrupting dialogue state across shop cycles.
+          if (this.interactKey) Phaser.Input.Keyboard.JustDown(this.interactKey);
+          if (this.enterKey) Phaser.Input.Keyboard.JustDown(this.enterKey);
+          if (this.spaceKey) Phaser.Input.Keyboard.JustDown(this.spaceKey);
+
+          audioManager.playSfx('select');
+          const next = this.dialogueSystem.advance(index);
+          if (next) {
+            this.textBox.show(next.speaker, next.text);
+            this.checkDialogueFlags();
+          } else {
+            const handled = this.checkDialogueFlags();
+            if (!handled && this.inDialogue) this.endDialogue();
+          }
+        });
+        return;
+      }
+
+      const next = this.dialogueSystem.advance();
+      if (next) {
+        this.textBox.show(next.speaker, next.text);
+        this.checkDialogueFlags();
+      } else {
+        const handled = this.checkDialogueFlags();
+        if (!handled && this.inDialogue) this.endDialogue();
+      }
+    } finally {
+      this.isAdvancingDialogue = false;
+    }
+  }
+
+  /** Check dialogue flags and handle side effects. Returns true if a new textbox was shown
+   *  (caller should NOT call endDialogue). */
+  private checkDialogueFlags(): boolean {
     const state = gameState.getState();
     if (state.flags['trigger_save']) {
       gameState.setFlag('trigger_save', false);
       SaveLoadSystem.autoSave();
+      audioManager.playSfx('fanfare');
+      this.textBox.show('記錄者', '冒險記錄已保存！祝你旅途平安！');
+      return true;
     }
     if (state.flags['open_shop_buy']) {
       gameState.setFlag('open_shop_buy', false);
       this.endDialogue();
       this.scene.launch('ShopScene', { regionId: this.regionId, mode: 'buy' });
       this.scene.pause();
+      return true;
     }
     if (state.flags['open_shop_sell']) {
       gameState.setFlag('open_shop_sell', false);
       this.endDialogue();
       this.scene.launch('ShopScene', { regionId: this.regionId, mode: 'sell' });
       this.scene.pause();
+      return true;
     }
     if (state.flags['trigger_inn']) {
       gameState.setFlag('trigger_inn', false);
@@ -704,18 +940,76 @@ export class TownScene extends Phaser.Scene {
           member.stats.hp = member.stats.maxHP;
           member.stats.mp = member.stats.maxMP;
         }
-        audioManager.playSfx('heal');
-        this.textBox.show('旅店老闆', `花費了 ${innCost} 金幣。全員 HP/MP 完全恢復！`);
+        // Fade-to-black overnight animation
+        this.dialogueStartTime = this.time.now; // Reset safety valve timer for animation duration
+        this.textBox.hide();
+        const overlay = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+          .setScrollFactor(0).setDepth(DEPTH.ui + 100);
+        this.tweens.add({
+          targets: overlay, alpha: 1, duration: 500, ease: 'Sine.easeInOut',
+          onComplete: () => {
+            // Moon icon at center
+            const moon = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, '☽', {
+              fontFamily: FONT_FAMILY, fontSize: '48px', color: '#ffeeaa',
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 101);
+            const zzz = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'z z z', {
+              fontFamily: FONT_FAMILY, fontSize: '18px', color: '#8899aa',
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 101);
+            this.tweens.add({ targets: zzz, alpha: { from: 0.4, to: 1 }, duration: 400, yoyo: true, repeat: 1 });
+            // Hold black screen, then fade back in
+            this.time.delayedCall(800, () => {
+              moon.destroy();
+              zzz.destroy();
+              this.tweens.add({
+                targets: overlay, alpha: 0, duration: 500, ease: 'Sine.easeInOut',
+                onComplete: () => {
+                  overlay.destroy();
+                  audioManager.playSfx('heal');
+                  this.textBox.show('旅店老闆', `花費了 ${innCost} 金幣。全員 HP/MP 完全恢復！`);
+                },
+              });
+            });
+          },
+        });
       } else {
         audioManager.playSfx('fail');
         this.textBox.show('旅店老闆', '看來你的錢不太夠呢…下次再來吧。');
       }
+      return true;
     }
+    // ── Companion recruitment ──
+    if (state.flags['companion_joined']) {
+      gameState.setFlag('companion_joined', false);
+      const recruitRegion = (state.flags as Record<string, any>)['pending_companion_region'] as string || this.regionId;
+      delete (state.flags as Record<string, any>)['pending_companion_region'];
+      const companion = getCompanionForRegion(recruitRegion);
+      if (companion && !gameState.getCompanion(companion.id)) {
+        const companionData = structuredClone(companion);
+        // Scale companion level to hero's level
+        const heroLevel = gameState.getHero().level;
+        companionData.level = Math.max(companionData.level, heroLevel);
+        companionData.stats.hp = companionData.stats.maxHP;
+        companionData.stats.mp = companionData.stats.maxMP;
+        gameState.addCompanion(companionData);
+        const joinedParty = gameState.addToParty(companionData.id);
+        audioManager.playSfx('levelup');
+        const msg = joinedParty
+          ? `${companionData.name} 加入了隊伍！`
+          : `${companionData.name} 成為了夥伴！（隊伍已滿，可在選單中更換）`;
+        this.textBox.show(companionData.name, msg);
+        return true;
+      }
+    }
+    return false;
   }
 
   private endDialogue(): void {
     this.inDialogue = false;
     this.textBox.hide();
+    this.dialogueCooldown = this.time.now + 1200; // 1200ms cooldown to prevent re-trigger
+    this.dialogueSystem.reset(); // prevent stale dialogue state from leaking to next NPC
+    // Clean up any dangling companion recruitment state
+    delete (gameState.getState().flags as Record<string, any>)['pending_companion_region'];
   }
 
   private goToField(): void {

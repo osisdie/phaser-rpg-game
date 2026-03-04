@@ -14,6 +14,8 @@ interface BarDisplay {
 export class BattleHUD extends Phaser.GameObjects.Container {
   private partyBars: { name: Phaser.GameObjects.Text; hp: BarDisplay; mp: BarDisplay }[] = [];
   private enemyTexts: Phaser.GameObjects.Text[] = [];
+  /** Smooth display ratios — lerp toward target for per-hit animation */
+  private displayRatios = new Map<BarDisplay, number>();
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -30,19 +32,24 @@ export class BattleHUD extends Phaser.GameObjects.Container {
       b.mp.frame?.destroy();
     });
     this.partyBars = [];
+    this.displayRatios.clear();
 
     const startX = GAME_WIDTH - 290;
-    const startY = GAME_HEIGHT - 175;
+    const startY = GAME_HEIGHT - 185;
 
     party.forEach((member, i) => {
-      const y = startY + i * 55;
+      const y = startY + i * 58;
       const name = this.scene.add.text(startX, y, member.name, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textPrimary,
-        stroke: '#000000', strokeThickness: 1,
+        stroke: '#000000', strokeThickness: 2,
       });
 
       const hp = this.createBar(startX, y + 18, 170, 12, COLORS.hpBar);
       const mp = this.createBar(startX, y + 34, 170, 8, COLORS.mpBar);
+
+      // Initialize display ratios to current values
+      this.displayRatios.set(hp, member.stats.hp / member.stats.maxHP);
+      this.displayRatios.set(mp, member.stats.mp / member.stats.maxMP);
 
       const children: Phaser.GameObjects.GameObject[] = [name, hp.bg, hp.fill, hp.text, mp.bg, mp.fill, mp.text];
       if (hp.frame) children.push(hp.frame);
@@ -76,14 +83,16 @@ export class BattleHUD extends Phaser.GameObjects.Container {
   }
 
   private createBar(x: number, y: number, width: number, height: number, color: number): BarDisplay {
-    const bg = this.scene.add.rectangle(x + width / 2, y + height / 2, width, height, 0x333333);
+    const bg = this.scene.add.rectangle(x + width / 2, y + height / 2, width, height, 0x2a2a3a)
+      .setStrokeStyle(1, 0x555566);
     const fill = this.scene.add.rectangle(x + width / 2, y + height / 2, width, height, color);
 
     // Use metal bar frame texture if available
     let frame: Phaser.GameObjects.Image | null = null;
     const frameKey = height >= 10 ? 'ui_bar_frame_hp' : 'ui_bar_frame_mp';
     if (this.scene.textures.exists(frameKey)) {
-      frame = this.scene.add.image(x + width / 2, y + height / 2, frameKey);
+      frame = this.scene.add.image(x + width / 2, y + height / 2, frameKey)
+        .setDisplaySize(width + 4, height + 4);
     }
 
     const text = this.scene.add.text(x + width + 8, y - 2, '', {
@@ -94,10 +103,22 @@ export class BattleHUD extends Phaser.GameObjects.Container {
   }
 
   private updateBar(bar: BarDisplay, current: number, max: number, label: string): void {
-    const ratio = Math.max(0, current / max);
+    const targetRatio = Math.max(0, current / max);
     const barWidth = bar.bg.width;
-    const width = barWidth * ratio;
-    bar.fill.setSize(width, bar.fill.height);
+
+    // Smooth lerp: display ratio moves toward target at a fixed rate
+    const prevRatio = this.displayRatios.get(bar) ?? targetRatio;
+    const lerpSpeed = 0.025; // ~2.5% per frame ≈ 0.7s for full bar drain at 60fps
+    let newRatio: number;
+    if (Math.abs(prevRatio - targetRatio) <= lerpSpeed) {
+      newRatio = targetRatio;
+    } else {
+      newRatio = prevRatio + (targetRatio < prevRatio ? -lerpSpeed : lerpSpeed);
+    }
+    this.displayRatios.set(bar, newRatio);
+
+    const width = barWidth * newRatio;
+    bar.fill.setSize(Math.max(0, width), bar.fill.height);
     bar.fill.setX(bar.bg.x - barWidth / 2 + width / 2);
     bar.text.setText(label);
   }

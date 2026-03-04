@@ -18,8 +18,11 @@ export class ShopScene extends Phaser.Scene {
 
   // Store references for ESC handler
   private currentShopData: { id: string; name: string; price: number; desc: string }[] = [];
-  private currentSellItems: { item: { id: string; name: string; sellPrice: number }; quantity: number }[] = [];
+  private currentSellItems: { item: { id: string; name: string; sellPrice: number; description?: string }; quantity: number }[] = [];
+  private sellItemIcons: (Phaser.GameObjects.Image | null)[] = [];
+  private goldText?: Phaser.GameObjects.Text;
   private descText?: Phaser.GameObjects.Text;
+  private closing = false;
 
   constructor() {
     super('ShopScene');
@@ -29,8 +32,33 @@ export class ShopScene extends Phaser.Scene {
     this.regionId = data.regionId;
     this.mode = data.mode;
     this.itemTexts = [];
+    this.sellItemIcons = [];
     this.selectedIndex = 0;
     this.pendingConfirmIndex = -1;
+    this.closing = false;
+
+    // Register ESC handler FIRST — must always be available even if list setup fails
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.pendingConfirmIndex >= 0) {
+        this.pendingConfirmIndex = -1;
+        if (this.mode === 'buy') this.updateShopHighlight(this.currentShopData);
+        else this.updateSellHighlight(this.currentSellItems);
+        audioManager.playSfx('cancel');
+      } else {
+        audioManager.playSfx('cancel');
+        this.closeShop();
+      }
+    });
+
+    // Right-click to cancel pending confirm
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown() && this.pendingConfirmIndex >= 0) {
+        this.pendingConfirmIndex = -1;
+        if (this.mode === 'buy') this.updateShopHighlight(this.currentShopData);
+        else this.updateSellHighlight(this.currentSellItems);
+        audioManager.playSfx('cancel');
+      }
+    });
 
     // Overlay
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7);
@@ -50,14 +78,22 @@ export class ShopScene extends Phaser.Scene {
       fontFamily: FONT_FAMILY, fontSize: '22px', color: COLORS.textHighlight,
     }).setOrigin(0.5);
 
-    // Gold display with coin icon
+    // Gold display with stacked coin icon
     const goldX = GAME_WIDTH - 120;
-    if (this.textures.exists('icon_coin')) {
-      this.add.image(goldX - 90, 60, 'icon_coin');
+    const goldIconKey = this.textures.exists('icon_gold_stack') ? 'icon_gold_stack' : 'icon_coin';
+    if (this.textures.exists(goldIconKey)) {
+      this.add.image(goldX - 60, 60, goldIconKey);
     }
-    const goldText = this.add.text(goldX, 60, t('shop.gold', gameState.getGold()), {
+    const goldText = this.add.text(goldX, 60, gameState.getGold().toLocaleString(), {
       fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textHighlight,
     }).setOrigin(1, 0.5);
+    this.goldText = goldText;
+
+    // Item description area (create before list so descText is available)
+    this.descText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 85, '', {
+      fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ccddee',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5);
 
     if (this.mode === 'buy') {
       this.showBuyList(goldText);
@@ -65,29 +101,11 @@ export class ShopScene extends Phaser.Scene {
       this.showSellList(goldText);
     }
 
-    // Item description area
-    this.descText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 85, '', {
-      fontFamily: FONT_FAMILY, fontSize: '14px', color: '#ccddee',
+    // Close hint
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 50, `ESC 關閉  |  ↑↓ 選擇  |  確認鍵×2購買  |  點擊×2 / 右鍵取消`, {
+      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#999999',
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5);
-
-    // Close hint
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 50, `ESC 關閉  |  ↑↓ 選擇  |  Enter/Z/Space 確認（按兩次）`, {
-      fontFamily: FONT_FAMILY, fontSize: '13px', color: '#999999',
-      stroke: '#000000', strokeThickness: 1,
-    }).setOrigin(0.5);
-
-    this.input.keyboard?.on('keydown-ESC', () => {
-      if (this.pendingConfirmIndex >= 0) {
-        this.pendingConfirmIndex = -1;
-        if (this.mode === 'buy') this.updateShopHighlight(this.currentShopData);
-        else this.updateSellHighlight(this.currentSellItems);
-        audioManager.playSfx('cancel');
-      } else {
-        audioManager.playSfx('cancel');
-        this.closeShop();
-      }
-    });
   }
 
   private showBuyList(goldText: Phaser.GameObjects.Text): void {
@@ -111,18 +129,18 @@ export class ShopScene extends Phaser.Scene {
 
     this.itemTexts = [];
     shopData.forEach((entry, i) => {
-      const y = 100 + i * 36;
-      if (y > GAME_HEIGHT - 90) return;
+      const y = 100 + i * 72;
+      if (y > GAME_HEIGHT - 100) return;
 
-      // Item icon
+      // Item icon (full size to match inventory)
       const iconKey = ItemIconRenderer.getIconKey(entry.id);
       if (this.textures.exists(iconKey)) {
-        const icon = this.add.image(85, y + 10, iconKey).setScale(0.5);
+        const icon = this.add.image(100, y + 28, iconKey);
         if (gameState.getGold() < entry.price) icon.setAlpha(0.4);
       }
 
       const canAfford = gameState.getGold() >= entry.price;
-      const text = this.add.text(108, y, `  ${entry.name}  ${entry.price}G  — ${entry.desc}`, {
+      const text = this.add.text(140, y + 16, `  ${entry.name}  ${entry.price}G  — ${entry.desc}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px',
         color: canAfford ? '#ffffff' : '#666666',
         stroke: '#000000', strokeThickness: 2,
@@ -134,7 +152,8 @@ export class ShopScene extends Phaser.Scene {
       this.itemTexts.push(text);
     });
 
-    this.updateShopHighlight(shopData);
+    // Defer initial highlight to next tick — Text canvas may not be ready during scene boot
+    this.time.delayedCall(0, () => this.updateShopHighlight(shopData));
 
     // Keyboard navigation
     this.input.keyboard?.on('keydown-UP', () => {
@@ -169,7 +188,14 @@ export class ShopScene extends Phaser.Scene {
       this.pendingConfirmIndex = -1;
       if (InventorySystem.buyItem(entry.id, entry.price)) {
         audioManager.playSfx('equip');
-        goldText.setText(t('shop.gold', gameState.getGold()));
+        goldText.setText(gameState.getGold().toLocaleString());
+        // Gold change animation — scale pulse
+        this.tweens.getTweensOf(goldText).forEach(tw => tw.stop());
+        goldText.setScale(1);
+        this.tweens.add({
+          targets: goldText, scale: { from: 1.0, to: 1.2 },
+          duration: 150, yoyo: true, ease: 'Sine.easeOut',
+        });
         // Update all items affordability
         shopData.forEach((d, i) => {
           if (this.itemTexts[i]) {
@@ -199,17 +225,20 @@ export class ShopScene extends Phaser.Scene {
     }
 
     this.itemTexts = [];
+    this.sellItemIcons = [];
     items.forEach((entry, i) => {
-      const y = 100 + i * 36;
-      if (y > GAME_HEIGHT - 90) return;
+      const y = 100 + i * 72;
+      if (y > GAME_HEIGHT - 100) return;
 
-      // Item icon
+      // Item icon (full size to match inventory) — store ref for gray-out
+      let icon: Phaser.GameObjects.Image | null = null;
       const iconKey = ItemIconRenderer.getIconKey(entry.item.id);
       if (this.textures.exists(iconKey)) {
-        this.add.image(85, y + 10, iconKey).setScale(0.5);
+        icon = this.add.image(100, y + 28, iconKey);
       }
+      this.sellItemIcons.push(icon);
 
-      const text = this.add.text(108, y, `  ${entry.item.name} ×${entry.quantity}  賣出: ${entry.item.sellPrice} 金幣`, {
+      const text = this.add.text(140, y + 16, `  ${entry.item.name} ×${entry.quantity}  賣出: ${entry.item.sellPrice} 金幣`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textPrimary,
         stroke: '#000000', strokeThickness: 2,
       }).setInteractive({ useHandCursor: true });
@@ -219,7 +248,8 @@ export class ShopScene extends Phaser.Scene {
       this.itemTexts.push(text);
     });
 
-    this.updateSellHighlight(items);
+    // Defer initial highlight to next tick — Text canvas may not be ready during scene boot
+    this.time.delayedCall(0, () => this.updateSellHighlight(items));
 
     // Keyboard navigation
     this.input.keyboard?.on('keydown-UP', () => {
@@ -250,10 +280,22 @@ export class ShopScene extends Phaser.Scene {
       this.pendingConfirmIndex = -1;
       if (InventorySystem.sellItem(entry.item.id)) {
         audioManager.playSfx('equip');
-        goldText.setText(t('shop.gold', gameState.getGold()));
+        goldText.setText(gameState.getGold().toLocaleString());
+        // Gold change animation — scale pulse + yellow flash
+        this.tweens.getTweensOf(goldText).forEach(tw => tw.stop());
+        goldText.setScale(1);
+        this.tweens.add({
+          targets: goldText, scale: { from: 1.0, to: 1.2 },
+          duration: 150, yoyo: true, ease: 'Sine.easeOut',
+        });
         entry.quantity--;
         if (entry.quantity <= 0) {
-          this.itemTexts[index]?.setVisible(false);
+          // Gray out sold-out item text and icon
+          this.itemTexts[index]?.setColor('#444444');
+          this.itemTexts[index]?.setText(`  ${entry.item.name} ×0  已售完`);
+          if (this.sellItemIcons[index]) {
+            this.sellItemIcons[index]!.setAlpha(0.3);
+          }
         } else {
           this.itemTexts[index]?.setText(`  ${entry.item.name} ×${entry.quantity}  賣出: ${entry.item.sellPrice} 金幣`);
         }
@@ -268,15 +310,27 @@ export class ShopScene extends Phaser.Scene {
 
   private updateShopHighlight(shopData: { id: string; price: number; desc?: string; name?: string }[]): void {
     this.itemTexts.forEach((text, i) => {
+      if (!text.active) return; // guard against destroyed text during scene transitions
       const raw = text.text.replace(/^[► ] /, '').replace(/  ← 確定\?$/, '');
       const canAfford = gameState.getGold() >= (shopData[i]?.price ?? Infinity);
       if (i === this.pendingConfirmIndex) {
         text.setText(`► ${raw}  ← 確定?`);
-        text.setColor('#ffff44');
+        text.setColor('#ffff00');
+        text.setFontSize('15px');
+        // Pulsing flash effect for pending confirm
+        this.tweens.getTweensOf(text).forEach(tw => tw.stop());
+        this.tweens.add({
+          targets: text, alpha: { from: 1, to: 0.5 },
+          duration: 300, yoyo: true, repeat: -1,
+        });
       } else if (i === this.selectedIndex) {
+        this.tweens.getTweensOf(text).forEach(tw => tw.stop());
+        text.setAlpha(1).setFontSize('14px');
         text.setText(`► ${raw}`);
         text.setColor(COLORS.textHighlight);
       } else {
+        this.tweens.getTweensOf(text).forEach(tw => tw.stop());
+        text.setAlpha(1).setFontSize('14px');
         text.setText(`  ${raw}`);
         text.setColor(canAfford ? '#ffffff' : '#666666');
       }
@@ -288,23 +342,40 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 
-  private updateSellHighlight(items: { item: { name: string; sellPrice: number }; quantity: number }[]): void {
+  private updateSellHighlight(items: { item: { name: string; sellPrice: number; description?: string }; quantity: number }[]): void {
     this.itemTexts.forEach((text, i) => {
-      if (!items[i] || items[i].quantity <= 0) return;
+      if (!text.active || !items[i]) return;
+      const soldOut = items[i].quantity <= 0;
+      if (soldOut) return; // already grayed out in doSell
       if (i === this.pendingConfirmIndex) {
         text.setText(`► ${items[i].item.name} ×${items[i].quantity}  賣出: ${items[i].item.sellPrice} 金幣  ← 確定?`);
-        text.setColor('#ffff44');
+        text.setColor('#ffff00');
+        text.setFontSize('15px');
+        this.tweens.getTweensOf(text).forEach(tw => tw.stop());
+        this.tweens.add({
+          targets: text, alpha: { from: 1, to: 0.5 },
+          duration: 300, yoyo: true, repeat: -1,
+        });
       } else {
+        this.tweens.getTweensOf(text).forEach(tw => tw.stop());
+        text.setAlpha(1).setFontSize('14px');
         const isSelected = i === this.selectedIndex;
         text.setText(`${isSelected ? '► ' : '  '}${items[i].item.name} ×${items[i].quantity}  賣出: ${items[i].item.sellPrice} 金幣`);
         text.setColor(isSelected ? COLORS.textHighlight : COLORS.textPrimary);
       }
     });
+    // Update description panel for selected item
+    const sel = items[this.selectedIndex];
+    if (this.descText && sel) {
+      this.descText.setText(sel.item.description ? `${sel.item.name} — ${sel.item.description}` : '');
+    }
   }
 
   private closeShop(): void {
+    if (this.closing) return;
+    this.closing = true;
     const parentScene = gameState.getState().currentScene;
     this.scene.resume(parentScene);
-    this.scene.stop();
+    this.scene.stop(); // InputPlugin.shutdown() handles listener cleanup
   }
 }

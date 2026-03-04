@@ -44,6 +44,7 @@ export class IconRenderer {
     // Status icons
     this.generateHeartIcon(scene, 'icon_heart');
     this.generateCoinIcon(scene, 'icon_coin');
+    this.generateGoldStackIcon(scene, 'icon_gold_stack');
   }
 
   private static generateSwordIcon(scene: Phaser.Scene, key: string): void {
@@ -444,6 +445,52 @@ export class IconRenderer {
     ctx.fillStyle = MEDIEVAL.goldDark;
     ctx.fillRect(7, 6, 2, 4);
     ctx.fillRect(6, 7, 4, 1);
+
+    ArtRegistry.registerTexture(scene, key, canvas);
+  }
+
+  /** 3 stacked gold coins — elliptical coin shapes with 3D beveling */
+  private static generateGoldStackIcon(scene: Phaser.Scene, key: string): void {
+    if (scene.textures.exists(key)) return;
+    const { canvas, ctx } = ArtRegistry.createCanvas(ICON_SIZE, ICON_SIZE);
+    ctx.scale(ICON_SIZE / DS, ICON_SIZE / DS);
+
+    const drawCoin = (cx: number, cy: number, rx: number, ry: number, bright: boolean) => {
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 1.5, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Coin edge (darker ring)
+      ctx.fillStyle = MEDIEVAL.goldDark;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Coin face (inner fill)
+      ctx.fillStyle = bright ? MEDIEVAL.goldBright : MEDIEVAL.gold;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 0.3, rx - 1, ry - 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Inner ring detail
+      ctx.strokeStyle = MEDIEVAL.goldDark;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 0.3, rx - 2.5, ry - 1.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      // Top highlight arc
+      ctx.strokeStyle = MEDIEVAL.goldLight;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 0.5, rx - 1.5, ry - 1, 0, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+    };
+
+    // Bottom coin (offset left)
+    drawCoin(6, 12, 5.5, 2.5, false);
+    // Middle coin (offset right)
+    drawCoin(9, 9, 5.5, 2.5, false);
+    // Top coin (centered, brightest)
+    drawCoin(7.5, 5.5, 5.5, 2.5, true);
 
     ArtRegistry.registerTexture(scene, key, canvas);
   }

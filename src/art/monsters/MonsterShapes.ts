@@ -222,53 +222,71 @@ function drawBat(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: numbe
 function drawWolf(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, base: string, accent: string): void {
   const cx = ox + w / 2;
 
-  // Tail
-  fillGradientRect(ctx, cx - w * 0.42, oy + h * 0.28, w * 0.12, h * 0.06, base);
-  fillGradientRect(ctx, cx - w * 0.45, oy + h * 0.22, w * 0.08, h * 0.08, lighten(base, 0.1));
+  // Bushy tail — curving upward, thick with fur
+  fillGradientOval(ctx, cx - w * 0.42, oy + h * 0.18, w * 0.16, h * 0.12, darken(base, 0.05));
+  fillGradientOval(ctx, cx - w * 0.46, oy + h * 0.12, w * 0.12, h * 0.1, lighten(base, 0.08));
+  fillGradientOval(ctx, cx - w * 0.48, oy + h * 0.08, w * 0.08, h * 0.07, lighten(base, 0.12));
 
-  // Body
-  fillGradientOval(ctx, cx - w * 0.35, oy + h * 0.3, w * 0.5, h * 0.35, base);
-  // Belly highlight
-  fillGradientOval(ctx, cx - w * 0.2, oy + h * 0.4, w * 0.3, h * 0.18, lighten(base, 0.18), { outline: false });
+  // Lean, elongated body (wider and flatter than a dog)
+  fillGradientOval(ctx, cx - w * 0.32, oy + h * 0.28, w * 0.55, h * 0.3, base);
+  // Belly — lighter underside
+  fillGradientOval(ctx, cx - w * 0.15, oy + h * 0.4, w * 0.35, h * 0.14, lighten(base, 0.15), { outline: false });
+  // Chest ruff — thick neck fur
+  fillGradientOval(ctx, cx + w * 0.08, oy + h * 0.22, w * 0.22, h * 0.22, lighten(base, 0.06), { outline: false });
 
-  // Fur texture
-  drawTexture(ctx, cx - w * 0.3, oy + h * 0.32, w * 0.45, h * 0.28, 'fur', base, 0.35);
+  // Fur texture on back
+  drawTexture(ctx, cx - w * 0.28, oy + h * 0.3, w * 0.5, h * 0.22, 'fur', base, 0.4);
+  // Dark dorsal stripe
+  fillGradientRect(ctx, cx - w * 0.2, oy + h * 0.28, w * 0.35, h * 0.04, darken(base, 0.15));
 
-  // Legs (gradient)
+  // Legs — longer and leaner than dog
   const legColor = darken(base, 0.1);
-  fillGradientRect(ctx, cx - w * 0.28, oy + h * 0.6, w * 0.07, h * 0.22, legColor);
-  fillGradientRect(ctx, cx - w * 0.08, oy + h * 0.6, w * 0.07, h * 0.22, legColor);
-  fillGradientRect(ctx, cx + w * 0.08, oy + h * 0.55, w * 0.07, h * 0.27, legColor);
+  // Back legs (slightly bent)
+  fillGradientRect(ctx, cx - w * 0.26, oy + h * 0.52, w * 0.065, h * 0.28, legColor);
+  fillGradientRect(ctx, cx - w * 0.1, oy + h * 0.52, w * 0.065, h * 0.28, legColor);
+  // Front legs
+  fillGradientRect(ctx, cx + w * 0.1, oy + h * 0.48, w * 0.065, h * 0.32, legColor);
+  fillGradientRect(ctx, cx + w * 0.22, oy + h * 0.48, w * 0.065, h * 0.32, legColor);
 
-  // Paws
-  ctx.fillStyle = darken(base, 0.2);
-  ctx.fillRect(Math.round(cx - w * 0.3), Math.round(oy + h * 0.8), Math.max(3, w * 0.1), 2);
-  ctx.fillRect(Math.round(cx - w * 0.1), Math.round(oy + h * 0.8), Math.max(3, w * 0.1), 2);
-  ctx.fillRect(Math.round(cx + w * 0.07), Math.round(oy + h * 0.8), Math.max(3, w * 0.1), 2);
+  // Paws — small and dark
+  ctx.fillStyle = darken(base, 0.25);
+  ctx.fillRect(Math.round(cx - w * 0.28), Math.round(oy + h * 0.78), Math.max(3, w * 0.09), 3);
+  ctx.fillRect(Math.round(cx - w * 0.12), Math.round(oy + h * 0.78), Math.max(3, w * 0.09), 3);
+  ctx.fillRect(Math.round(cx + w * 0.08), Math.round(oy + h * 0.78), Math.max(3, w * 0.09), 3);
+  ctx.fillRect(Math.round(cx + w * 0.2), Math.round(oy + h * 0.78), Math.max(3, w * 0.09), 3);
 
-  // Neck
-  fillGradientOval(ctx, cx + w * 0.02, oy + h * 0.22, w * 0.2, h * 0.2, base, { outline: false });
+  // Neck — thick and muscular
+  fillGradientOval(ctx, cx + w * 0.12, oy + h * 0.18, w * 0.2, h * 0.2, base, { outline: false });
 
-  // Head
-  fillGradientOval(ctx, cx + w * 0.05, oy + h * 0.12, w * 0.32, h * 0.28, base);
+  // Head — angular and narrow (wolf-like, not round like a dog)
+  fillGradientOval(ctx, cx + w * 0.15, oy + h * 0.08, w * 0.28, h * 0.24, base);
+  // Brow ridge — gives fierce look
+  fillGradientRect(ctx, cx + w * 0.14, oy + h * 0.1, w * 0.2, h * 0.04, darken(base, 0.08));
 
-  // Snout
-  fillGradientOval(ctx, cx + w * 0.28, oy + h * 0.26, w * 0.16, h * 0.12, lighten(base, 0.15));
-  // Nose
-  ctx.fillStyle = '#222222';
-  ctx.fillRect(Math.round(cx + w * 0.38), Math.round(oy + h * 0.28), Math.max(2, w * 0.04), Math.max(2, h * 0.03));
-  // Mouth line
-  ctx.fillStyle = darken(base, 0.3);
-  ctx.fillRect(Math.round(cx + w * 0.32), Math.round(oy + h * 0.35), Math.max(3, w * 0.1), 1);
+  // Long snout — much longer than a dog, tapered
+  fillGradientOval(ctx, cx + w * 0.35, oy + h * 0.18, w * 0.22, h * 0.1, lighten(base, 0.12));
+  // Nose — large and dark
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(Math.round(cx + w * 0.46), Math.round(oy + h * 0.19), Math.max(3, w * 0.05), Math.max(3, h * 0.04));
+  // Mouth line — showing teeth
+  ctx.fillStyle = darken(base, 0.35);
+  ctx.fillRect(Math.round(cx + w * 0.36), Math.round(oy + h * 0.26), Math.max(4, w * 0.14), 1);
+  // Fangs
+  ctx.fillStyle = '#dddddd';
+  ctx.fillRect(Math.round(cx + w * 0.38), Math.round(oy + h * 0.265), 2, Math.max(2, h * 0.03));
+  ctx.fillRect(Math.round(cx + w * 0.44), Math.round(oy + h * 0.265), 2, Math.max(2, h * 0.03));
 
-  // Ears
-  fillGradientTriangle(ctx, cx + w * 0.1, oy + h * 0.15, cx + w * 0.07, oy + h * 0.02, cx + w * 0.17, oy + h * 0.05, darken(base, 0.1));
-  fillGradientTriangle(ctx, cx + w * 0.25, oy + h * 0.15, cx + w * 0.22, oy + h * 0.02, cx + w * 0.32, oy + h * 0.05, darken(base, 0.1));
+  // Ears — tall, pointed, upright (wolf ears)
+  fillGradientTriangle(ctx, cx + w * 0.16, oy + h * 0.12, cx + w * 0.18, oy - h * 0.02, cx + w * 0.26, oy + h * 0.05, darken(base, 0.08));
+  fillGradientTriangle(ctx, cx + w * 0.28, oy + h * 0.1, cx + w * 0.32, oy - h * 0.02, cx + w * 0.38, oy + h * 0.05, darken(base, 0.08));
+  // Inner ear highlight
+  fillGradientTriangle(ctx, cx + w * 0.19, oy + h * 0.1, cx + w * 0.2, oy + h * 0.02, cx + w * 0.24, oy + h * 0.06, lighten(base, 0.2));
+  fillGradientTriangle(ctx, cx + w * 0.31, oy + h * 0.08, cx + w * 0.33, oy + h * 0.01, cx + w * 0.36, oy + h * 0.06, lighten(base, 0.2));
 
-  // Eye (fierce)
-  drawEye(ctx, cx + w * 0.2, oy + h * 0.2, w * 0.06, accent, accent);
+  // Eye — fierce, narrow (wolf-like intensity)
+  drawEye(ctx, cx + w * 0.26, oy + h * 0.16, w * 0.055, accent, accent);
 
-  addHighlight(ctx, cx + w * 0.12, oy + h * 0.18, w * 0.06, 0.25);
+  addHighlight(ctx, cx + w * 0.2, oy + h * 0.14, w * 0.05, 0.25);
 }
 
 function drawSnake(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, base: string, accent: string): void {

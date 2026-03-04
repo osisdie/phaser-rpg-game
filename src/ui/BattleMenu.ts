@@ -69,7 +69,7 @@ export class BattleMenu extends Phaser.GameObjects.Container {
     // Auto-attack hint below the menu
     this.autoHint = scene.add.text(menuX, menuY + menuH + 8, 'A: 自動攻擊', {
       fontFamily: FONT_FAMILY, fontSize: '11px', color: '#888899',
-      stroke: '#000000', strokeThickness: 1,
+      stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5, 0);
     this.add(this.autoHint);
 
