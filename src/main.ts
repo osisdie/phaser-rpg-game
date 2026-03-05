@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { gameConfig } from './config';
 import { gameState } from './systems/GameStateManager';
+import { monitoringClient } from './systems/MonitoringClient';
 
 const game = new Phaser.Game(gameConfig);
+monitoringClient.init();
 // Expose for debugging & e2e testing
 (window as any).__GAME__ = game;
 (window as any).__GAME_STATE__ = gameState;

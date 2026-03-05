@@ -53,6 +53,11 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     },
   },
   backgroundColor: '#000000',
+  render: {
+    // Required for canvas.toDataURL() to work with WebGL — without this,
+    // the drawing buffer is cleared after each frame, producing black captures.
+    preserveDrawingBuffer: true,
+  },
   loader: {
     imageLoadType: 'HTMLImageElement',
   },

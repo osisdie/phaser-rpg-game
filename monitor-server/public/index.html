@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPG Monitor Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header>
+    <h1>RPG Monitor Dashboard</h1>
+    <div id="connection-status">
+      <span id="status-dot" class="dot disconnected"></span>
+      <span id="status-text">Disconnected</span>
+      <span id="player-count">0 players</span>
+    </div>
+  </header>
+
+  <div id="filter-bar">
+    <input type="text" id="filter-name" placeholder="Search by name..." />
+    <select id="filter-scene">
+      <option value="">All Scenes</option>
+    </select>
+    <select id="filter-region">
+      <option value="">All Regions</option>
+    </select>
+    <label>
+      Rate:
+      <select id="update-rate">
+        <option value="1000">1s</option>
+        <option value="2000" selected>2s</option>
+        <option value="5000">5s</option>
+        <option value="10000">10s</option>
+      </select>
+    </label>
+  </div>
+
+  <main id="player-list"></main>
+
+  <!-- Media Viewer Modal -->
+  <div id="media-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <div id="media-container"></div>
+      <div class="modal-actions">
+        <a id="media-download" class="btn" download>Download</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
