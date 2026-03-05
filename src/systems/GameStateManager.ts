@@ -37,6 +37,7 @@ function createDefaultState(): GameState {
     encounterSteps: 0,
     gameCompleted: false,
     miniBossDefeatedTimes: {},
+    chestSpawns: {},
   };
   // Apply starting equipment bonuses to hero stats
   EquipmentSystem.applyAllEquipment(state.hero);
@@ -61,6 +62,7 @@ class GameStateManager {
     // Ensure fields added in later versions exist for old saves
     if (!this.state.miniBossDefeatedTimes) this.state.miniBossDefeatedTimes = {};
     if (!this.state.flags) this.state.flags = {};
+    if (!this.state.chestSpawns) this.state.chestSpawns = {};
     // Migrate old stat field names (maxHp→maxHP, attack→atk, etc.)
     this.migrateStats(this.state.hero.stats as unknown as Record<string, unknown>);
     for (const comp of Object.values(this.state.companions)) {
@@ -280,6 +282,30 @@ class GameStateManager {
 
   recordMiniBossDefeat(regionId: string): void {
     this.state.miniBossDefeatedTimes[regionId] = Date.now();
+  }
+
+  // ─── Dynamic Chest Spawns ───
+  private static readonly CHEST_RESPAWN_MS = 30 * 60 * 1000; // 30 minutes
+
+  getChestSpawn(key: string) {
+    return this.state.chestSpawns[key] ?? null;
+  }
+
+  setChestSpawn(key: string, data: { positions: { gx: number; gy: number }[]; spawnTime: number; opened: boolean[] }): void {
+    this.state.chestSpawns[key] = data;
+  }
+
+  isChestSpawnExpired(key: string): boolean {
+    const spawn = this.state.chestSpawns[key];
+    if (!spawn) return true;
+    return Date.now() - spawn.spawnTime >= GameStateManager.CHEST_RESPAWN_MS;
+  }
+
+  markChestOpened(key: string, idx: number): void {
+    const spawn = this.state.chestSpawns[key];
+    if (spawn && idx >= 0 && idx < spawn.opened.length) {
+      spawn.opened[idx] = true;
+    }
   }
 }
 

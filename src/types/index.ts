@@ -291,6 +291,11 @@ export interface SaveData {
   timestamp: number;
   gameCompleted: boolean;
   miniBossDefeatedTimes?: Record<string, number>;
+  chestSpawns?: Record<string, {
+    positions: { gx: number; gy: number }[];
+    spawnTime: number;
+    opened: boolean[];
+  }>;
 }
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -316,6 +321,12 @@ export interface GameState {
   gameCompleted: boolean;
   /** Maps regionId → timestamp of last mini-boss defeat (for respawn cooldown) */
   miniBossDefeatedTimes: Record<string, number>;
+  /** Dynamic chest spawn data: positions, spawn time, opened state */
+  chestSpawns: Record<string, {
+    positions: { gx: number; gy: number }[];
+    spawnTime: number;
+    opened: boolean[];
+  }>;
 }
 
 // ─── NPC ───
