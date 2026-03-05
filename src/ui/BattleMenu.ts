@@ -85,9 +85,10 @@ export class BattleMenu extends Phaser.GameObjects.Container {
   show(onSelect: (action: MenuAction) => void): void {
     this.onSelectCallback = onSelect;
     this.selectedIndex = 0;
-    this.enabled = true;
     this.setVisible(true);
     this.updateDisplay();
+    // Delay enabling to prevent same-frame key bleed from subpanel confirm
+    this.scene.time.delayedCall(50, () => { this.enabled = true; });
   }
 
   hide(): void {

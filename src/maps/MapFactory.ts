@@ -306,8 +306,8 @@ export class MapFactory {
     const midX = Math.floor(config.width / 2);
     const hasSouthGate = config.type === 'town' || config.type === 'field';
     const hasWestGate = config.type === 'town';
-    // Field maps use narrower south gate (3 tiles) vs town (5 tiles)
-    const southGateHalf = config.type === 'field' ? 1 : 2;
+    // Both field and town use 5-tile-wide south gate for reliable exit
+    const southGateHalf = 2;
     // West gate: 3-tile gap on left border, southwest area (y = height-8 to height-6)
     const westGateY = config.height - 8;
 

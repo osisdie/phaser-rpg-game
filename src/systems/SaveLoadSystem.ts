@@ -54,6 +54,7 @@ export class SaveLoadSystem {
       timestamp: Date.now(),
       gameCompleted: state.gameCompleted,
       miniBossDefeatedTimes: { ...state.miniBossDefeatedTimes },
+      chestSpawns: structuredClone(state.chestSpawns),
     };
   }
 
@@ -117,6 +118,7 @@ export class SaveLoadSystem {
         encounterSteps: 0,
         gameCompleted: data.gameCompleted ?? false,
         miniBossDefeatedTimes: data.miniBossDefeatedTimes ?? {},
+        chestSpawns: data.chestSpawns ?? {},
       });
       return true;
     } catch {

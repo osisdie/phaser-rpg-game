@@ -611,13 +611,44 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Keyboard navigation for equip slot picker
-    const allSelectables = [...(currentEquipped ? [() => { EquipmentSystem.unequip(char, slot); this.showEquipment(charIndex); }] : []),
-      ...equippableItems.map((item) => () => { EquipmentSystem.equip(char, item.id); this.showEquipment(charIndex); })];
+    // Keyboard navigation for equip slot picker — with visual highlight
+    const selectableTexts: Phaser.GameObjects.Text[] = [];
+    const allSelectables: (() => void)[] = [];
+    // Collect unequip option
+    if (currentEquipped) {
+      // Find the unequip text (already created above)
+      const unequipRef = this.contentContainer.list.find(
+        (obj) => obj instanceof Phaser.GameObjects.Text && (obj as Phaser.GameObjects.Text).text === '卸下裝備'
+      ) as Phaser.GameObjects.Text | undefined;
+      if (unequipRef) selectableTexts.push(unequipRef);
+      allSelectables.push(() => { EquipmentSystem.unequip(char, slot); this.showEquipment(charIndex); });
+    }
+    // Collect equippable items
+    equippableItems.forEach((item) => {
+      const textRef = this.contentContainer.list.find(
+        (obj) => obj instanceof Phaser.GameObjects.Text && (obj as Phaser.GameObjects.Text).text.includes(item.name)
+      ) as Phaser.GameObjects.Text | undefined;
+      if (textRef) selectableTexts.push(textRef);
+      allSelectables.push(() => { EquipmentSystem.equip(char, item.id); this.showEquipment(charIndex); });
+    });
+
+    this.selectedIndex = 0;
+    const updatePickerHighlight = () => {
+      selectableTexts.forEach((txt, i) => {
+        if (i === this.selectedIndex) {
+          txt.setColor(COLORS.textHighlight);
+          txt.setText(txt.text.startsWith('► ') ? txt.text : `► ${txt.text.replace(/^  /, '')}`);
+        } else {
+          txt.setColor(i === 0 && currentEquipped ? '#ffaaaa' : '#ffffff');
+          txt.setText(txt.text.replace(/^► /, '  '));
+        }
+      });
+    };
+    if (selectableTexts.length > 0) updatePickerHighlight();
 
     if (allSelectables.length > 0) {
-      this.input.keyboard?.on('keydown-UP', () => { this.selectedIndex = (this.selectedIndex - 1 + allSelectables.length) % allSelectables.length; audioManager.playSfx('select'); });
-      this.input.keyboard?.on('keydown-DOWN', () => { this.selectedIndex = (this.selectedIndex + 1) % allSelectables.length; audioManager.playSfx('select'); });
+      this.input.keyboard?.on('keydown-UP', () => { this.selectedIndex = (this.selectedIndex - 1 + allSelectables.length) % allSelectables.length; updatePickerHighlight(); audioManager.playSfx('select'); });
+      this.input.keyboard?.on('keydown-DOWN', () => { this.selectedIndex = (this.selectedIndex + 1) % allSelectables.length; updatePickerHighlight(); audioManager.playSfx('select'); });
       this.input.keyboard?.on('keydown-ENTER', () => allSelectables[this.selectedIndex]?.());
       this.input.keyboard?.on('keydown-SPACE', () => allSelectables[this.selectedIndex]?.());
     }
