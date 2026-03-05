@@ -1001,7 +1001,8 @@ export class BattleScene extends Phaser.Scene {
 
     let panel: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
     let border: Phaser.GameObjects.Rectangle | null = null;
-    const skillPanelH = Math.min(320, 160 + skills.length * 36);
+    const visibleCount = Math.min(skills.length, 5);
+    const skillPanelH = 160 + visibleCount * 36 + 30;
     if (this.textures.exists('ui_panel_menu')) {
       panel = this.add.image(panelX, panelY, 'ui_panel_menu').setDepth(DEPTH.overlay);
     } else {
@@ -1017,8 +1018,13 @@ export class BattleScene extends Phaser.Scene {
     const skillIcons: Phaser.GameObjects.Image[] = [];
     let selectedIdx = 0;
 
-    // Description text below the skill list
-    const descText = this.add.text(panelX, panelY + 100, '', {
+    // Visible skill slots (limit to 5, scroll if more)
+    const maxVisible = 5;
+    let scrollOffset = 0;
+
+    // Description text below the skill list (positioned after visible items)
+    const descY = panelY - 80 + maxVisible * 36 + 10;
+    const descText = this.add.text(panelX, descY, '', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#eeeeff',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
@@ -1058,11 +1064,42 @@ export class BattleScene extends Phaser.Scene {
     });
 
     const updateList = () => {
+      // Ensure selected item is within visible window
+      if (selectedIdx < scrollOffset) scrollOffset = selectedIdx;
+      if (selectedIdx >= scrollOffset + maxVisible) scrollOffset = selectedIdx - maxVisible + 1;
+
       items.forEach((txt, i) => {
         const canUse = actor.stats.mp >= skills[i].mpCost;
+        const visible = i >= scrollOffset && i < scrollOffset + maxVisible;
+        txt.setVisible(visible);
+        mpTexts[i]?.setVisible(visible);
+        if (visible) {
+          const visY = panelY - 80 + (i - scrollOffset) * 36;
+          txt.setY(visY);
+          mpTexts[i]?.setY(visY);
+        }
         txt.setText(i === selectedIdx ? `► ${skills[i].name}` : `  ${skills[i].name}`);
         if (canUse && i === selectedIdx) txt.setColor(COLORS.textHighlight);
         else if (canUse) txt.setColor(COLORS.textPrimary);
+      });
+      // Hide skill icons/level texts outside visible window
+      let iconIdx = 0;
+      skills.forEach((skill, i) => {
+        const visible = i >= scrollOffset && i < scrollOffset + maxVisible;
+        // Each skill generates up to 2 entries in skillIcons: [icon, lvText]
+        // We track based on the creation order
+        const hasIcon = this.textures.exists(ItemIconRenderer.getSkillIconKey(skill.element, skill.type));
+        if (hasIcon && skillIcons[iconIdx]) {
+          skillIcons[iconIdx].setVisible(visible);
+          if (visible) skillIcons[iconIdx].setY(panelY - 80 + (i - scrollOffset) * 36 + 9);
+          iconIdx++;
+        }
+        // Level text
+        if (skillIcons[iconIdx]) {
+          skillIcons[iconIdx].setVisible(visible);
+          if (visible) skillIcons[iconIdx].setY(panelY - 80 + (i - scrollOffset) * 36 + 1);
+          iconIdx++;
+        }
       });
       // Update description
       const sel = skills[selectedIdx];
@@ -1137,13 +1174,18 @@ export class BattleScene extends Phaser.Scene {
     const panelX = GAME_WIDTH / 2;
     const panelY = GAME_HEIGHT / 2;
 
+    const maxVisibleItems = 5;
+    let itemScrollOffset = 0;
+    const visibleItemCount = Math.min(usable.length, maxVisibleItems);
+    const itemPanelH = 160 + visibleItemCount * 34 + 30;
+
     let panel: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
     let border: Phaser.GameObjects.Rectangle | null = null;
     if (this.textures.exists('ui_panel_menu')) {
       panel = this.add.image(panelX, panelY, 'ui_panel_menu').setDepth(DEPTH.overlay);
     } else {
-      panel = this.add.rectangle(panelX, panelY, 300, 250, COLORS.panel, 0.95).setDepth(DEPTH.overlay);
-      border = this.add.rectangle(panelX, panelY, 304, 254, COLORS.panelBorder).setDepth(DEPTH.overlay - 1);
+      panel = this.add.rectangle(panelX, panelY, 300, itemPanelH, COLORS.panel, 0.95).setDepth(DEPTH.overlay);
+      border = this.add.rectangle(panelX, panelY, 304, itemPanelH + 4, COLORS.panelBorder).setDepth(DEPTH.overlay - 1);
     }
     const title = this.add.text(panelX, panelY - 110, t('battle.select_item'), {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
@@ -1152,8 +1194,9 @@ export class BattleScene extends Phaser.Scene {
     const items: Phaser.GameObjects.Text[] = [];
     let selectedIdx = 0;
 
-    // Description text below the item list
-    const descText = this.add.text(panelX, panelY + 100, '', {
+    // Description text below the visible item list
+    const itemDescY = panelY - 80 + maxVisibleItems * 34 + 10;
+    const descText = this.add.text(panelX, itemDescY, '', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#eeeeff',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
@@ -1177,10 +1220,18 @@ export class BattleScene extends Phaser.Scene {
     });
 
     const updateList = () => {
+      // Ensure selected item is within visible window
+      if (selectedIdx < itemScrollOffset) itemScrollOffset = selectedIdx;
+      if (selectedIdx >= itemScrollOffset + maxVisibleItems) itemScrollOffset = selectedIdx - maxVisibleItems + 1;
+
       items.forEach((txt, i) => {
+        const visible = i >= itemScrollOffset && i < itemScrollOffset + maxVisibleItems;
+        txt.setVisible(visible);
+        if (visible) txt.setY(panelY - 80 + (i - itemScrollOffset) * 34);
         txt.setText(i === selectedIdx ? `► ${usable[i].item.name} ×${usable[i].quantity}` : `  ${usable[i].item.name} ×${usable[i].quantity}`);
         txt.setColor(i === selectedIdx ? COLORS.textHighlight : COLORS.textPrimary);
       });
+      itemIcons.forEach(ic => ic.setVisible(false)); // hide all icons, show visible ones
       // Update description
       const sel = usable[selectedIdx];
       descText.setText(sel ? sel.item.description : '');
@@ -2312,13 +2363,22 @@ export class BattleScene extends Phaser.Scene {
           audioManager.playSfx('heal');
           BattleEffects.playHealEffect(this, this.partySprites[target.index]?.x ?? panelX, this.partySprites[target.index]?.y ?? panelY);
           this.addBattleLogMessage(`${target.name} 被復活了！`);
-          // Update HUD
-          this.hud?.update(this.combat.getState().party, this.combat.getState().enemies);
+          // Restore revived sprite visibility
+          const spriteIdx = target.index;
+          if (this.partySprites[spriteIdx]) {
+            this.partySprites[spriteIdx].setAlpha(1).clearTint();
+            this.deadSet.delete(`party_${spriteIdx}`);
+          }
           // Reset combat phase — party member revived, battle continues
           const cState = this.combat.getState();
           cState.phase = 'player_turn';
-          cState.result = undefined as any;
-          this.time.delayedCall(600, () => this.checkBattleResult());
+          cState.result = null;
+          this.uiPhase = 'menu';
+          this.time.delayedCall(600, () => {
+            this.currentPartyIndex = 0;
+            this.partyActions = [];
+            this.showMenuForCurrentMember();
+          });
         } else {
           onDecline();
         }

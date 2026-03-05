@@ -131,9 +131,8 @@ export class PanelRenderer {
     // Inner groove
     ctx.fillStyle = MEDIEVAL.ironDark;
     ctx.fillRect(1, 1, fw - 2, fh - 2);
-    // Bar background (will be drawn over by fill)
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(2, 2, fw - 4, fh - 4);
+    // Clear center so the colored fill bar shows through
+    ctx.clearRect(2, 2, fw - 4, fh - 4);
     // Highlight
     ctx.fillStyle = MEDIEVAL.ironLight;
     ctx.fillRect(0, 0, fw, 1);

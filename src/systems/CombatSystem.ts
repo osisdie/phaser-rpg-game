@@ -397,6 +397,15 @@ export class CombatSystem {
         const chance = calculateFleeChance(partyAvgAgi, enemyAvgAgi, regionBonus);
         if (Math.random() < chance) {
           this.state.phase = 'fled';
+          // Sync HP/MP back to gameState when fleeing
+          const partyChars = gameState.getParty();
+          for (const combatant of this.state.party) {
+            const char = partyChars.find(c => c.id === combatant.id);
+            if (char) {
+              char.stats.hp = combatant.stats.hp;
+              char.stats.mp = combatant.stats.mp;
+            }
+          }
           results.push('成功逃跑了！');
         } else {
           results.push('逃跑失敗！');
@@ -524,6 +533,15 @@ export class CombatSystem {
 
     if (!partyAlive) {
       this.state.phase = 'defeat';
+      // Sync HP/MP back to gameState so GameOverScene sees actual post-battle values
+      const party = gameState.getParty();
+      for (const combatant of this.state.party) {
+        const char = party.find(c => c.id === combatant.id);
+        if (char) {
+          char.stats.hp = combatant.stats.hp;
+          char.stats.mp = combatant.stats.mp;
+        }
+      }
       this.state.result = { victory: false, fled: false, exp: 0, gold: 0, drops: [], levelUps: [] };
       return true;
     }

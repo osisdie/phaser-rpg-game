@@ -10,9 +10,15 @@ interface BarDisplay {
   text: Phaser.GameObjects.Text;
 }
 
+const STATUS_LABELS: Record<string, { symbol: string; color: string }> = {
+  poison: { symbol: '毒', color: '#cc66ff' },
+  paralysis: { symbol: '痺', color: '#ffee44' },
+  confusion: { symbol: '混', color: '#ff88cc' },
+};
+
 /** Battle HUD showing HP/MP bars for party and enemy info */
 export class BattleHUD extends Phaser.GameObjects.Container {
-  private partyBars: { name: Phaser.GameObjects.Text; hp: BarDisplay; mp: BarDisplay }[] = [];
+  private partyBars: { name: Phaser.GameObjects.Text; hp: BarDisplay; mp: BarDisplay; statusText: Phaser.GameObjects.Text }[] = [];
   private enemyTexts: Phaser.GameObjects.Text[] = [];
   /** Smooth display ratios — lerp toward target for per-hit animation */
   private displayRatios = new Map<BarDisplay, number>();
@@ -30,6 +36,7 @@ export class BattleHUD extends Phaser.GameObjects.Container {
       b.hp.frame?.destroy();
       b.mp.bg.destroy(); b.mp.fill.destroy(); b.mp.text.destroy();
       b.mp.frame?.destroy();
+      b.statusText.destroy();
     });
     this.partyBars = [];
     this.displayRatios.clear();
@@ -47,15 +54,21 @@ export class BattleHUD extends Phaser.GameObjects.Container {
       const hp = this.createBar(startX, y + 18, 170, 12, COLORS.hpBar);
       const mp = this.createBar(startX, y + 34, 170, 8, COLORS.mpBar);
 
+      // Status effect text next to name
+      const statusText = this.scene.add.text(startX + 85, y, '', {
+        fontFamily: FONT_FAMILY, fontSize: '12px', color: '#cc66ff',
+        stroke: '#000000', strokeThickness: 2,
+      });
+
       // Initialize display ratios to current values
       this.displayRatios.set(hp, member.stats.hp / member.stats.maxHP);
       this.displayRatios.set(mp, member.stats.mp / member.stats.maxMP);
 
-      const children: Phaser.GameObjects.GameObject[] = [name, hp.bg, hp.fill, hp.text, mp.bg, mp.fill, mp.text];
+      const children: Phaser.GameObjects.GameObject[] = [name, hp.bg, hp.fill, hp.text, mp.bg, mp.fill, mp.text, statusText];
       if (hp.frame) children.push(hp.frame);
       if (mp.frame) children.push(mp.frame);
       this.add(children);
-      this.partyBars.push({ name, hp, mp });
+      this.partyBars.push({ name, hp, mp, statusText });
     });
   }
 
@@ -73,6 +86,18 @@ export class BattleHUD extends Phaser.GameObjects.Container {
       bar.name.setText(member.name);
       this.updateBar(bar.hp, member.stats.hp, member.stats.maxHP, `HP ${member.stats.hp}/${member.stats.maxHP}`);
       this.updateBar(bar.mp, member.stats.mp, member.stats.maxMP, `MP ${member.stats.mp}/${member.stats.maxMP}`);
+
+      // Status effects display
+      const statusLabels = member.statusEffects
+        .map(eff => STATUS_LABELS[eff.type])
+        .filter(Boolean);
+      if (statusLabels.length > 0) {
+        bar.statusText.setText(statusLabels.map(s => s!.symbol).join(' '));
+        bar.statusText.setColor(statusLabels[0]!.color);
+        bar.statusText.setVisible(true);
+      } else {
+        bar.statusText.setVisible(false);
+      }
 
       // Dim dead members
       const alive = member.stats.hp > 0;

@@ -224,8 +224,12 @@ export class TextBox extends Phaser.GameObjects.Container {
 
     upKey?.on('down', onUp);
     downKey?.on('down', onDown);
-    enterKey?.on('down', onConfirm);
-    spaceKey?.on('down', onConfirm);
+    // Delay confirm registration to prevent same-frame key bleed from the interact key that opened this dialog
+    this.scene.time.delayedCall(100, () => {
+      if (fired) return; // Already selected by mouse click
+      enterKey?.on('down', onConfirm);
+      spaceKey?.on('down', onConfirm);
+    });
   }
 
   private clearChoices(): void {

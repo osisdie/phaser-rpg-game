@@ -18,7 +18,10 @@ export function showDamageNumber(
     : type === 'status' ? String(value)
     : `${prefix}${value}`;
 
-  const text = scene.add.text(x, y, displayText, {
+  // Clamp Y so damage numbers don't go off-screen above viewport (tall monster sprites)
+  const clampedY = Math.max(30, y);
+
+  const text = scene.add.text(x, clampedY, displayText, {
     fontFamily: FONT_FAMILY,
     fontSize: type === 'miss' ? '16px' : type === 'status' ? '18px' : '22px',
     color,
@@ -29,7 +32,7 @@ export function showDamageNumber(
 
   scene.tweens.add({
     targets: text,
-    y: y - 40,
+    y: clampedY - 40,
     alpha: { from: 1, to: 0 },
     duration: 800,
     ease: 'Power2',

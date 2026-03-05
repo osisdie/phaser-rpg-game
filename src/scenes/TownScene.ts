@@ -41,6 +41,8 @@ interface TreasureChest {
   flagKey: string;
   opened: boolean;
   collisionBody?: Phaser.GameObjects.Rectangle;
+  isStatic: boolean;
+  spawnIndex: number;
 }
 
 export class TownScene extends Phaser.Scene {
@@ -496,45 +498,132 @@ export class TownScene extends Phaser.Scene {
   // ─── Treasure Chests ───
 
   private spawnTreasureChests(mapConfig: { width: number; height: number }, wallBodies: Phaser.Physics.Arcade.StaticGroup): void {
-    // Generate chest texture if not exists
-    if (!this.textures.exists('deco_chest')) {
-      this.generateChestTexture();
+    if (!this.textures.exists('deco_chest')) this.generateChestTexture();
+    if (!this.textures.exists('deco_chest_open')) this.generateChestOpenTexture();
+
+    const blocked = this.buildBlockedGrid(wallBodies, mapConfig.width, mapConfig.height);
+
+    // ── Static chest (1, one-time, behind buildings) ──
+    const staticSpots = this.findChestSpots(blocked, mapConfig.width, mapConfig.height, 1, 6);
+    for (let i = 0; i < staticSpots.length; i++) {
+      const flagKey = `static_chest_town_${this.regionId}_${i}`;
+      if (gameState.getFlag(flagKey)) continue;
+      const { gx, gy } = staticSpots[i];
+      this.placeTownChest(gx, gy, flagKey, true, i, wallBodies);
     }
-    if (!this.textures.exists('deco_chest_open')) {
-      this.generateChestOpenTexture();
+
+    // ── Dynamic chest (0-1, respawning) ──
+    const dynKey = `dyn_chest_town_${this.regionId}`;
+    const dynCount = Math.random() < 0.5 ? 1 : 0;
+    if (dynCount > 0) {
+      let spawn = gameState.getChestSpawn(dynKey);
+      if (!spawn || gameState.isChestSpawnExpired(dynKey)) {
+        const dynSpots = this.findChestSpots(blocked, mapConfig.width, mapConfig.height, dynCount, 3, staticSpots, true);
+        spawn = {
+          positions: dynSpots,
+          spawnTime: Date.now(),
+          opened: dynSpots.map(() => false),
+        };
+        gameState.setChestSpawn(dynKey, spawn);
+      }
+      for (let i = 0; i < spawn.positions.length; i++) {
+        if (spawn.opened[i]) continue;
+        const { gx, gy } = spawn.positions[i];
+        this.placeTownChest(gx, gy, dynKey, false, i, wallBodies);
+      }
+    }
+  }
+
+  private placeTownChest(gx: number, gy: number, flagKey: string, isStatic: boolean, spawnIndex: number, wallBodies: Phaser.Physics.Arcade.StaticGroup): void {
+    const px = gx * TILE_SIZE + TILE_SIZE / 2;
+    const py = gy * TILE_SIZE + TILE_SIZE / 2;
+
+    const sprite = this.add.sprite(px, py, 'deco_chest')
+      .setDepth(DEPTH.objects + 1).setScale(0.5);
+
+    if (isStatic) {
+      this.tweens.add({ targets: sprite, alpha: { from: 0.85, to: 1 }, duration: 1200, yoyo: true, repeat: -1 });
     }
 
-    // Truly random each visit: 0-1 chest per town
-    const chestCount = Math.random() < 0.6 ? 1 : 0;
-    if (chestCount === 0) return;
+    const chestBody = this.add.rectangle(px, py, TILE_SIZE / 2 - 4, TILE_SIZE / 2 - 4);
+    this.physics.add.existing(chestBody, true);
+    wallBodies.add(chestBody);
+    chestBody.setVisible(false);
 
-    // Place chests near buildings for more interesting discovery
-    const buildingPositions = [
-      { gx: 4, gy: 6 }, { gx: 10, gy: 8 }, { gx: 28, gy: 6 }, { gx: 32, gy: 8 },
-      { gx: 4, gy: 20 }, { gx: 10, gy: 20 }, { gx: 28, gy: 20 }, { gx: 32, gy: 20 },
-    ];
-    for (let ci = 0; ci < chestCount; ci++) {
-      const flagKey = `chest_${this.regionId}_${ci}`;
-      const bldg = buildingPositions[Math.floor(Math.random() * buildingPositions.length)];
-      const offsets = [-2, -1, 1, 2];
-      const dx = offsets[Math.floor(Math.random() * offsets.length)];
-      const dy = offsets[Math.floor(Math.random() * offsets.length)];
-      const gx = Math.max(2, Math.min(mapConfig.width - 3, bldg.gx + dx));
-      const gy = Math.max(4, Math.min(mapConfig.height - 4, bldg.gy + dy));
+    this.chests.push({ sprite, gx, gy, flagKey, opened: false, collisionBody: chestBody, isStatic, spawnIndex });
+  }
 
-      const px = gx * TILE_SIZE + TILE_SIZE / 2;
-      const py = gy * TILE_SIZE + TILE_SIZE / 2;
-
-      const sprite = this.add.sprite(px, py, 'deco_chest')
-        .setDepth(DEPTH.objects + 1).setScale(0.5);
-
-      const chestBody = this.add.rectangle(px, py, TILE_SIZE / 2 - 4, TILE_SIZE / 2 - 4);
-      this.physics.add.existing(chestBody, true);
-      wallBodies.add(chestBody);
-      chestBody.setVisible(false);
-
-      this.chests.push({ sprite, gx, gy, flagKey, opened: false, collisionBody: chestBody });
+  private buildBlockedGrid(wallBodies: Phaser.Physics.Arcade.StaticGroup, w: number, h: number): boolean[][] {
+    const grid: boolean[][] = Array.from({ length: h }, () => Array(w).fill(false));
+    for (let x = 0; x < w; x++) { grid[0][x] = true; grid[h - 1][x] = true; }
+    for (let y = 0; y < h; y++) { grid[y][0] = true; grid[y][w - 1] = true; }
+    for (const body of wallBodies.getChildren()) {
+      const go = body as Phaser.GameObjects.Rectangle;
+      const gx = Math.floor(go.x / TILE_SIZE);
+      const gy = Math.floor(go.y / TILE_SIZE);
+      if (gx >= 0 && gx < w && gy >= 0 && gy < h) grid[gy][gx] = true;
     }
+    return grid;
+  }
+
+  private findChestSpots(
+    grid: boolean[][], w: number, h: number, count: number, minScore: number,
+    exclude: { gx: number; gy: number }[] = [], zoneLimit = false,
+  ): { gx: number; gy: number }[] {
+    const scores: { gx: number; gy: number; score: number }[] = [];
+    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+    const zoneW = Math.floor(w / 3);
+
+    for (let y = 2; y < h - 2; y++) {
+      for (let x = 2; x < w - 2; x++) {
+        if (grid[y][x]) continue;
+        let score = 0;
+        for (const [dy, dx] of dirs) {
+          if (grid[y + dy]?.[x + dx]) score += 2;
+        }
+        if (x <= 3 || x >= w - 4 || y <= 3 || y >= h - 4) score += 2;
+        const midX = Math.floor(w / 2);
+        if (Math.abs(x - midX) <= 2 && y > h - 8) score -= 5;
+        if (score >= minScore) scores.push({ gx: x, gy: y, score });
+      }
+    }
+
+    scores.sort((a, b) => b.score - a.score);
+    const picked: { gx: number; gy: number }[] = [];
+    const usedZones = new Set<number>();
+
+    for (const s of scores) {
+      if (picked.length >= count) break;
+      const tooClose = picked.some(p => Math.abs(p.gx - s.gx) + Math.abs(p.gy - s.gy) < 8);
+      if (tooClose) continue;
+      const nearExclude = exclude.some(p => Math.abs(p.gx - s.gx) + Math.abs(p.gy - s.gy) < 10);
+      if (nearExclude) continue;
+      if (zoneLimit) {
+        const zone = Math.min(2, Math.floor(s.gx / zoneW));
+        if (usedZones.has(zone)) continue;
+        usedZones.add(zone);
+      }
+      picked.push({ gx: s.gx, gy: s.gy });
+    }
+
+    let attempts = 0;
+    while (picked.length < count && attempts < 50) {
+      attempts++;
+      const gx = 3 + Math.floor(Math.random() * (w - 6));
+      const gy = 3 + Math.floor(Math.random() * (h - 6));
+      if (grid[gy][gx]) continue;
+      const tooClose = picked.some(p => Math.abs(p.gx - gx) + Math.abs(p.gy - gy) < 6);
+      if (tooClose) continue;
+      const nearExclude = exclude.some(p => Math.abs(p.gx - gx) + Math.abs(p.gy - gy) < 10);
+      if (nearExclude) continue;
+      if (zoneLimit) {
+        const zone = Math.min(2, Math.floor(gx / zoneW));
+        if (usedZones.has(zone)) continue;
+        usedZones.add(zone);
+      }
+      picked.push({ gx, gy });
+    }
+    return picked;
   }
 
   private checkChestInteraction(): boolean {
@@ -551,11 +640,18 @@ export class TownScene extends Phaser.Scene {
   }
 
   private openChest(chest: TreasureChest): void {
-    if (chest.opened || !chest.sprite) return; // Silently skip — opened chests filtered in checkChestInteraction
+    if (chest.opened || !chest.sprite) return;
 
     chest.opened = true;
     chest.sprite.setTexture('deco_chest_open');
     audioManager.playSfx('select');
+
+    // Persist open state
+    if (chest.isStatic) {
+      gameState.setFlag(chest.flagKey, true);
+    } else {
+      gameState.markChestOpened(chest.flagKey, chest.spawnIndex);
+    }
 
     // Fade out after a short delay
     this.time.delayedCall(800, () => {
@@ -570,31 +666,69 @@ export class TownScene extends Phaser.Scene {
       }
     });
 
-    // Determine reward: 60% gold, 30% item, 10% equipment
-    const roll = Math.random();
     const region = getRegionById(this.regionId);
-    const baseLevel = region?.levelRange[0] ?? 1;
+    const regionLevel = region?.levelRange[0] ?? 1;
+    const effectiveLevel = Math.min(gameState.getHero().level, regionLevel);
 
     this.inDialogue = true;
 
+    if (chest.isStatic) {
+      this.openStaticTownChest(regionLevel);
+    } else {
+      this.openDynamicTownChest(effectiveLevel);
+    }
+  }
+
+  /** Static town chest: equipment or rare consumable (no gold in town static) */
+  private openStaticTownChest(regionLevel: number): void {
+    const roll = Math.random();
+    const tiers = ['wood', 'iron', 'steel', 'silver', 'mithril', 'dragon', 'holy', 'legendary'];
+    const tierIndex = Math.min(tiers.length - 1, Math.floor(regionLevel / 8));
+
     if (roll < 0.6) {
-      // Gold reward — scaled with kingdom level
-      const minGold = Math.floor(10 + baseLevel * 3);
-      const maxGold = Math.floor(30 + baseLevel * 12);
-      const goldAmount = minGold + Math.floor(Math.random() * (maxGold - minGold));
+      // 60% equipment
+      const allEquip = getAllEquipments();
+      const validTiers = tiers.slice(Math.max(0, tierIndex - 1), Math.min(tiers.length, tierIndex + 2));
+      const candidates = allEquip.filter(e => validTiers.includes(e.tier));
+      const equip = candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : allEquip[Math.floor(Math.random() * allEquip.length)];
+      gameState.addItem(equip.id);
+      this.textBox.show('', `✦ ${t('chest.found')}\n${t('chest.equipment', equip.name)}`);
+    } else {
+      // 40% rare consumable
+      const rareItems = ['item_elixir', 'item_potion_l', 'item_ether_m'];
+      const itemId = rareItems[Math.floor(Math.random() * rareItems.length)];
+      const consumables = getAllConsumables();
+      const item = consumables.find(c => c.id === itemId) ?? consumables[0];
+      gameState.addItem(item.id);
+      this.textBox.show('', `✦ ${t('chest.found')}\n${t('chest.item', item.name)}`);
+    }
+  }
+
+  /** Dynamic town chest: standard rewards with effectiveLevel + 40% gold nerf */
+  private openDynamicTownChest(effectiveLevel: number): void {
+    const roll = Math.random();
+
+    if (roll < 0.6) {
+      // 60% gold with effectiveLevel + town 40% nerf
+      const minGold = Math.floor(10 + effectiveLevel * 3);
+      const maxGold = Math.floor(30 + effectiveLevel * 12);
+      const rawGold = minGold + Math.floor(Math.random() * (maxGold - minGold));
+      const goldAmount = Math.max(1, Math.floor(rawGold * 0.4));
       gameState.addGold(goldAmount);
       this.textBox.show('', `${t('chest.found')}\n${t('chest.gold', goldAmount)}`);
     } else if (roll < 0.9) {
-      // Item reward — random consumable
+      // 30% consumable
       const consumables = getAllConsumables();
       const item = consumables[Math.floor(Math.random() * consumables.length)];
       gameState.addItem(item.id);
       this.textBox.show('', `${t('chest.found')}\n${t('chest.item', item.name)}`);
     } else {
-      // Equipment reward — tier based on region level
+      // 10% equipment with effectiveLevel tier
       const allEquip = getAllEquipments();
       const tiers = ['wood', 'iron', 'steel', 'silver', 'mithril', 'dragon', 'holy', 'legendary'];
-      const tierIndex = Math.min(tiers.length - 1, Math.floor(baseLevel / 8));
+      const tierIndex = Math.min(tiers.length - 1, Math.floor(effectiveLevel / 8));
       const validTiers = tiers.slice(Math.max(0, tierIndex - 1), Math.min(tiers.length, tierIndex + 2));
       const candidates = allEquip.filter(e => validTiers.includes(e.tier));
       const equip = candidates.length > 0
@@ -955,9 +1089,9 @@ export class TownScene extends Phaser.Scene {
             const zzz = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'z z z', {
               fontFamily: FONT_FAMILY, fontSize: '18px', color: '#8899aa',
             }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ui + 101);
-            this.tweens.add({ targets: zzz, alpha: { from: 0.4, to: 1 }, duration: 400, yoyo: true, repeat: 1 });
-            // Hold black screen, then fade back in
-            this.time.delayedCall(800, () => {
+            this.tweens.add({ targets: zzz, alpha: { from: 0.4, to: 1 }, duration: 600, yoyo: true, repeat: 2 });
+            // Hold black screen longer for dramatic effect, then fade back in
+            this.time.delayedCall(2000, () => {
               moon.destroy();
               zzz.destroy();
               this.tweens.add({
