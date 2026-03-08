@@ -574,5 +574,407 @@
       "prompt": "stone fountain, water spout, circular basin, town square, top-down RPG decoration",
       "prompt_xl": "ornate stone fountain, carved stone basin with tiered water spout, sparkling water streams, mossy aged stone, town square centerpiece"
     }
+  ],
+  "battle_backgrounds": [
+    {
+      "name": "battle_bg_r1",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, sunny green meadow with rolling hills, blue sky with clouds, scattered wildflowers, medieval countryside",
+      "prompt_xl": "16-bit JRPG battle background, lush green rolling meadow hills, bright blue sky with fluffy white clouds, scattered colorful wildflowers, distant medieval village, warm sunlight, Secret of Mana style, vibrant pixel art landscape"
+    },
+    {
+      "name": "battle_bg_r1_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, dramatic hilltop with storm clouds, lightning, dark ominous sky, windswept grass",
+      "prompt_xl": "epic JRPG boss battle background, dramatic hilltop arena, dark storm clouds swirling overhead, lightning bolts illuminating the scene, windswept tall grass, ominous purple-grey sky, tension-filled atmosphere, final confrontation setting"
+    },
+    {
+      "name": "battle_bg_cave_r1",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, dark stone cave with stalactites, glowing crystals, underground river",
+      "prompt_xl": "16-bit JRPG cave dungeon battle background, dark rough stone walls with hanging stalactites, luminous blue-green crystal formations providing eerie light, underground river reflecting cave ceiling, damp atmosphere, mysterious underground"
+    },
+    {
+      "name": "battle_bg_r2",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, enchanted forest with ancient trees, dappled sunlight through canopy, mystical atmosphere",
+      "prompt_xl": "16-bit JRPG battle background, enchanted ancient forest, massive gnarled trees with thick canopy filtering golden dappled sunlight, mystical glowing particles floating in air, mossy forest floor, ethereal fairy-tale atmosphere, rich green tones"
+    },
+    {
+      "name": "battle_bg_r2_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, corrupted dark forest, twisted trees, purple toxic fog, glowing malevolent eyes in shadows",
+      "prompt_xl": "dark JRPG boss battle background, deeply corrupted ancient forest, twisted blackened trees with thorny branches, thick purple toxic fog rolling across ground, sinister glowing eyes in shadowy undergrowth, decaying vegetation, oppressive dark green-purple atmosphere"
+    },
+    {
+      "name": "battle_bg_cave_r2",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, tree root cavern, underground forest, bioluminescent mushrooms",
+      "prompt_xl": "JRPG underground cave battle background, massive tree root system forming natural cavern, bioluminescent mushrooms and fungi providing soft blue-green glow, underground forest with moss and ferns, dripping water, mystical subterranean grove"
+    },
+    {
+      "name": "battle_bg_r3",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, tropical beach with palm trees, turquoise ocean, white sand, coral reefs visible",
+      "prompt_xl": "16-bit JRPG battle background, beautiful tropical beach, swaying palm trees, crystal clear turquoise ocean with gentle waves, white sand beach, colorful coral reef visible through clear water, bright sunny day, paradise setting"
+    },
+    {
+      "name": "battle_bg_r3_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, stormy ocean, massive whirlpool, dark waves, sea monster lair, lightning",
+      "prompt_xl": "epic JRPG boss battle background, raging stormy ocean with towering dark waves, massive swirling whirlpool, jagged rocky outcrops, lightning splitting dark sky, sea foam and spray, treacherous deep sea battle arena, dramatic nautical confrontation"
+    },
+    {
+      "name": "battle_bg_cave_r3",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, underwater grotto, coral formations, shafts of light from above, treasure scattered",
+      "prompt_xl": "JRPG underwater grotto battle background, submerged cave with beautiful coral formations in pinks and oranges, shafts of golden light streaming from above, scattered treasure chests and gold coins on sandy floor, schools of fish, magical underwater atmosphere"
+    },
+    {
+      "name": "battle_bg_r4",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, golden savanna plains, acacia trees, sunset sky, African-inspired fantasy landscape",
+      "prompt_xl": "16-bit JRPG battle background, vast golden savanna plains stretching to horizon, silhouetted acacia trees, dramatic orange-gold sunset sky, tall swaying grass, distant mountains, warm African-inspired fantasy landscape, golden hour lighting"
+    },
+    {
+      "name": "battle_bg_r4_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, volcanic wasteland, cracked earth, lava pools, ash clouds, fiery sky",
+      "prompt_xl": "JRPG boss battle background, desolate volcanic wasteland, deeply cracked scorched earth, pools of bubbling molten lava glowing orange, thick ash clouds in sky, fiery red-orange sky, dead blackened trees, intense heat distortion, apocalyptic wasteland"
+    },
+    {
+      "name": "battle_bg_cave_r4",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, ancient temple ruins underground, carved pillars, golden torchlight, sand dunes",
+      "prompt_xl": "JRPG underground cave battle background, ancient Egyptian-inspired temple ruins, massive carved stone pillars with hieroglyphs, golden torchlight flickering, sand drifts partially burying structures, mysterious artifacts, archaeological dungeon atmosphere"
+    },
+    {
+      "name": "battle_bg_r5",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, snow-covered mountain pass, pine trees, aurora borealis, icy peaks",
+      "prompt_xl": "16-bit JRPG battle background, majestic snow-covered mountain pass, frosted pine trees laden with snow, spectacular aurora borealis dancing in deep blue sky, towering icy mountain peaks, pristine white snow, cold winter atmosphere, Nordic fantasy landscape"
+    },
+    {
+      "name": "battle_bg_r5_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, frozen throne room, massive ice pillars, blizzard outside, frozen floor",
+      "prompt_xl": "JRPG boss battle background, ancient frozen throne room carved from glacier ice, massive translucent blue ice pillars, frozen crystalline floor reflecting dim light, howling blizzard visible through shattered windows, ice-encrusted throne, supernatural cold, winter sovereign's domain"
+    },
+    {
+      "name": "battle_bg_cave_r5",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, ice cavern, frozen stalactites, blue crystal walls, frozen underground lake",
+      "prompt_xl": "JRPG underground cave battle background, stunning ice cavern, massive frozen stalactites and stalagmites of pure ice, translucent blue crystal walls refracting light into rainbows, frozen underground lake with dark depths visible beneath ice, cold blue atmosphere"
+    },
+    {
+      "name": "battle_bg_r6",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, rocky canyon with towering cliffs, river below, stone bridges, mountain fortress",
+      "prompt_xl": "16-bit JRPG battle background, dramatic rocky canyon with towering red-brown sandstone cliffs, rushing river far below, ancient stone bridges spanning the gorge, distant mountain fortress perched on cliff edge, eagles soaring, rugged frontier landscape"
+    },
+    {
+      "name": "battle_bg_r6_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, crumbling fortress ramparts, siege warfare, burning towers, catapults",
+      "prompt_xl": "JRPG boss battle background, crumbling medieval fortress under siege, burning towers with thick smoke billowing, broken rampart walls with rubble, catapult projectiles flying overhead, dramatic war-torn battlefield, fires and destruction, desperate last stand"
+    },
+    {
+      "name": "battle_bg_cave_r6",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, dwarven mine, ore veins in walls, minecart tracks, lantern light",
+      "prompt_xl": "JRPG underground cave battle background, vast dwarven mine complex, glittering ore veins of gold and mithril in rough-hewn stone walls, rusty minecart tracks leading into darkness, warm lantern light, wooden support beams, scattered mining tools and gems"
+    },
+    {
+      "name": "battle_bg_r7",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, dark swamp, twisted trees, murky water, fog, will-o-wisps",
+      "prompt_xl": "16-bit JRPG battle background, eerie dark swamp, gnarled twisted trees draped in hanging moss, murky stagnant water with lily pads, thick rolling fog, floating will-o-wisps glowing blue-green, decaying logs, ominous yet beautiful wetland, spooky atmosphere"
+    },
+    {
+      "name": "battle_bg_r7_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, necromancer's graveyard, tombstones, full moon, undead rising, purple mist",
+      "prompt_xl": "JRPG boss battle background, haunted necromancer's graveyard, ancient crumbling tombstones and mausoleums, massive full moon casting silver light, skeletal hands rising from graves, thick purple-violet mist swirling, dead trees silhouetted, supernatural horror atmosphere"
+    },
+    {
+      "name": "battle_bg_cave_r7",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, catacombs, bone walls, skull piles, eerie green torches",
+      "prompt_xl": "JRPG underground cave battle background, ancient catacombs, walls lined with neatly stacked skulls and bones, arched stone corridors, eerie green-flame torches casting sickly light, cobwebs, dark ritualistic symbols carved in stone, macabre underground ossuary"
+    },
+    {
+      "name": "battle_bg_r8",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, cherry blossom garden, stone pagoda, koi pond, Japanese-inspired fantasy",
+      "prompt_xl": "16-bit JRPG battle background, serene Japanese-inspired cherry blossom garden, pink sakura petals falling gently, elegant stone pagoda, peaceful koi pond with stepping stones, curved wooden bridge, perfectly raked zen garden, tranquil eastern fantasy"
+    },
+    {
+      "name": "battle_bg_r8_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, burning temple, demon gate torii, red sky, spiritual warfare",
+      "prompt_xl": "JRPG boss battle background, burning Japanese temple complex, massive crimson torii gate crackling with demonic energy, blood-red sky, sacred grounds defiled by dark power, paper talismans burning, spiritual warfare between sacred and profane, dramatic eastern boss arena"
+    },
+    {
+      "name": "battle_bg_cave_r8",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, underground hot springs, steam, mineral pools, glowing warm light",
+      "prompt_xl": "JRPG underground cave battle background, natural hot spring cavern, steaming mineral pools in vivid blues and greens, warm golden-orange light from volcanic heat below, smooth water-carved stone formations, healing mist rising, peaceful yet dangerous underground onsen"
+    },
+    {
+      "name": "battle_bg_r9",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, floating islands, clouds below, magical bridges, sky castle ruins",
+      "prompt_xl": "16-bit JRPG battle background, breathtaking floating islands in sky, fluffy clouds drifting below, ancient magical bridges of light connecting islands, ruins of sky castle covered in hanging gardens, waterfalls cascading into void, brilliant blue sky, Laputa-inspired aerial realm"
+    },
+    {
+      "name": "battle_bg_r9_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, collapsing sky fortress, dimensional rift, energy vortex, fragments floating",
+      "prompt_xl": "JRPG boss battle background, collapsing ancient sky fortress breaking apart, massive dimensional rift tearing through reality, swirling energy vortex of purple and gold, stone fragments and debris floating in zero gravity, reality bending, cataclysmic aerial final battle"
+    },
+    {
+      "name": "battle_bg_cave_r9",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, crystal cavern in floating island, rainbow prisms, magical geodes",
+      "prompt_xl": "JRPG underground cave battle background, spectacular crystal cavern inside floating island, massive rainbow-refracting crystal formations, magical geodes cracked open showing brilliant gem interiors, prismatic light dancing across cave walls, ethereal otherworldly beauty"
+    },
+    {
+      "name": "battle_bg_r10",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, volcanic hellscape, rivers of lava, obsidian spires, red sky",
+      "prompt_xl": "16-bit JRPG battle background, hellish volcanic landscape, rivers of flowing bright orange lava, tall jagged obsidian rock spires, crimson sky filled with ash and embers, volcanic eruptions in distance, heat haze, infernal demon realm, Final Fantasy-style fire region"
+    },
+    {
+      "name": "battle_bg_r10_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, demon forge throne, lava waterfalls, chains and anvils, hellfire",
+      "prompt_xl": "JRPG boss battle background, massive demon forge throne room, cascading lava waterfalls behind imposing dark throne, enormous chains and anvils scattered about, hellfire braziers lighting the chamber, obsidian floor cracked with lava veins, demonic runes glowing red, ultimate blacksmith domain"
+    },
+    {
+      "name": "battle_bg_cave_r10",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, magma tube tunnel, flowing lava river, heat distortion, volcanic gas vents",
+      "prompt_xl": "JRPG underground cave battle background, massive volcanic magma tube tunnel, river of bright flowing lava providing orange illumination, intense heat distortion in air, volcanic gas vents shooting steam, hardened black lava formations, suffocating underground inferno"
+    },
+    {
+      "name": "battle_bg_r11",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, dark enchanted ruins, crumbling gothic architecture, moonlit, magic circles",
+      "prompt_xl": "16-bit JRPG battle background, hauntingly beautiful dark ruins, crumbling gothic arches and flying buttresses under pale moonlight, glowing arcane magic circles on ground, climbing ivy and roses on ancient stone, scattered ancient tomes, dark academic atmosphere, romantic gothic fantasy"
+    },
+    {
+      "name": "battle_bg_r11_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG boss battle background, dark sorcerer's tower top, arcane storm, ritual circle, dimensional portal",
+      "prompt_xl": "JRPG boss battle background, top of dark sorcerer's tower, massive arcane storm swirling above, intricate glowing ritual circle on floor, unstable dimensional portal crackling with energy, books and scrolls flying in magical wind, reality warping, apocalyptic magic unleashed"
+    },
+    {
+      "name": "battle_bg_cave_r11",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, forgotten library dungeon, bookshelves in caves, magical scrolls, arcane light",
+      "prompt_xl": "JRPG underground cave battle background, forgotten underground library carved into cave, towering bookshelves built into rock walls, magical scrolls and tomes floating in air, soft arcane blue light from enchanted crystals, ancient knowledge repository, scholarly dungeon"
+    },
+    {
+      "name": "battle_bg_r12",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG battle background, demon castle courtyard, dark stone walls, blood red banners, gargoyles, ominous sky",
+      "prompt_xl": "16-bit JRPG final region battle background, imposing demon castle courtyard, massive dark stone walls and towers, blood-red tattered banners hanging, stone gargoyles perched on battlements, ominous swirling dark red-purple sky, bone-strewn ground, ultimate evil fortress, JRPG final dungeon exterior"
+    },
+    {
+      "name": "battle_bg_r12_boss",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG final boss battle background, demon lord throne room, massive dark throne, hellfire pillars, dimensional chaos",
+      "prompt_xl": "JRPG ultimate final boss battle background, demon lord's colossal throne room, impossibly massive dark obsidian throne, towering hellfire pillars casting blood-red light, dimensional rifts tearing reality apart behind throne, floating debris, ultimate evil sanctum, end of the world atmosphere, most dramatic JRPG final battle setting"
+    },
+    {
+      "name": "battle_bg_cave_r12",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave battle background, abyssal void, floating stone platforms, darkness below, demonic energy streams",
+      "prompt_xl": "JRPG underground cave battle background, terrifying abyssal void, isolated floating stone platforms over infinite darkness below, streams of demonic red-purple energy flowing between platforms, distant tortured souls, edge of the underworld, most dangerous dungeon, final descent into darkness"
+    }
+  ],
+  "portraits": [
+    {
+      "name": "portrait_hero",
+      "size": 256,
+      "prompt": "JRPG character portrait, young prince swordsman, gold circlet, deep crimson cape, blue armor with gold emblem, determined expression",
+      "prompt_xl": "detailed JRPG character portrait, handsome young prince swordsman hero, golden circlet crown, deep crimson cape flowing behind, blue steel armor with gold shoulder pauldrons and chest emblem, bright determined eyes, heroic expression, medieval fantasy, bust shot, clean background"
+    },
+    {
+      "name": "portrait_elf",
+      "size": 256,
+      "prompt": "JRPG character portrait, elf ranger, pointed ears, green cloak, bow, elegant serene expression",
+      "prompt_xl": "detailed JRPG character portrait, graceful elf forest ranger, long pointed ears, golden circlet, flowing green cloak, dark green leather armor, wooden bow visible, serene elegant expression, nature-attuned, bust shot, clean background"
+    },
+    {
+      "name": "portrait_treant",
+      "size": 256,
+      "prompt": "JRPG character portrait, ancient treant sage, bark skin, leaf crown, wise gentle expression, wooden staff",
+      "prompt_xl": "detailed JRPG character portrait, ancient treant sage companion, textured bark skin, crown of living leaves, dark green cape, emerald robe, wise gentle glowing green eyes, crystalline staff, nature spirit elder, bust shot, clean background"
+    },
+    {
+      "name": "portrait_beast",
+      "size": 256,
+      "prompt": "JRPG character portrait, fierce beastman monk, red bandana, orange tunic, muscular, battle-ready grin",
+      "prompt_xl": "detailed JRPG character portrait, fierce beastman martial artist, wolf-like features with furred face, red bandana tied around forehead, orange tunic revealing muscular build, battle-ready confident grin, fiery eyes, martial arts master, bust shot, clean background"
+    },
+    {
+      "name": "portrait_merfolk",
+      "size": 256,
+      "prompt": "JRPG character portrait, merfolk priestess, blue scales, circlet, white robe, blue cape, gentle expression",
+      "prompt_xl": "detailed JRPG character portrait, beautiful merfolk ocean priestess, iridescent blue-green scales on temples and neck, silver circlet with pearl, flowing white robe, sky blue cape, gentle serene expression, aquatic beauty, healing staff, bust shot, clean background"
+    },
+    {
+      "name": "portrait_giant",
+      "size": 256,
+      "prompt": "JRPG character portrait, armored giant warrior, helmet, blue-steel armor, dark blue cape, powerful stoic face",
+      "prompt_xl": "detailed JRPG character portrait, imposing giant war machine warrior, iron helmet with visor, blue-steel heavy plate armor, dark blue cape, powerful stoic expression, mechanical-enhanced features, war hammer visible, industrial strength, bust shot, clean background"
+    },
+    {
+      "name": "portrait_dwarf",
+      "size": 256,
+      "prompt": "JRPG character portrait, dwarf shadow assassin, hood, brown cloak, daggers, cunning expression",
+      "prompt_xl": "detailed JRPG character portrait, stealthy dwarf shadow assassin, dark hood partially covering face, brown cloak, dark leather armor, twin daggers visible, cunning sharp-eyed expression, roguish charm, shadows clinging, bust shot, clean background"
+    },
+    {
+      "name": "portrait_undead",
+      "size": 256,
+      "prompt": "JRPG character portrait, undead dark sorcerer, wizard hat, violet cape, purple robe, ethereal glow, mysterious",
+      "prompt_xl": "detailed JRPG character portrait, enigmatic undead dark sorcerer, tall pointed wizard hat, flowing violet cape, deep purple robe with arcane symbols, pale spectral skin with ethereal blue-purple glow, mysterious piercing eyes, dark magic aura, bust shot, clean background"
+    },
+    {
+      "name": "portrait_npc_shop",
+      "size": 256,
+      "prompt": "JRPG NPC portrait, friendly medieval shopkeeper, apron, warm smile, merchant outfit",
+      "prompt_xl": "detailed JRPG NPC portrait, friendly medieval shopkeeper, leather apron over colorful merchant outfit, warm welcoming smile, rosy cheeks, cheerful eyes, various goods visible behind, helpful expression, bust shot, clean background"
+    },
+    {
+      "name": "portrait_npc_quest",
+      "size": 256,
+      "prompt": "JRPG NPC portrait, wise quest giver, long beard, mysterious robes, knowing expression",
+      "prompt_xl": "detailed JRPG NPC portrait, wise old quest giver sage, long flowing white beard, mysterious dark blue robes with star patterns, knowing cryptic expression, ancient wisdom in eyes, scroll in hand, mystical aura, bust shot, clean background"
+    },
+    {
+      "name": "portrait_npc_priest",
+      "size": 256,
+      "prompt": "JRPG NPC portrait, church priest, white robes, gentle expression, holy symbol pendant",
+      "prompt_xl": "detailed JRPG NPC portrait, benevolent church priest, clean white and gold robes, gentle compassionate expression, golden holy symbol pendant, soft healing glow, prayer book, kind eyes, religious authority, bust shot, clean background"
+    },
+    {
+      "name": "portrait_npc_guide",
+      "size": 256,
+      "prompt": "JRPG NPC portrait, town guide traveler, feathered hat, map, adventurous smile",
+      "prompt_xl": "detailed JRPG NPC portrait, adventurous town guide and traveler, jaunty feathered hat, colorful traveler outfit, rolled map in hand, friendly adventurous smile, worldly experienced eyes, well-traveled, bust shot, clean background"
+    },
+    {
+      "name": "portrait_king_r1",
+      "size": 256,
+      "prompt": "JRPG king portrait, noble king, golden crown, royal cape, regal bearing, wise ruler",
+      "prompt_xl": "detailed JRPG king portrait, noble and wise kingdom ruler, ornate golden crown with jewels, rich royal purple and gold cape, regal bearing, greying distinguished beard, wise authoritative expression, throne room background hints, bust shot"
+    },
+    {
+      "name": "portrait_king_r2",
+      "size": 256,
+      "prompt": "JRPG king portrait, elf king, silver crown with leaves, green robes, ageless beauty",
+      "prompt_xl": "detailed JRPG king portrait, ancient elf king of the forest realm, delicate silver crown adorned with living leaves, flowing green and silver robes, ageless ethereal beauty, pointed ears, centuries of wisdom in calm eyes, woodland sovereign, bust shot"
+    },
+    {
+      "name": "portrait_king_r3",
+      "size": 256,
+      "prompt": "JRPG king portrait, sea king, coral crown, blue robes, trident, weathered face",
+      "prompt_xl": "detailed JRPG king portrait, mighty sea king, crown of living coral and pearls, deep blue and aquamarine robes, weathered sun-tanned face, commanding presence, trident scepter, ocean waves reflected in eyes, maritime sovereign, bust shot"
+    },
+    {
+      "name": "portrait_king_r4",
+      "size": 256,
+      "prompt": "JRPG king portrait, beast tribe chief, feathered headdress, tribal markings, fierce nobility",
+      "prompt_xl": "detailed JRPG king portrait, proud beast tribe chieftain, magnificent feathered headdress, tribal war paint and tattoo markings, fierce noble expression, fanged but wise, animal skin cape, primal authority, savanna lord, bust shot"
+    },
+    {
+      "name": "portrait_king_r5",
+      "size": 256,
+      "prompt": "JRPG king portrait, ice king, frost crown, white fur cape, pale face, cold blue eyes",
+      "prompt_xl": "detailed JRPG king portrait, stoic ice kingdom ruler, crystalline frost crown sparkling with ice, thick white fur cape and silver armor, pale noble face, piercing cold blue eyes, breath visible in cold air, winter sovereign, bust shot"
+    },
+    {
+      "name": "portrait_king_r6",
+      "size": 256,
+      "prompt": "JRPG king portrait, mountain king, iron crown, heavy armor, strong jaw, battle-scarred",
+      "prompt_xl": "detailed JRPG king portrait, battle-hardened mountain kingdom king, heavy iron crown, thick plate armor with mountain crest, strong square jaw, battle scars across face, grizzled veteran warrior-king, respect earned through strength, bust shot"
+    },
+    {
+      "name": "portrait_king_r7",
+      "size": 256,
+      "prompt": "JRPG king portrait, swamp king, bone crown, dark robes, pale skin, mysterious smile",
+      "prompt_xl": "detailed JRPG king portrait, enigmatic swamp kingdom ruler, crown of ancient bleached bones and dark gems, flowing dark tattered robes, unnaturally pale skin, mysterious thin-lipped smile, knowledge of death and rebirth, unsettling wisdom, bust shot"
+    },
+    {
+      "name": "portrait_king_r8",
+      "size": 256,
+      "prompt": "JRPG king portrait, eastern emperor, ornate golden headpiece, silk robes, dignified calm",
+      "prompt_xl": "detailed JRPG king portrait, dignified eastern emperor, ornate golden headpiece with jade ornaments, magnificent silk robes in red and gold, perfectly composed dignified calm expression, long thin beard, calligraphy brush as scepter, imperial authority, bust shot"
+    },
+    {
+      "name": "portrait_king_r9",
+      "size": 256,
+      "prompt": "JRPG king portrait, sky king, feathered crown, white and gold robes, serene floating presence",
+      "prompt_xl": "detailed JRPG king portrait, ethereal sky kingdom ruler, magnificent crown of white feathers and gold, pristine white and gold flowing robes, serene transcendent expression, eyes reflecting clouds, slight floating aura, heavenly sovereign, bust shot"
+    },
+    {
+      "name": "portrait_king_r10",
+      "size": 256,
+      "prompt": "JRPG king portrait, forge king, soot-stained crown, blacksmith apron over royal garb, strong arms",
+      "prompt_xl": "detailed JRPG king portrait, industrious forge kingdom king, practical iron crown blackened with forge soot, royal garb visible beneath leather blacksmith apron, powerfully built arms, honest sweat-stained face, proud craftsman-king, ember glow, bust shot"
+    },
+    {
+      "name": "portrait_king_r11",
+      "size": 256,
+      "prompt": "JRPG king portrait, archmage king, starry wizard hat, silver beard, arcane spectacles, books",
+      "prompt_xl": "detailed JRPG king portrait, scholarly archmage kingdom ruler, tall pointed wizard hat embroidered with stars and moons, long flowing silver beard, arcane spectacles perched on nose, surrounded by floating books and scrolls, ancient knowledge incarnate, bust shot"
+    },
+    {
+      "name": "portrait_king_r12",
+      "size": 256,
+      "prompt": "JRPG king portrait, dark king under demonic influence, cracked crown, haunted eyes, noble suffering",
+      "prompt_xl": "detailed JRPG king portrait, tragic dark kingdom ruler under demonic influence, once-magnificent crown now cracked and corrupted with dark veins, haunted tortured eyes showing inner struggle, noble face twisted with suffering, dark corruption spreading across royal robes, pitiable fallen sovereign, bust shot"
+    }
+  ],
+  "interiors": [
+    {
+      "name": "interior_inn",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG inn interior, cozy tavern, wooden bar counter, barrels, warm candlelight, fireplace",
+      "prompt_xl": "16-bit JRPG inn interior scene, cozy medieval tavern and inn, warm wooden bar counter with tankards and bottles, oak barrels stacked behind, roaring stone fireplace with warm orange glow, wooden tables and chairs, hanging lanterns, comfortable beds visible upstairs landing, welcoming homey atmosphere, Secret of Mana style"
+    },
+    {
+      "name": "interior_shop",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG shop interior, medieval item shop, shelves with potions, weapons on wall, merchant counter",
+      "prompt_xl": "16-bit JRPG item shop interior scene, bustling medieval merchant shop, wooden shelves lined with colorful potion bottles, swords and shields displayed on walls, glass display cases with jewelry and accessories, wooden merchant counter with scales and coins, warm candlelight, cluttered but organized, pixel art RPG shop"
+    },
+    {
+      "name": "interior_church",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG church interior, stone cathedral, stained glass windows, altar, pews, holy light",
+      "prompt_xl": "16-bit JRPG church interior scene, serene medieval stone cathedral, magnificent stained glass windows casting colored light beams, ornate altar with golden holy symbol, wooden pews, high vaulted ceiling with stone arches, candelabras with flickering candles, peaceful sacred atmosphere, healing and salvation"
+    },
+    {
+      "name": "interior_castle",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG castle throne room interior, grand hall, red carpet, throne, pillars, banners",
+      "prompt_xl": "16-bit JRPG castle throne room interior, grand royal hall, long red velvet carpet leading to ornate golden throne on raised dais, massive stone pillars, royal banners and tapestries on walls, stained glass windows, knight guards standing at attention, chandelier with hundreds of candles, majestic sovereign's domain"
+    },
+    {
+      "name": "interior_house",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG house interior, cozy medieval cottage, fireplace, table with food, bed, bookshelves",
+      "prompt_xl": "16-bit JRPG cozy house interior scene, warm medieval cottage home, stone fireplace with crackling fire, wooden table set with bread and stew, comfortable bed with patchwork quilt, small bookshelf with worn books, herbs drying from ceiling beams, cat sleeping on rug, homey lived-in atmosphere"
+    },
+    {
+      "name": "interior_cave",
+      "width": 1024, "height": 768,
+      "prompt": "JRPG cave interior, dark dungeon entrance, rough stone walls, torches, wooden support beams",
+      "prompt_xl": "16-bit JRPG cave dungeon entrance interior, rough-hewn dark stone walls and ceiling, flickering wall torches providing orange light, old wooden support beams and mining props, scattered bones and debris on floor, dark passages leading deeper, ominous dripping water, adventure awaits in the darkness"
+    }
   ]
 }

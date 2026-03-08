@@ -306,6 +306,7 @@ export class MapFactory {
     const midX = Math.floor(config.width / 2);
     const hasSouthGate = config.type === 'town' || config.type === 'field';
     const hasWestGate = config.type === 'town';
+    const hasNorthGate = config.type === 'cave'; // Cave exit at north
     // Both field and town use 5-tile-wide south gate for reliable exit
     const southGateHalf = 2;
     // West gate: 3-tile gap on left border, southwest area (y = height-8 to height-6)
@@ -322,16 +323,20 @@ export class MapFactory {
           && x >= midX - southGateHalf && x <= midX + southGateHalf;
         const isWestGate = hasWestGate && x === 0
           && y >= westGateY && y <= westGateY + 2;
-        const isWall = isBorder && !isSouthGate && !isWestGate;
+        const isNorthGate = hasNorthGate && y === 0
+          && x >= midX - 2 && x <= midX + 2;
+        const isWall = isBorder && !isSouthGate && !isWestGate && !isNorthGate;
 
         if (isBorder) {
-          const isGate = isSouthGate || isWestGate;
+          const isGate = isSouthGate || isWestGate || isNorthGate;
           if (isGate) {
             // Gate openings render as ground — visible opening in the wall
             const variant = Math.floor(Math.random() * 3);
             const prefix = config.type === 'cave' ? 'tile_cave_ground' : 'tile_ground';
             const groundKey = `${prefix}_${rid}_${variant}`;
-            scene.add.image(px, py, groundKey).setDepth(DEPTH.ground);
+            const gateGround = scene.add.image(px, py, groundKey).setDepth(DEPTH.ground);
+            if (Math.random() < 0.5) gateGround.setFlipX(true);
+            if (Math.random() < 0.5) gateGround.setFlipY(true);
           } else {
             const wallKey = config.type === 'cave' ? `tile_cave_wall_${rid}` : `tile_wall_${rid}`;
             const wall = scene.add.image(px, py, wallKey).setDepth(DEPTH.ground);
@@ -349,6 +354,12 @@ export class MapFactory {
           const prefix = config.type === 'cave' ? 'tile_cave_ground' : 'tile_ground';
           const groundKey = `${prefix}_${rid}_${variant}`;
           const ground = scene.add.image(px, py, groundKey).setDepth(DEPTH.ground);
+          // Break up visible grid repetition with random flips and subtle tint
+          if (Math.random() < 0.5) ground.setFlipX(true);
+          if (Math.random() < 0.5) ground.setFlipY(true);
+          const tintVariation = 0.92 + Math.random() * 0.16; // 0.92–1.08
+          const tintHex = Math.min(255, Math.round(255 * tintVariation));
+          ground.setTint(Phaser.Display.Color.GetColor(tintHex, tintHex, tintHex));
           groundLayer.push(ground);
         }
       }

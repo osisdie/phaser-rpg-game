@@ -43,6 +43,81 @@
       "name": "shop",
       "duration": 20,
       "prompt": "cheerful medieval shop music, lute and recorder, trading, lighthearted"
+    },
+    {
+      "name": "town_r1",
+      "duration": 60,
+      "prompt": "peaceful pastoral village music, gentle acoustic guitar and flute, birdsong ambience, warm sunshine meadow feel, relaxing countryside"
+    },
+    {
+      "name": "town_r2",
+      "duration": 60,
+      "prompt": "mystical forest village music, ethereal harp and pan flute, gentle wind chimes, enchanted woodland, elvish serenity"
+    },
+    {
+      "name": "town_r3",
+      "duration": 60,
+      "prompt": "tropical island port town music, steel drums and ukulele, ocean waves ambience, Caribbean calypso feel, laid-back seaside"
+    },
+    {
+      "name": "town_r4",
+      "duration": 60,
+      "prompt": "savanna tribal village music, djembe drums and kalimba, warm rhythmic patterns, African-inspired percussion, sunset grasslands"
+    },
+    {
+      "name": "town_r5",
+      "duration": 60,
+      "prompt": "frozen northern village music, haunting Nordic fiddle and kantele, wind howling softly, cozy fireplace warmth against winter cold"
+    },
+    {
+      "name": "town_r6",
+      "duration": 60,
+      "prompt": "mountain fortress town music, military snare and brass fanfare, noble and proud, stone castle grandeur, highland pipes hint"
+    },
+    {
+      "name": "town_r7",
+      "duration": 60,
+      "prompt": "eerie swamp village music, muted strings and oboe, creaking wood, mysterious fog, haunting minor key melody"
+    },
+    {
+      "name": "town_r8",
+      "duration": 60,
+      "prompt": "eastern temple village music, koto and shakuhachi flute, bamboo percussion, zen garden tranquility, Japanese-inspired"
+    },
+    {
+      "name": "town_r9",
+      "duration": 60,
+      "prompt": "floating sky city music, celestial bells and strings, airy ethereal pads, heavenly choir whispers, serene above the clouds"
+    },
+    {
+      "name": "town_r10",
+      "duration": 60,
+      "prompt": "volcanic forge town music, heavy anvil percussion, deep bass rumble, industrial hammering rhythm, determined smithing energy"
+    },
+    {
+      "name": "town_r11",
+      "duration": 60,
+      "prompt": "arcane academy town music, mysterious celesta and harpsichord, magical twinkling, scholarly waltz, library ambience"
+    },
+    {
+      "name": "town_r12",
+      "duration": 60,
+      "prompt": "dark castle stronghold music, ominous pipe organ and choir, deep reverberant bells, gothic cathedral atmosphere, foreboding"
+    },
+    {
+      "name": "boss_r1",
+      "duration": 60,
+      "prompt": "corrupted paladin boss battle theme, dramatic orchestral with heavy choir, clashing swords percussion, noble melody twisted dark"
+    },
+    {
+      "name": "boss_r6",
+      "duration": 60,
+      "prompt": "mountain siege boss battle theme, war drums and brass, military march turned chaotic, desperate combat"
+    },
+    {
+      "name": "boss_r12",
+      "duration": 60,
+      "prompt": "final demon lord boss battle theme, apocalyptic orchestra and choir, pipe organ, fastest tempo, ultimate confrontation, all instruments, most intense"
     }
   ],
   "sfx": [
@@ -70,6 +145,56 @@
       "name": "sfx_heal",
       "duration": 3,
       "prompt": "healing spell sound effect, gentle chime, restoration, warm glow"
+    },
+    {
+      "name": "sfx_footstep",
+      "duration": 1,
+      "prompt": "single footstep on stone floor, soft leather boot step, quiet walking sound"
+    },
+    {
+      "name": "sfx_door",
+      "duration": 2,
+      "prompt": "heavy wooden door opening with creak, medieval oak door hinge, old rusty hinge squeak"
+    },
+    {
+      "name": "sfx_chest",
+      "duration": 2,
+      "prompt": "treasure chest opening sound, wooden lid creak then magical sparkle chime, discovery jingle"
+    },
+    {
+      "name": "sfx_levelup",
+      "duration": 3,
+      "prompt": "triumphant level up fanfare, ascending arpeggio, bright brass and bells, achievement celebration, short jingle"
+    },
+    {
+      "name": "sfx_equip",
+      "duration": 1,
+      "prompt": "metallic armor equip sound, chain mail clink, weapon sheathe, gear changing metallic"
+    },
+    {
+      "name": "sfx_coin",
+      "duration": 1,
+      "prompt": "gold coins dropping and clinking, metallic jingling, treasure pickup, bright coin sound"
+    },
+    {
+      "name": "sfx_save",
+      "duration": 2,
+      "prompt": "save point activation, gentle crystalline chime ascending, reassuring holy bell, checkpoint reached"
+    },
+    {
+      "name": "sfx_flee",
+      "duration": 2,
+      "prompt": "running away quick footsteps, panicked retreat, whooshing escape, diminishing patter"
+    },
+    {
+      "name": "sfx_critical",
+      "duration": 2,
+      "prompt": "powerful critical hit impact, explosive bass slam with metallic ring, devastating heavy blow, screen-shaking impact"
+    },
+    {
+      "name": "sfx_encounter",
+      "duration": 2,
+      "prompt": "battle encounter alert, dramatic two-note brass stab, danger warning, sudden tension, enemy spotted"
     }
   ]
 }

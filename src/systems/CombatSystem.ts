@@ -234,11 +234,15 @@ export class CombatSystem {
       this.state.actionQueue.push(action);
     }
 
-    // Sort by AGI, but flee actions always execute first
+    // Sort: flee first, then player actions before enemy actions, then by AGI within each group
     this.state.actionQueue.sort((a, b) => {
       // Flee actions get top priority (prevents getting killed before fleeing)
       if (a.type === 'flee' && b.type !== 'flee') return -1;
       if (a.type !== 'flee' && b.type === 'flee') return 1;
+      // Player actions execute before enemy actions
+      if (!a.isEnemy && b.isEnemy) return -1;
+      if (a.isEnemy && !b.isEnemy) return 1;
+      // Within same side, sort by AGI (faster acts first)
       const actorA = a.isEnemy ? this.state.enemies[a.actorIndex] : this.state.party[a.actorIndex];
       const actorB = b.isEnemy ? this.state.enemies[b.actorIndex] : this.state.party[b.actorIndex];
       if (!actorA || !actorB) return 0;

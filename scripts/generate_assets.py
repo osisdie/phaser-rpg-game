@@ -303,11 +303,15 @@ def load_pipeline(model: str = "sdxl"):
         print(f"[error] Unknown model: {model}")
         sys.exit(1)
 
-    # CPU optimizations
-    _pipe = _pipe.to("cpu")
+    # Device setup
+    import torch as _torch
+    _device = os.environ.get("ASSET_DEVICE", "cpu")
+    if _device == "auto":
+        _device = "cuda" if _torch.cuda.is_available() else "cpu"
+    _pipe = _pipe.to(_device)
     if hasattr(_pipe, "enable_attention_slicing"):
         _pipe.enable_attention_slicing()
-    if hasattr(_pipe, "enable_vae_tiling"):
+    if _device == "cpu" and hasattr(_pipe, "enable_vae_tiling"):
         _pipe.enable_vae_tiling()
 
     print(f"[pipeline] {model.upper()} pipeline ready in {time.time() - t0:.1f}s")
@@ -998,20 +1002,20 @@ def regen_alpha_existing(output_base: Path):
 def generate_manifest(output_base: Path):
     """Scan output directory and generate manifest.json for the game to load."""
     manifest = {}
-    for subdir in ["tiles", "characters", "monsters", "buildings"]:
+    for subdir in ["tiles", "characters", "monsters", "buildings",
+                    "battle_backgrounds", "portraits", "interiors"]:
         dir_path = output_base / subdir
         if dir_path.exists():
             files = sorted(f.stem for f in dir_path.glob("*.png"))
-            manifest[subdir] = files
+            if files:
+                manifest[subdir] = files
 
     manifest_path = output_base / "manifest.json"
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     print(f"\n[manifest] Written to {manifest_path}")
-    print(f"  tiles: {len(manifest.get('tiles', []))}")
-    print(f"  characters: {len(manifest.get('characters', []))}")
-    print(f"  monsters: {len(manifest.get('monsters', []))}")
-    print(f"  buildings: {len(manifest.get('buildings', []))}")
+    for cat, keys in manifest.items():
+        print(f"  {cat}: {len(keys)}")
 
 
 # ---------------------------------------------------------------------------
@@ -1026,8 +1030,12 @@ def main():
     parser.add_argument("--all", action="store_true",
                         help="Generate all assets")
     parser.add_argument("--category", type=str,
-                        choices=["tiles", "buildings", "characters", "monsters", "decorations"],
+                        choices=["tiles", "buildings", "characters", "monsters", "decorations",
+                                 "battle_backgrounds", "portraits", "interiors"],
                         help="Generate a specific category")
+    parser.add_argument("--device", type=str, default="cpu",
+                        choices=["cpu", "gpu", "auto"],
+                        help="Device: cpu (default), gpu, or auto-detect")
     parser.add_argument("--name", type=str,
                         help="Generate a single asset by name")
     parser.add_argument("--model", type=str, default="pixelsprite",
@@ -1050,6 +1058,10 @@ def main():
 
     args = parser.parse_args()
     output_base = Path(args.output)
+
+    # Set device via env var for pipeline loader
+    device_map = {"gpu": "cuda", "cpu": "cpu", "auto": "auto"}
+    os.environ["ASSET_DEVICE"] = device_map.get(args.device, "cpu")
 
     # Backward compatibility: --turbo flag
     model_type = args.model

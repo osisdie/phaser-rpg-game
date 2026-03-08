@@ -10,6 +10,8 @@ export class TextBox extends Phaser.GameObjects.Container {
   private nameText: Phaser.GameObjects.Text;
   private contentText: Phaser.GameObjects.Text;
   private indicator: Phaser.GameObjects.Text;
+  private portrait: Phaser.GameObjects.Image | null = null;
+  private portraitBorder: Phaser.GameObjects.Rectangle | null = null;
   private fullText = '';
   private displayedChars = 0;
   private typeSpeed = 30; // ms per char
@@ -18,6 +20,9 @@ export class TextBox extends Phaser.GameObjects.Container {
   private onComplete?: () => void;
   private choicesContainer?: Phaser.GameObjects.Container;
   private choicesCleanup?: () => void;
+  // Layout constants for portrait offset
+  private contentLeftBase: number;
+  private portraitAreaWidth = 0;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -52,6 +57,8 @@ export class TextBox extends Phaser.GameObjects.Container {
     if (scene.textures.exists('ui_name_plate')) {
       this.namePlate = scene.add.image(boxX - bgW / 2 + 80, boxY - boxHeight / 2 - 4, 'ui_name_plate');
     }
+
+    this.contentLeftBase = cLeft;
 
     this.nameText = scene.add.text(cLeft, cTop, '', {
       fontFamily: FONT_FAMILY, fontSize: '16px', color: COLORS.textHighlight,
@@ -103,7 +110,7 @@ export class TextBox extends Phaser.GameObjects.Container {
     });
   }
 
-  show(speaker: string, text: string, onComplete?: () => void): void {
+  show(speaker: string, text: string, onComplete?: () => void, portraitKey?: string): void {
     this.setVisible(true);
     this.nameText.setText(speaker);
     if (this.namePlate) {
@@ -116,6 +123,75 @@ export class TextBox extends Phaser.GameObjects.Container {
     this.onComplete = onComplete;
     this.indicator.setVisible(false);
     this.clearChoices();
+
+    // Portrait display
+    this.clearPortrait();
+    const pKey = portraitKey || this.resolvePortraitKey(speaker);
+    if (pKey && this.scene.textures.exists(pKey)) {
+      this.showPortrait(pKey);
+    }
+  }
+
+  /** Try to find a portrait texture key for a speaker name */
+  private resolvePortraitKey(speaker: string): string | null {
+    // Common mappings: try portrait_<role> keys
+    const mappings: Record<string, string> = {
+      // These will match if portrait textures are loaded via AI manifest
+    };
+    const key = mappings[speaker];
+    if (key) return key;
+
+    // Try generic portrait keys by scanning known prefixes
+    for (const prefix of ['portrait_hero', 'portrait_elf', 'portrait_treant',
+      'portrait_beast', 'portrait_merfolk', 'portrait_giant', 'portrait_dwarf',
+      'portrait_undead', 'portrait_npc_shop', 'portrait_npc_quest',
+      'portrait_npc_priest', 'portrait_npc_guide']) {
+      if (this.scene.textures.exists(prefix)) {
+        // This is a simple fallback — in practice, the caller should pass portraitKey
+      }
+    }
+    return null;
+  }
+
+  private showPortrait(key: string): void {
+    const boxHeight = 140;
+    const boxY = GAME_HEIGHT - 90;
+    const portraitSize = boxHeight - 20; // 120px portrait within 140px box
+    const portraitX = this.contentLeftBase + portraitSize / 2 - 4;
+    const portraitY = boxY;
+
+    // Portrait border
+    this.portraitBorder = this.scene.add.rectangle(
+      portraitX, portraitY, portraitSize + 4, portraitSize + 4, COLORS.panelBorder,
+    );
+    this.add(this.portraitBorder);
+
+    // Portrait image
+    this.portrait = this.scene.add.image(portraitX, portraitY, key);
+    this.portrait.setDisplaySize(portraitSize, portraitSize);
+    this.add(this.portrait);
+
+    // Shift text content right to make room
+    this.portraitAreaWidth = portraitSize + 12;
+    const newLeft = this.contentLeftBase + this.portraitAreaWidth;
+    this.nameText.setX(newLeft);
+    this.contentText.setX(newLeft);
+  }
+
+  private clearPortrait(): void {
+    if (this.portrait) {
+      this.portrait.destroy();
+      this.portrait = null;
+    }
+    if (this.portraitBorder) {
+      this.portraitBorder.destroy();
+      this.portraitBorder = null;
+    }
+    if (this.portraitAreaWidth > 0) {
+      this.nameText.setX(this.contentLeftBase);
+      this.contentText.setX(this.contentLeftBase);
+      this.portraitAreaWidth = 0;
+    }
   }
 
   showChoices(choices: { text: string; index: number }[], onSelect: (index: number) => void): void {
@@ -245,6 +321,7 @@ export class TextBox extends Phaser.GameObjects.Container {
   hide(): void {
     this.setVisible(false);
     this.clearChoices();
+    this.clearPortrait();
   }
 
   update(_time: number, delta: number): void {

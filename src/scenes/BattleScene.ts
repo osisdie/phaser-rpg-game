@@ -15,6 +15,7 @@ import { getSkillById } from '../data/skills/index';
 import { InventorySystem } from '../systems/InventorySystem';
 import { SkillSystem } from '../systems/SkillSystem';
 import { SaveLoadSystem } from '../systems/SaveLoadSystem';
+import { ArtRegistry } from '../art/index';
 import { MonsterRenderer } from '../art/monsters/MonsterRenderer';
 import { BattleEffects } from '../art/effects/BattleEffects';
 import { getCompanionTextureKey } from '../art/characters/NPCProfiles';
@@ -157,10 +158,30 @@ export class BattleScene extends Phaser.Scene {
     // Battle background — caller override > boss variant > normal variant > fallback
     const bgKey = data.battleBgKey
       ?? (this.isBoss ? `battle_bg_${this.regionId}_boss` : `battle_bg_${this.regionId}`);
-    if (this.textures.exists(bgKey)) {
-      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey);
-    } else {
-      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x1a1a2e);
+
+    // Show procedural bg immediately, then swap in AI version when loaded
+    const proceduralBg = this.textures.exists(bgKey)
+      ? this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, bgKey).setDepth(DEPTH.ground - 1)
+      : this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x1a1a2e).setDepth(DEPTH.ground - 1);
+
+    // Lazy-load AI battle background to replace the procedural one
+    if (!ArtRegistry.isAIAsset(bgKey)) {
+      ArtRegistry.loadOnDemand(this, bgKey).then(() => {
+        const aiTexKey = ArtRegistry.getTextureKey(bgKey);
+        if (this.textures.exists(aiTexKey) && ArtRegistry.isAIAsset(bgKey) && this.scene.isActive('BattleScene')) {
+          const aiBg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, aiTexKey).setDepth(DEPTH.ground - 1);
+          aiBg.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+          proceduralBg.destroy();
+          // Darken AI backgrounds so characters remain visible
+          this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.3)
+            .setDepth(DEPTH.ground);
+        }
+      });
+    }
+    // Also darken if AI bg was already loaded at boot
+    if (ArtRegistry.isAIAsset(bgKey)) {
+      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.3)
+        .setDepth(DEPTH.ground);
     }
 
     // Boss: pulsing dark vignette overlay for dramatic effect
@@ -392,18 +413,16 @@ export class BattleScene extends Phaser.Scene {
     const logW = 370;
     const logH = 138;
 
-    // Semi-transparent background
-    this.battleLogBg = this.add.rectangle(logX + logW / 2, logY + logH / 2, logW, logH, 0x000000, 0.45)
-      .setDepth(DEPTH.ui + 2);
-
-    // Border
-    this.add.rectangle(logX + logW / 2, logY + logH / 2, logW + 2, logH + 2, 0x334466, 0.6)
+    // Semi-transparent parchment background (matches battle menu style)
+    this.add.rectangle(logX + logW / 2, logY + logH / 2, logW + 4, logH + 4, 0x3a2a1a, 0.8)
       .setDepth(DEPTH.ui + 1);
+    this.battleLogBg = this.add.rectangle(logX + logW / 2, logY + logH / 2, logW, logH, 0x1a1208, 0.55)
+      .setDepth(DEPTH.ui + 2);
 
     // Text object — newest first, word-wrapped with CJK support
     const wrapWidth = logW - 20;
     this.battleLogText = this.add.text(logX + 8, logY + 4, '', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ccddee',
+      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#e8dcc8', stroke: '#1a1208', strokeThickness: 1,
       wordWrap: { width: wrapWidth },
       lineSpacing: 2,
     }).setDepth(DEPTH.ui + 3);
@@ -956,13 +975,13 @@ export class BattleScene extends Phaser.Scene {
       do { selectedIdx = (selectedIdx - 1 + targets.length) % targets.length; }
       while (!isValidTarget(targets[selectedIdx]));
       updateCursor();
-      audioManager.playSfx('select');
+      audioManager.playSfx('select', 0.15);
     };
     const onNext = () => {
       do { selectedIdx = (selectedIdx + 1) % targets.length; }
       while (!isValidTarget(targets[selectedIdx]));
       updateCursor();
-      audioManager.playSfx('select');
+      audioManager.playSfx('select', 0.15);
     };
     const onConfirm = () => {
       cleanup();
@@ -1201,7 +1220,7 @@ export class BattleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.overlay + 1);
 
-    const itemIcons: Phaser.GameObjects.Image[] = [];
+    const itemIcons: (Phaser.GameObjects.Image | null)[] = [];
     usable.forEach((entry, i) => {
       const iy = panelY - 80 + i * 34;
       // Icon
@@ -1209,6 +1228,8 @@ export class BattleScene extends Phaser.Scene {
       if (this.textures.exists(iconKey)) {
         const icon = this.add.image(panelX - 130, iy + 9, iconKey).setScale(0.45).setDepth(DEPTH.overlay + 1);
         itemIcons.push(icon);
+      } else {
+        itemIcons.push(null);
       }
       const text = this.add.text(panelX - 100, iy, `  ${entry.item.name} ×${entry.quantity}`, {
         fontFamily: FONT_FAMILY, fontSize: '14px', color: COLORS.textPrimary,
@@ -1231,7 +1252,12 @@ export class BattleScene extends Phaser.Scene {
         txt.setText(i === selectedIdx ? `► ${usable[i].item.name} ×${usable[i].quantity}` : `  ${usable[i].item.name} ×${usable[i].quantity}`);
         txt.setColor(i === selectedIdx ? COLORS.textHighlight : COLORS.textPrimary);
       });
-      itemIcons.forEach(ic => ic.setVisible(false)); // hide all icons, show visible ones
+      itemIcons.forEach((ic, i) => {
+        if (!ic) return;
+        const visible = i >= itemScrollOffset && i < itemScrollOffset + maxVisibleItems;
+        ic.setVisible(visible);
+        if (visible) ic.setY(panelY - 80 + (i - itemScrollOffset) * 34 + 9);
+      });
       // Update description
       const sel = usable[selectedIdx];
       descText.setText(sel ? sel.item.description : '');
@@ -1241,7 +1267,7 @@ export class BattleScene extends Phaser.Scene {
     const cleanup = () => {
       panel.destroy(); border?.destroy(); title.destroy(); descText.destroy();
       items.forEach(t => t.destroy());
-      itemIcons.forEach(ic => ic.destroy());
+      itemIcons.forEach(ic => ic?.destroy());
       this.input.keyboard?.off('keydown-UP', onUp);
       this.input.keyboard?.off('keydown-DOWN', onDown);
       this.input.keyboard?.off('keydown-ENTER', onConfirm);
@@ -2287,6 +2313,7 @@ export class BattleScene extends Phaser.Scene {
 
   private showDefeat(): void {
     audioManager.stopBgm();
+    this.resultHandledByCallback = true; // Prevent ENTER from triggering advanceResult → returnToField
     this.time.delayedCall(1000, () => {
       this.scene.start('GameOverScene', {
         returnScene: this.returnScene,

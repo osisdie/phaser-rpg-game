@@ -31,7 +31,7 @@ function createDefaultState(): GameState {
     questStates: {},
     questProgress: {},
     liberatedRegions: [],
-    visitedRegions: ['region_hero'],
+    visitedRegions: [],
     playTime: 0,
     difficulty: 'normal',
     encounterSteps: 0,
