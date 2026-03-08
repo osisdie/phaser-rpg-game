@@ -25,8 +25,14 @@ export class MinimapUI extends Phaser.GameObjects.Container {
       this.bg = scene.add.image(0, 0, 'ui_panel_hud')
         .setDisplaySize(this.mapWidth, this.mapHeight);
     } else {
-      this.bg = scene.add.rectangle(0, 0, this.mapWidth, this.mapHeight, 0x000000, 0.5);
-      (this.bg as Phaser.GameObjects.Rectangle).setStrokeStyle(1, COLORS.panelBorder);
+      // Dark semi-transparent bg with strong border — reads as "minimap"
+      this.bg = scene.add.rectangle(0, 0, this.mapWidth, this.mapHeight, 0x1a2a1a, 0.75);
+      (this.bg as Phaser.GameObjects.Rectangle).setStrokeStyle(2, 0x8b7355);
+      // Inner border for depth
+      const inner = scene.add.rectangle(0, 0, this.mapWidth - 4, this.mapHeight - 4);
+      (inner as Phaser.GameObjects.Rectangle).setStrokeStyle(1, 0x5a4a35);
+      (inner as Phaser.GameObjects.Rectangle).setFillStyle(0x000000, 0);
+      this.add(inner);
     }
 
     this.playerDot = scene.add.circle(0, 0, 3, 0x4488ff);

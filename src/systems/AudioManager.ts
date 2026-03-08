@@ -551,17 +551,17 @@ class AudioManagerClass {
       // Delay starting new track until fade completes
       setTimeout(() => {
         this.currentTrackKey = trackKey;
-        this.startTrackInternal(type, trackKey);
+        this.startTrackInternal(type, trackKey, regionId);
       }, 620);
       return;
     }
     this.currentTrackKey = trackKey;
-    this.startTrackInternal(type, trackKey);
+    this.startTrackInternal(type, trackKey, regionId);
   }
 
-  private startTrackInternal(type: string, trackKey: string): void {
+  private startTrackInternal(type: string, trackKey: string, regionId?: string): void {
     // AI first: check for pre-recorded audio
-    const aiKey = this.resolveBgmAIKey(type);
+    const aiKey = this.resolveBgmAIKey(type, regionId);
     const buffer = aiKey ? this.preRecorded.get(aiKey) : undefined;
     if (buffer) {
       this.playPreRecordedBgm(buffer);
@@ -576,14 +576,35 @@ class AudioManagerClass {
     this.playTrack(ctx, track);
   }
 
-  private resolveBgmAIKey(type: string): string | undefined {
-    // Only use AI audio for non-region-specific types.
-    // Region types (field/town/battle/boss) use procedural per-kingdom music.
-    const keyMap: Record<string, string> = {
+  /** Map BGM type + regionId to AI audio key (from Colab-generated tracks) */
+  private resolveBgmAIKey(type: string, regionId?: string): string | undefined {
+    // Region number mapping
+    const regionNum: Record<string, string> = {
+      region_hero: 'r1', region_elf: 'r2', region_treant: 'r3',
+      region_beast: 'r4', region_merfolk: 'r5', region_giant: 'r6',
+      region_dwarf: 'r7', region_undead: 'r8', region_volcano: 'r9',
+      region_hotspring: 'r10', region_mountain: 'r11', region_demon: 'r12',
+    };
+    const rNum = regionId ? regionNum[regionId] : undefined;
+
+    // Generic types (no region needed)
+    const genericMap: Record<string, string> = {
       title: 'title', victory: 'victory',
       gameover: 'gameover', shop: 'shop',
+      field: 'field', battle: 'battle', boss: 'boss',
     };
-    return keyMap[type];
+
+    // Try region-specific AI track first (e.g. town_r1, boss_r6)
+    if (rNum) {
+      const regionKey = `${type}_${rNum}`;
+      if (this.preRecorded.has(regionKey)) return regionKey;
+    }
+
+    // Fall back to generic AI track
+    const genericKey = genericMap[type];
+    if (genericKey && this.preRecorded.has(genericKey)) return genericKey;
+
+    return undefined;
   }
 
   private playPreRecordedBgm(buffer: AudioBuffer): void {
@@ -834,16 +855,21 @@ class AudioManagerClass {
   }
 
   // ─── SFX (improved) ───
-  playSfx(type: 'select' | 'cancel' | 'hit' | 'magic' | 'heal' | 'levelup' | 'fanfare' | 'step' | 'equip' | 'fail' | 'warning' | 'clash'): void {
+  playSfx(type: 'select' | 'cancel' | 'hit' | 'magic' | 'heal' | 'levelup' | 'fanfare' | 'step' | 'equip' | 'fail' | 'warning' | 'clash' | 'chest' | 'coin' | 'door' | 'save' | 'flee' | 'critical' | 'encounter', maxDuration?: number): void {
     // AI first: check for pre-recorded SFX
-    const aiKey = `sfx_${type}`;
+    // Map game SFX types to AI audio keys
+    const sfxKeyMap: Record<string, string> = {
+      step: 'sfx_footstep', fanfare: 'sfx_levelup',
+    };
+    const aiKey = sfxKeyMap[type] ?? `sfx_${type}`;
     const buffer = this.preRecorded.get(aiKey);
     if (buffer) {
       const ctx = this.getContext();
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(this.sfxGain!);
-      source.start();
+      const dur = maxDuration ?? buffer.duration;
+      source.start(0, 0, dur);
       return;
     }
 
@@ -911,6 +937,28 @@ class AudioManagerClass {
         this.playToneSequence(ctx, [
           { f: 3000, d: 0.05 }, { f: 2400, d: 0.05 }, { f: 1800, d: 0.08 },
         ], 'triangle', 0.08);
+        break;
+      case 'chest':
+        this.playToneSequence(ctx, [{ f: 440, d: 0.08 }, { f: 660, d: 0.08 }, { f: 880, d: 0.15 }], 'triangle', 0.15);
+        break;
+      case 'coin':
+        this.playToneSequence(ctx, [{ f: 1200, d: 0.03 }, { f: 1600, d: 0.05 }], 'sine', 0.1);
+        break;
+      case 'door':
+        this.playNoiseBurst(ctx, 200, 0.15, 0.1);
+        break;
+      case 'save':
+        this.playToneSequence(ctx, [{ f: 600, d: 0.1 }, { f: 800, d: 0.1 }, { f: 1000, d: 0.2 }], 'sine', 0.12);
+        break;
+      case 'flee':
+        this.playToneSequence(ctx, [{ f: 600, d: 0.04 }, { f: 500, d: 0.04 }, { f: 400, d: 0.06 }], 'square', 0.08);
+        break;
+      case 'critical':
+        this.playNoiseBurst(ctx, 200, 0.1, 0.25);
+        this.playToneSequence(ctx, [{ f: 200, d: 0.06 }, { f: 100, d: 0.12 }], 'sawtooth', 0.2);
+        break;
+      case 'encounter':
+        this.playToneSequence(ctx, [{ f: 440, d: 0.08 }, { f: 330, d: 0.15 }], 'square', 0.18);
         break;
     }
   }

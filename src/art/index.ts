@@ -15,6 +15,10 @@ export interface AIAssetManifest {
   characters?: string[];
   monsters?: string[];
   buildings?: string[];
+  battle_backgrounds?: string[];
+  portraits?: string[];
+  interiors?: string[];
+  decorations?: string[];
 }
 
 /**
@@ -39,7 +43,54 @@ export class ArtRegistry {
    * The loader will register these as textures; when generateAll() runs,
    * registerTexture/registerSpriteSheet will see they already exist and skip.
    */
+  /** Categories that are lazy-loaded per-region (large textures, 1024x768) */
+  private static readonly LAZY_CATEGORIES = new Set(['battle_backgrounds', 'interiors']);
+
+  /** Full manifest (kept for lazy loading lookups) */
+  private static manifest: AIAssetManifest | null = null;
+
+  /** Map generic AI tile names to region-specific game tile keys */
+  private static readonly TILE_REGION_MAP: Record<string, Record<string, string>> = (() => {
+    const regions = [
+      'region_hero', 'region_elf', 'region_treant', 'region_beast',
+      'region_merfolk', 'region_giant', 'region_dwarf', 'region_undead',
+      'region_volcano', 'region_hotspring', 'region_mountain', 'region_demon',
+    ];
+    // Which generic ground tile each region uses
+    const regionGround: Record<string, string> = {
+      region_hero: 'tile_grass', region_elf: 'tile_grass', region_treant: 'tile_grass',
+      region_beast: 'tile_dirt', region_merfolk: 'tile_sand', region_giant: 'tile_stone',
+      region_dwarf: 'tile_stone', region_undead: 'tile_dark_stone',
+      region_volcano: 'tile_lava', region_hotspring: 'tile_grass',
+      region_mountain: 'tile_snow', region_demon: 'tile_dark_stone',
+    };
+    // Which generic wall tile each region uses
+    const regionWall: Record<string, string> = {
+      region_hero: 'tile_wall_stone', region_elf: 'tile_wall_wood', region_treant: 'tile_wall_wood',
+      region_beast: 'tile_wall_stone', region_merfolk: 'tile_wall_stone', region_giant: 'tile_wall_stone',
+      region_dwarf: 'tile_wall_stone', region_undead: 'tile_wall_stone',
+      region_volcano: 'tile_dark_stone', region_hotspring: 'tile_wall_wood',
+      region_mountain: 'tile_wall_stone', region_demon: 'tile_dark_stone',
+    };
+    // Build mapping: game key → AI tile key
+    const map: Record<string, Record<string, string>> = {};
+    for (const rid of regions) {
+      const ground = regionGround[rid];
+      // 3 ground variants all use the same AI tile
+      for (let v = 0; v < 3; v++) map[`tile_ground_${rid}_${v}`] = { ai: ground };
+      map[`tile_wall_${rid}`] = { ai: regionWall[rid] };
+      map[`tile_path_${rid}`] = { ai: 'tile_stone' };
+      map[`tile_water_${rid}`] = { ai: 'tile_water' };
+      // Cave tiles
+      const caveGround = rid === 'region_volcano' ? 'tile_lava' : 'tile_cave';
+      for (let v = 0; v < 3; v++) map[`tile_cave_ground_${rid}_${v}`] = { ai: caveGround };
+      map[`tile_cave_wall_${rid}`] = { ai: 'tile_dark_stone' };
+    }
+    return map;
+  })();
+
   static loadAIAssets(scene: Phaser.Scene, manifest: AIAssetManifest): void {
+    this.manifest = manifest;
     const basePath = 'assets/ai';
 
     const categoryDirs: Record<string, string> = {
@@ -47,7 +98,14 @@ export class ArtRegistry {
       characters: 'characters',
       monsters: 'monsters',
       buildings: 'buildings',
+      battle_backgrounds: 'battle_backgrounds',
+      portraits: 'portraits',
+      interiors: 'interiors',
+      decorations: 'decorations',
     };
+
+    // Collect available AI tile keys for alias expansion
+    const aiTileKeys = new Set(manifest.tiles ?? []);
 
     for (const [category, keys] of Object.entries(manifest)) {
       const dir = categoryDirs[category];
@@ -55,8 +113,10 @@ export class ArtRegistry {
 
       // Skip character images — they're single portraits but the game needs
       // procedural spritesheets (24 frames: 4 walk × 6 directions) for animations.
-      // Character battle portraits are handled separately in Phase 3.
       if (category === 'characters') continue;
+
+      // Defer large textures (battle_backgrounds, interiors) for lazy loading
+      if (this.LAZY_CATEGORIES.has(category)) continue;
 
       for (const key of keys) {
         const path = `${basePath}/${dir}/${key}.png`;
@@ -64,6 +124,76 @@ export class ArtRegistry {
         this.aiLoadedKeys.add(key);
       }
     }
+
+    // Expand generic AI tiles into region-specific aliases
+    // e.g. tile_grass.png → tile_ground_region_hero_0, tile_ground_region_elf_0, ...
+    for (const [gameKey, { ai: aiKey }] of Object.entries(this.TILE_REGION_MAP)) {
+      if (aiTileKeys.has(aiKey)) {
+        const path = `${basePath}/tiles/${aiKey}.png`;
+        scene.load.image(gameKey, path);
+        this.aiLoadedKeys.add(gameKey);
+      }
+    }
+
+    // Also register tile_wood and tile_stone_generic directly
+    if (aiTileKeys.has('tile_wood')) {
+      // tile_wood already loaded by generic loop above, just ensure it's tracked
+    }
+    if (aiTileKeys.has('tile_stone')) {
+      const path = `${basePath}/tiles/tile_stone.png`;
+      scene.load.image('tile_stone_generic', path);
+      this.aiLoadedKeys.add('tile_stone_generic');
+    }
+  }
+
+  /**
+   * Lazy-load a specific AI texture on demand (for battle backgrounds, interiors).
+   * Returns a Promise that resolves when the texture is ready.
+   * If the texture doesn't exist in manifest or is already loaded, resolves immediately.
+   */
+  static loadOnDemand(scene: Phaser.Scene, key: string): Promise<void> {
+    // Already loaded as AI texture — skip
+    if (this.aiLoadedKeys.has(key)) return Promise.resolve();
+
+    // Find the key in lazy categories
+    if (!this.manifest) return Promise.resolve();
+    const basePath = 'assets/ai';
+    const categoryDirs: Record<string, string> = {
+      battle_backgrounds: 'battle_backgrounds',
+      interiors: 'interiors',
+    };
+
+    for (const [category, dir] of Object.entries(categoryDirs)) {
+      const keys = (this.manifest as Record<string, string[]>)[category];
+      if (keys?.includes(key)) {
+        const path = `${basePath}/${dir}/${key}.png`;
+        // Use a temp key to avoid collision with existing procedural texture
+        const loadKey = `__ai_${key}`;
+        if (scene.textures.exists(loadKey)) {
+          // Already loaded under temp key
+          this.aiLoadedKeys.add(key);
+          return Promise.resolve();
+        }
+        return new Promise<void>((resolve) => {
+          scene.load.image(loadKey, path);
+          scene.load.once('complete', () => {
+            const tex = scene.textures.get(loadKey);
+            if (tex && tex.key !== '__MISSING') {
+              tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+              this.aiLoadedKeys.add(key);
+            }
+            resolve();
+          });
+          scene.load.start();
+        });
+      }
+    }
+    return Promise.resolve();
+  }
+
+  /** Get the actual texture key for a lazy-loaded asset (may be temp-prefixed) */
+  static getTextureKey(key: string): string {
+    return this.aiLoadedKeys.has(key) ? `__ai_${key}` : key;
   }
 
   /** Check if a specific texture key was loaded from AI assets */

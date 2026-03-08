@@ -16,8 +16,8 @@ export function buildWorldMapNodes(): WorldNode[] {
   const regions = getAllRegions();
   const state = gameState.getState();
 
-  // Starting kingdoms are always accessible
-  const startingRegions = new Set(['region_hero', 'region_elf', 'region_treant']);
+  // Only hero kingdom is accessible at game start; others unlock via liberation connections
+  const startingRegions = new Set(['region_hero']);
   // Non-demon kingdoms that must all be liberated to access demon castle
   const nonDemonKingdoms = regions.filter(r => r.type !== 'final').map(r => r.id);
   const allNonDemonLiberated = nonDemonKingdoms.every(id => state.liberatedRegions.includes(id));

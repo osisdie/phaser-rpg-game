@@ -71,8 +71,8 @@ def duration_to_tokens(duration_seconds: int) -> int:
 _pipe = None
 
 
-def load_pipeline():
-    """Load MusicGen Small pipeline (cached across calls)."""
+def load_pipeline(model_size: str = "small", device: str = "cpu"):
+    """Load MusicGen pipeline (cached across calls)."""
     global _pipe
     if _pipe is not None:
         return _pipe
@@ -80,22 +80,34 @@ def load_pipeline():
     import torch
     from transformers import pipeline
 
-    print("[pipeline] Loading MusicGen Small...")
-    t0 = time.time()
+    model_names = {"large": "musicgen-large", "medium": "musicgen-medium", "small": "musicgen-small"}
+    model_dir = MODELS_DIR / model_names.get(model_size, "musicgen-small")
+    hub_id = f"facebook/{model_names.get(model_size, 'musicgen-small')}"
 
-    model_path = str(MUSICGEN_MODEL) if MUSICGEN_MODEL.exists() else "facebook/musicgen-small"
-    if not MUSICGEN_MODEL.exists():
-        print(f"[warn] Local model not found at {MUSICGEN_MODEL}, downloading from HF Hub...")
+    model_path = str(model_dir) if model_dir.exists() else hub_id
+    if not model_dir.exists():
+        print(f"[warn] Local model not found at {model_dir}, downloading from HF Hub...")
+
+    actual_device = device
+    if device == "auto":
+        actual_device = "cuda" if torch.cuda.is_available() else "cpu"
+    elif device == "gpu":
+        actual_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    dtype = torch.float16 if actual_device == "cuda" else torch.float32
+
+    print(f"[pipeline] Loading MusicGen {model_size.capitalize()} ({actual_device})...")
+    t0 = time.time()
 
     _pipe = pipeline(
         "text-to-audio",
         model=model_path,
-        device="cpu",
-        dtype=torch.float32,
+        device=actual_device,
+        torch_dtype=dtype,
     )
 
     elapsed = time.time() - t0
-    print(f"[pipeline] MusicGen loaded in {elapsed:.1f}s")
+    print(f"[pipeline] MusicGen {model_size.capitalize()} loaded in {elapsed:.1f}s")
     return _pipe
 
 
@@ -272,6 +284,12 @@ def main():
                         help="Generate a single track by name")
     parser.add_argument("--force", action="store_true",
                         help="Overwrite existing files")
+    parser.add_argument("--model", type=str, default="small",
+                        choices=["large", "medium", "small"],
+                        help="MusicGen model size (default: small)")
+    parser.add_argument("--device", type=str, default="cpu",
+                        choices=["cpu", "gpu", "auto"],
+                        help="Device: cpu (default), gpu, or auto-detect")
     parser.add_argument("--manifest-only", action="store_true",
                         help="Only regenerate the manifest.json")
 
@@ -291,7 +309,7 @@ def main():
         sys.exit(1)
 
     # Load pipeline
-    pipe = load_pipeline()
+    pipe = load_pipeline(model_size=args.model, device=args.device)
 
     if args.test:
         meta = data["_meta"]

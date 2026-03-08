@@ -293,13 +293,35 @@ export class MonsterRenderer {
 
   /**
    * Find an AI-generated texture matching this monster.
-   * Currently disabled — all monsters use procedural rendering for consistent art style.
-   * To re-enable AI textures, restore the lookup logic (see git history).
+   * Priority: boss map > name keywords > shape map, with blacklist filter.
    */
   private static findAITexture(
-    _scene: Phaser.Scene, _monsterName: string, _textureKey: string, _isBoss: boolean,
+    scene: Phaser.Scene, monsterName: string, textureKey: string, isBoss: boolean,
   ): string | null {
-    return null; // Use procedural rendering for all monsters (consistent art style)
+    // Boss map: match by textureKey suffix (e.g. "r1_boss")
+    if (isBoss) {
+      for (const [suffix, aiKey] of Object.entries(AI_BOSS_MAP)) {
+        if (textureKey.includes(suffix) && scene.textures.exists(aiKey)) {
+          return aiKey;
+        }
+      }
+    }
+
+    // Name-based: keyword match in Chinese monster name
+    for (const [keyword, aiKey] of Object.entries(AI_NAME_MAP)) {
+      if (monsterName.includes(keyword) && !AI_CONTENT_BLACKLIST.has(aiKey) && scene.textures.exists(aiKey)) {
+        return aiKey;
+      }
+    }
+
+    // Shape-based: infer shape from name, map to AI texture
+    const shape = inferShape(monsterName);
+    const aiKey = AI_SHAPE_MAP[shape];
+    if (aiKey && !AI_CONTENT_BLACKLIST.has(aiKey) && scene.textures.exists(aiKey)) {
+      return aiKey;
+    }
+
+    return null;
   }
 
   /**

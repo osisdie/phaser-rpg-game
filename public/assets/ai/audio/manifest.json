@@ -2,57 +2,157 @@
   "bgm": [
     {
       "name": "battle",
-      "file": "bgm/battle.wav"
+      "file": "bgm/battle.ogg"
     },
     {
       "name": "boss",
-      "file": "bgm/boss.wav"
+      "file": "bgm/boss.ogg"
+    },
+    {
+      "name": "boss_r1",
+      "file": "bgm/boss_r1.ogg"
+    },
+    {
+      "name": "boss_r12",
+      "file": "bgm/boss_r12.ogg"
+    },
+    {
+      "name": "boss_r6",
+      "file": "bgm/boss_r6.ogg"
     },
     {
       "name": "field",
-      "file": "bgm/field.wav"
+      "file": "bgm/field.ogg"
     },
     {
       "name": "gameover",
-      "file": "bgm/gameover.wav"
+      "file": "bgm/gameover.ogg"
     },
     {
       "name": "shop",
-      "file": "bgm/shop.wav"
+      "file": "bgm/shop.ogg"
     },
     {
       "name": "title",
-      "file": "bgm/title.wav"
+      "file": "bgm/title.ogg"
     },
     {
       "name": "town",
-      "file": "bgm/town.wav"
+      "file": "bgm/town.ogg"
+    },
+    {
+      "name": "town_r1",
+      "file": "bgm/town_r1.ogg"
+    },
+    {
+      "name": "town_r10",
+      "file": "bgm/town_r10.ogg"
+    },
+    {
+      "name": "town_r11",
+      "file": "bgm/town_r11.ogg"
+    },
+    {
+      "name": "town_r12",
+      "file": "bgm/town_r12.ogg"
+    },
+    {
+      "name": "town_r2",
+      "file": "bgm/town_r2.ogg"
+    },
+    {
+      "name": "town_r3",
+      "file": "bgm/town_r3.ogg"
+    },
+    {
+      "name": "town_r4",
+      "file": "bgm/town_r4.ogg"
+    },
+    {
+      "name": "town_r5",
+      "file": "bgm/town_r5.ogg"
+    },
+    {
+      "name": "town_r6",
+      "file": "bgm/town_r6.ogg"
+    },
+    {
+      "name": "town_r7",
+      "file": "bgm/town_r7.ogg"
+    },
+    {
+      "name": "town_r8",
+      "file": "bgm/town_r8.ogg"
+    },
+    {
+      "name": "town_r9",
+      "file": "bgm/town_r9.ogg"
     },
     {
       "name": "victory",
-      "file": "bgm/victory.wav"
+      "file": "bgm/victory.ogg"
     }
   ],
   "sfx": [
     {
       "name": "sfx_cancel",
-      "file": "sfx/sfx_cancel.wav"
+      "file": "sfx/sfx_cancel.ogg"
+    },
+    {
+      "name": "sfx_chest",
+      "file": "sfx/sfx_chest.ogg"
+    },
+    {
+      "name": "sfx_coin",
+      "file": "sfx/sfx_coin.ogg"
+    },
+    {
+      "name": "sfx_critical",
+      "file": "sfx/sfx_critical.ogg"
+    },
+    {
+      "name": "sfx_door",
+      "file": "sfx/sfx_door.ogg"
+    },
+    {
+      "name": "sfx_encounter",
+      "file": "sfx/sfx_encounter.ogg"
+    },
+    {
+      "name": "sfx_equip",
+      "file": "sfx/sfx_equip.ogg"
+    },
+    {
+      "name": "sfx_flee",
+      "file": "sfx/sfx_flee.ogg"
+    },
+    {
+      "name": "sfx_footstep",
+      "file": "sfx/sfx_footstep.ogg"
     },
     {
       "name": "sfx_heal",
-      "file": "sfx/sfx_heal.wav"
+      "file": "sfx/sfx_heal.ogg"
     },
     {
       "name": "sfx_hit",
-      "file": "sfx/sfx_hit.wav"
+      "file": "sfx/sfx_hit.ogg"
+    },
+    {
+      "name": "sfx_levelup",
+      "file": "sfx/sfx_levelup.ogg"
     },
     {
       "name": "sfx_magic",
-      "file": "sfx/sfx_magic.wav"
+      "file": "sfx/sfx_magic.ogg"
+    },
+    {
+      "name": "sfx_save",
+      "file": "sfx/sfx_save.ogg"
     },
     {
       "name": "sfx_select",
-      "file": "sfx/sfx_select.wav"
+      "file": "sfx/sfx_select.ogg"
     }
   ]
 }

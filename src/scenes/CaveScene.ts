@@ -131,19 +131,11 @@ export class CaveScene extends Phaser.Scene {
     // ── Treasure Chest (persistent) ──
     this.spawnCaveChest(mapConfig, wallBodies);
 
-    // ── Exit marker at top ──
+    // ── Exit marker at top (north) ──
     const exitX = Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
     const exitY = 1.5 * TILE_SIZE;
-    this.add.text(exitX, exitY - 16, '▲ 洞窟出口', {
+    this.add.text(exitX, exitY - 16, '▲ 出口（向北）', {
       fontFamily: FONT_FAMILY, fontSize: '12px', color: '#88ccff',
-      stroke: '#000000', strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(DEPTH.ui);
-
-    // ── Entrance marker at bottom ──
-    const entrX = Math.floor(mapConfig.width / 2) * TILE_SIZE + TILE_SIZE / 2;
-    const entrY = (mapConfig.height - 1.5) * TILE_SIZE;
-    this.add.text(entrX, entrY + 16, '▼ 返回野外', {
-      fontFamily: FONT_FAMILY, fontSize: '12px', color: '#ffcc44',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH.ui);
 

@@ -36,6 +36,7 @@ export class FieldScene extends Phaser.Scene {
   private mapBounds = { width: 0, height: 0 };
   private chests: TreasureChest[] = [];
   private inChestDialogue = false;
+  private chestDialogueOpenTime = 0;
   private interactKey?: Phaser.Input.Keyboard.Key;
   private spaceKey?: Phaser.Input.Keyboard.Key;
   private enterKey?: Phaser.Input.Keyboard.Key;
@@ -225,10 +226,13 @@ export class FieldScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     if (this.inChestDialogue) {
       this.textBox.update(time, delta);
-      if (Phaser.Input.Keyboard.JustDown(this.interactKey!) ||
-          this.input.keyboard?.checkDown(this.input.keyboard.addKey('ENTER'), 200) ||
-          this.input.keyboard?.checkDown(this.input.keyboard.addKey('SPACE'), 200)) {
-        this.dismissChestDialogue();
+      // Require 300ms cooldown to prevent same-keypress instant dismiss
+      if (time - this.chestDialogueOpenTime > 300) {
+        if (Phaser.Input.Keyboard.JustDown(this.interactKey!) ||
+            Phaser.Input.Keyboard.JustDown(this.enterKey!) ||
+            Phaser.Input.Keyboard.JustDown(this.spaceKey!)) {
+          this.dismissChestDialogue();
+        }
       }
       return;
     }
@@ -483,6 +487,7 @@ export class FieldScene extends Phaser.Scene {
     const effectiveLevel = Math.min(gameState.getHero().level, regionLevel);
 
     this.inChestDialogue = true;
+    this.chestDialogueOpenTime = this.time.now;
 
     if (chest.isStatic) {
       this.openStaticFieldChest(regionLevel);
