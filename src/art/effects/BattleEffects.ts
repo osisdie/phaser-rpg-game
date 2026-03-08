@@ -254,10 +254,28 @@ export class BattleEffects {
 
   // ─── Runtime effect methods (called from BattleScene) ──────────────
 
+  /** Spawn a magic circle overlay at position — rotate, scale up, fade out */
+  private static spawnMagicCircle(scene: Phaser.Scene, x: number, y: number, element: string): void {
+    const circleKey = `fx_magic_circle_${element}`;
+    if (!scene.textures.exists(circleKey)) return;
+    const circle = scene.add.image(x, y, circleKey)
+      .setDepth(199).setAlpha(0.7).setScale(0.3);
+    scene.tweens.add({
+      targets: circle,
+      scale: 1.2,
+      alpha: 0,
+      angle: 90,
+      duration: 600,
+      ease: 'Power2',
+      onComplete: () => circle.destroy(),
+    });
+  }
+
   /** Play a physical attack effect on the target sprite */
   static playAttackEffect(scene: Phaser.Scene, targetX: number, targetY: number): void {
-    // Slash image
-    const slash = scene.add.image(targetX, targetY, 'fx_slash')
+    // Slash image (prefer AI texture)
+    const slashKey = scene.textures.exists('fx_slash_arc') ? 'fx_slash_arc' : 'fx_slash';
+    const slash = scene.add.image(targetX, targetY, slashKey)
       .setDepth(200).setAlpha(0.8).setScale(0.5);
 
     scene.tweens.add({
@@ -269,12 +287,13 @@ export class BattleEffects {
       onComplete: () => slash.destroy(),
     });
 
-    // Hit sparks
+    // Hit sparks (prefer AI impact texture)
+    const hitKey = scene.textures.exists('fx_impact_star') ? 'fx_impact_star' : 'fx_hit';
     for (let i = 0; i < 3; i++) {
       const spark = scene.add.image(
         targetX + (Math.random() - 0.5) * 20,
         targetY + (Math.random() - 0.5) * 20,
-        'fx_hit',
+        hitKey,
       ).setDepth(200).setAlpha(0.9).setScale(0.3);
 
       scene.tweens.add({
@@ -313,6 +332,7 @@ export class BattleEffects {
 
   /** Play healing aura — expanding green glow circle + spiral particles */
   static playHealingAura(scene: Phaser.Scene, x: number, y: number): void {
+    this.spawnMagicCircle(scene, x, y, 'heal');
     // Expanding glow circle
     const glow = scene.add.circle(x, y, 10, 0x44ff88, 0.3).setDepth(200);
     scene.tweens.add({
@@ -369,10 +389,12 @@ export class BattleEffects {
 
   /** Fire: 12 particles in rising column */
   private static playFireMagic(scene: Phaser.Scene, x: number, y: number): void {
+    this.spawnMagicCircle(scene, x, y, 'fire');
+    const fireKey = scene.textures.exists('fx_fire_burst') ? 'fx_fire_burst' : 'fx_fire';
     for (let i = 0; i < 12; i++) {
       const px = x + (Math.random() - 0.5) * 20; // narrow column
       const py = y + 10;
-      const particle = scene.add.image(px, py, 'fx_fire')
+      const particle = scene.add.image(px, py, fireKey)
         .setDepth(200).setAlpha(0.9);
 
       scene.tweens.add({
@@ -390,12 +412,14 @@ export class BattleEffects {
 
   /** Ice: particles converge inward, then shatter outward */
   private static playIceMagic(scene: Phaser.Scene, x: number, y: number): void {
+    this.spawnMagicCircle(scene, x, y, 'ice');
+    const iceKey = scene.textures.exists('fx_ice_shard') ? 'fx_ice_shard' : 'fx_ice';
     for (let i = 0; i < 10; i++) {
       const angle = (i / 10) * Math.PI * 2;
       const startDist = 60 + Math.random() * 30;
       const px = x + Math.cos(angle) * startDist;
       const py = y + Math.sin(angle) * startDist * 0.6;
-      const particle = scene.add.image(px, py, 'fx_ice')
+      const particle = scene.add.image(px, py, iceKey)
         .setDepth(200).setAlpha(0.9);
 
       // Phase 1: converge inward (250ms)
@@ -424,6 +448,7 @@ export class BattleEffects {
 
   /** Lightning: yellow flash + zigzag particles falling from top */
   private static playLightningMagic(scene: Phaser.Scene, x: number, y: number): void {
+    this.spawnMagicCircle(scene, x, y, 'lightning');
     // Yellow screen flash
     const flash = scene.add.rectangle(x, y - 40, 80, 120, 0xffff44, 0.4)
       .setDepth(199);
@@ -435,10 +460,11 @@ export class BattleEffects {
     });
 
     // 8 zigzag particles falling from top
+    const boltKey = scene.textures.exists('fx_lightning_bolt') ? 'fx_lightning_bolt' : 'fx_lightning';
     for (let i = 0; i < 8; i++) {
       const startX = x + (Math.random() - 0.5) * 50;
       const startY = y - 80;
-      const particle = scene.add.image(startX, startY, 'fx_lightning')
+      const particle = scene.add.image(startX, startY, boltKey)
         .setDepth(200).setAlpha(0.9);
 
       // Zigzag via intermediate positions
@@ -468,10 +494,12 @@ export class BattleEffects {
 
   /** Generic magic: 8 particles rising (default fallback) */
   private static playGenericMagic(scene: Phaser.Scene, x: number, y: number): void {
+    this.spawnMagicCircle(scene, x, y, 'dark');
+    const darkKey = scene.textures.exists('fx_dark_orb') ? 'fx_dark_orb' : 'fx_magic';
     for (let i = 0; i < 8; i++) {
       const px = x + (Math.random() - 0.5) * 40;
       const py = y + (Math.random() - 0.5) * 20;
-      const particle = scene.add.image(px, py, 'fx_magic')
+      const particle = scene.add.image(px, py, darkKey)
         .setDepth(200).setAlpha(0.9);
 
       scene.tweens.add({

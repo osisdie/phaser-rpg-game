@@ -38,6 +38,10 @@ if [[ $# -lt 1 ]]; then
   echo "  buildings/        -> public/assets/ai/buildings/"
   echo "  portraits/        -> public/assets/ai/portraits/"
   echo "  decorations/      -> public/assets/ai/decorations/"
+  echo "  title/            -> public/assets/ai/title/"
+  echo "  worldmap/         -> public/assets/ai/worldmap/"
+  echo "  battle_characters/ -> public/assets/ai/battle_characters/"
+  echo "  effects/          -> public/assets/ai/effects/"
   echo "  audio/            -> public/assets/ai/audio/"
   exit 1
 fi
@@ -110,7 +114,7 @@ copy_category() {
 }
 
 # Copy each category
-for cat in tiles battle_backgrounds interiors monsters buildings portraits decorations; do
+for cat in tiles battle_backgrounds interiors monsters buildings portraits decorations title worldmap battle_characters effects; do
   copy_category "$cat"
 done
 
@@ -153,7 +157,11 @@ ai_dir = Path('$AI_DIR')
 manifest = {}
 
 categories = ['tiles', 'characters', 'monsters', 'buildings',
-              'battle_backgrounds', 'portraits', 'interiors', 'decorations']
+              'battle_backgrounds', 'portraits', 'interiors', 'decorations',
+              'battle_characters', 'effects']
+
+# dir name -> manifest key mapping for non-standard categories
+dir_to_manifest = {'title': 'title_elements', 'worldmap': 'worldmap_elements'}
 
 for cat in categories:
     cat_dir = ai_dir / cat
@@ -165,6 +173,18 @@ for cat in categories:
     )
     if keys:
         manifest[cat] = keys
+
+# Handle title/worldmap dirs with custom manifest keys
+for dirname, manifest_key in dir_to_manifest.items():
+    cat_dir = ai_dir / dirname
+    if not cat_dir.exists():
+        continue
+    keys = sorted(
+        f.stem for f in cat_dir.glob('*.png')
+        if not f.stem.startswith('_') and not f.stem.endswith('_preview')
+    )
+    if keys:
+        manifest[manifest_key] = keys
 
 manifest_path = ai_dir / 'manifest.json'
 with open(manifest_path, 'w', encoding='utf-8') as f:

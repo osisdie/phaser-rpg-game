@@ -18,17 +18,17 @@ const AI_SHAPE_MAP: Record<MonsterShape, string> = {
   skeleton: 'mon_skeleton',
   goblin: 'mon_goblin',
   ghost: 'mon_ghost',
-  elemental: 'mon_ghost',
+  elemental: 'mon_elemental',
   gargoyle: 'mon_golem',
   dragon: 'mon_dragon_young',
-  insect: 'mon_scorpion',
+  insect: 'mon_insect',
   fish: 'mon_jellyfish',
-  bird: 'mon_bat',
-  bear: 'mon_lion',
-  turtle: 'mon_golem',
-  crab: 'mon_scorpion',
-  plant: 'mon_flower',
-  demon: 'mon_boss_demon_lord',
+  bird: 'mon_bird',
+  bear: 'mon_bear',
+  turtle: 'mon_turtle',
+  crab: 'mon_crab',
+  plant: 'mon_plant',
+  demon: 'mon_demon',
 };
 
 /**
@@ -36,18 +36,46 @@ const AI_SHAPE_MAP: Record<MonsterShape, string> = {
  * Checked before shape-based mapping for more precise matches.
  */
 const AI_NAME_MAP: Record<string, string> = {
-  '蘑菇': 'mon_mushroom',
-  '菇': 'mon_mushroom',
-  '獅': 'mon_lion',
-  '鯊': 'mon_shark',
+  // Regional slime variants (specific before generic)
+  '森林史萊姆': 'mon_slime_forest',
+  '海水史萊姆': 'mon_slime_ocean',
+  '冰史萊姆': 'mon_slime_ice',
+  '火史萊姆': 'mon_slime_lava',
+  '金屬史萊姆': 'mon_slime_metal',
+  '泥沼史萊姆': 'mon_slime_swamp',
+  // Multi-char keywords first (more specific)
   '暗黑騎士': 'mon_dark_knight',
   '黑騎士': 'mon_dark_knight',
+  '亡靈戰士': 'mon_zombie',
+  '熔岩魔像': 'mon_golem_fire',
+  '墮天使': 'mon_angel_dark',
   '魔兵': 'mon_demon_soldier',
   '魔劍士': 'mon_demon_soldier',
+  '蘑菇': 'mon_mushroom',
   '樹人': 'mon_treant',
   '古樹': 'mon_treant',
   '水母': 'mon_jellyfish',
+  '蜥蜴': 'mon_lizard',
+  '爬蟲': 'mon_lizard',
+  '殭屍': 'mon_zombie',
+  '騎士': 'mon_knight',
+  '鐵甲': 'mon_knight',
+  '法師': 'mon_mage',
+  '術士': 'mon_mage',
+  '蜈蚣': 'mon_worm',
+  '章魚': 'mon_octopus',
+  '觸手': 'mon_octopus',
+  '雪人': 'mon_snowman',
+  '雪怪': 'mon_snowman',
+  '人偶': 'mon_puppet',
+  '機關': 'mon_puppet',
+  // Single-char keywords last (more generic)
+  '菇': 'mon_mushroom',
+  '獅': 'mon_lion',
+  '鯊': 'mon_shark',
   '花': 'mon_flower',
+  '蟲': 'mon_worm',
+  '鼠': 'mon_rat',
 };
 
 /** Boss monster ID → AI boss texture key */
@@ -60,6 +88,9 @@ const AI_BOSS_MAP: Record<string, string> = {
   r6_boss: 'mon_boss_mountain_king',
   r7_boss: 'mon_boss_forge_master',
   r8_boss: 'mon_boss_death_lord',
+  r9_boss: 'mon_boss_volcano_lord',
+  r10_boss: 'mon_boss_hotspring_guardian',
+  r11_boss: 'mon_boss_ice_king',
   r12_boss: 'mon_boss_demon_lord',
   r12_mini_boss: 'mon_boss_demon_lord',
 };
@@ -72,8 +103,7 @@ const AI_BOSS_MAP: Record<string, string> = {
  * if any new images still have wrong content.
  */
 const AI_CONTENT_BLACKLIST = new Set<string>([
-  'mon_slime', // Use procedural pudgy dome (矮胖型) for better per-element color differentiation
-  'mon_snake', // Use procedural pudgy coiled shape (矮胖型) instead of AI bow-tie
+  // All cleared after V4 re-gen with hardened prompts
 ]);
 
 /**
@@ -195,10 +225,14 @@ function inferTintColor(monsterName: string): string | null {
 
 export class MonsterRenderer {
 
-  /** Check if a procedural monster needs horizontal flip for diagonal battle layout.
-   *  Right-facing shapes (wolf, dragon, fish, bird, turtle) look off-screen
-   *  when enemies are positioned top-right — flip them to face party. */
-  static needsFlipForBattle(monsterName: string): boolean {
+  /** Check if a monster needs horizontal flip for diagonal battle layout.
+   *  Monsters are positioned top-right; they should face lower-left toward the party.
+   *  - AI textures: always flip (SDXL generates facing forward/right by default)
+   *  - Procedural: only flip right-facing shapes (wolf, dragon, fish, bird, turtle) */
+  static needsFlipForBattle(scene: Phaser.Scene, monsterName: string, textureKey: string, isBoss: boolean): boolean {
+    // Check if this monster uses an AI texture
+    const aiKey = this.findAITexture(scene, monsterName, textureKey, isBoss);
+    if (aiKey) return true; // AI sprites face right/forward — always flip to face party
     return RIGHT_FACING_SHAPES.has(inferShape(monsterName));
   }
 
@@ -416,7 +450,7 @@ export class MonsterRenderer {
   }
 
   /** Get or generate texture key for a monster */
-  static getTextureKey(monsterName: string, monsterId: string, isBoss: boolean): string {
+  static getTextureKey(_monsterName: string, monsterId: string, isBoss: boolean): string {
     if (isBoss) return `mon_boss_${monsterId}`;
     return `mon_${monsterId}`;
   }

@@ -19,6 +19,10 @@ export interface AIAssetManifest {
   portraits?: string[];
   interiors?: string[];
   decorations?: string[];
+  title_elements?: string[];
+  worldmap_elements?: string[];
+  battle_characters?: string[];
+  effects?: string[];
 }
 
 /**
@@ -102,6 +106,10 @@ export class ArtRegistry {
       portraits: 'portraits',
       interiors: 'interiors',
       decorations: 'decorations',
+      title_elements: 'title',
+      worldmap_elements: 'worldmap',
+      battle_characters: 'battle_characters',
+      effects: 'effects',
     };
 
     // Collect available AI tile keys for alias expansion

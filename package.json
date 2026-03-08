@@ -11,7 +11,8 @@
     "stop": "bash scripts/stop_frontend.sh",
     "status": "bash scripts/status_frontend.sh",
     "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "capture:screenshots": "playwright test e2e/capture_screenshots.spec.ts"
   },
   "dependencies": {
     "phaser": "^3.87.0"
