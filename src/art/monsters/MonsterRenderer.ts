@@ -43,6 +43,8 @@ const AI_NAME_MAP: Record<string, string> = {
   '火史萊姆': 'mon_slime_lava',
   '金屬史萊姆': 'mon_slime_metal',
   '泥沼史萊姆': 'mon_slime_swamp',
+  // Wolf variants (specific before generic '狼' shape match)
+  '森林狼': 'mon_wolf_dire',
   // Multi-char keywords first (more specific)
   '暗黑騎士': 'mon_dark_knight',
   '黑騎士': 'mon_dark_knight',

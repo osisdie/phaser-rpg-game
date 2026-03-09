@@ -16,6 +16,7 @@ import { SaveLoadSystem } from '../systems/SaveLoadSystem';
 import { BattleEffects } from '../art/effects/BattleEffects';
 import { MonsterRenderer } from '../art/monsters/MonsterRenderer';
 import { getAllConsumables, getAllEquipments } from '../data/items/index';
+import { ArtRegistry } from '../art/index';
 
 interface TreasureChest {
   sprite: Phaser.GameObjects.Sprite;
@@ -73,6 +74,9 @@ export class FieldScene extends Phaser.Scene {
     if (this.miniBossImmune) {
       this.time.delayedCall(1500, () => { this.miniBossImmune = false; });
     }
+
+    // Preload interior texture for menu backdrop
+    ArtRegistry.loadOnDemand(this, 'interior_cave');
 
     // Create field map
     const mapConfig = MapFactory.getFieldConfig(this.regionId, region.color);

@@ -41,6 +41,7 @@ if [[ $# -lt 1 ]]; then
   echo "  title/            -> public/assets/ai/title/"
   echo "  worldmap/         -> public/assets/ai/worldmap/"
   echo "  battle_characters/ -> public/assets/ai/battle_characters/"
+  echo "  overworld_characters/ -> public/assets/ai/overworld_characters/"
   echo "  effects/          -> public/assets/ai/effects/"
   echo "  audio/            -> public/assets/ai/audio/"
   exit 1
@@ -96,8 +97,8 @@ copy_category() {
       continue
     fi
 
-    # Rename region keys for battle_backgrounds
-    if [[ "$category" == "battle_backgrounds" ]]; then
+    # Rename region keys for battle_backgrounds and buildings
+    if [[ "$category" == "battle_backgrounds" || "$category" == "buildings" ]]; then
       local ext="${base##*.}"
       local newname
       newname=$(rename_region "$base")
@@ -114,7 +115,7 @@ copy_category() {
 }
 
 # Copy each category
-for cat in tiles battle_backgrounds interiors monsters buildings portraits decorations title worldmap battle_characters effects; do
+for cat in tiles battle_backgrounds interiors monsters buildings portraits decorations title worldmap battle_characters overworld_characters effects; do
   copy_category "$cat"
 done
 
@@ -156,7 +157,7 @@ from pathlib import Path
 ai_dir = Path('$AI_DIR')
 manifest = {}
 
-categories = ['tiles', 'characters', 'monsters', 'buildings',
+categories = ['tiles', 'characters', 'overworld_characters', 'monsters', 'buildings',
               'battle_backgrounds', 'portraits', 'interiors', 'decorations',
               'battle_characters', 'effects']
 
