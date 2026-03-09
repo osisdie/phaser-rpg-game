@@ -8,17 +8,23 @@ import { IconRenderer } from './ui/IconRenderer';
 import { ItemIconRenderer } from './ui/ItemIconRenderer';
 import { WorldMapRenderer } from './worldmap/WorldMapRenderer';
 import { BattleEffects } from './effects/BattleEffects';
+import { AICharacterAssembler, OWC_PREFIX } from './characters/AICharacterAssembler';
 
 /** AI asset manifest shape (loaded from public/assets/ai/manifest.json) */
 export interface AIAssetManifest {
   tiles?: string[];
   characters?: string[];
+  overworld_characters?: string[];
   monsters?: string[];
   buildings?: string[];
   battle_backgrounds?: string[];
   portraits?: string[];
   interiors?: string[];
   decorations?: string[];
+  title_elements?: string[];
+  worldmap_elements?: string[];
+  battle_characters?: string[];
+  effects?: string[];
 }
 
 /**
@@ -96,27 +102,58 @@ export class ArtRegistry {
     const categoryDirs: Record<string, string> = {
       tiles: 'tiles',
       characters: 'characters',
+      overworld_characters: 'overworld_characters',
       monsters: 'monsters',
       buildings: 'buildings',
       battle_backgrounds: 'battle_backgrounds',
       portraits: 'portraits',
       interiors: 'interiors',
       decorations: 'decorations',
+      title_elements: 'title',
+      worldmap_elements: 'worldmap',
+      battle_characters: 'battle_characters',
+      effects: 'effects',
     };
+
+    // Categories whose images are loaded with a temp prefix for later assembly
+    // (single AI images that need to be assembled into multi-frame spritesheets).
+    // overworld_characters (64×96 RGBA) takes priority over characters (legacy 32×32).
+    const ASSEMBLY_CATEGORIES = new Set(['characters', 'overworld_characters']);
+    const owcLoadedKeys = new Set<string>(); // track which char keys were already queued
 
     // Collect available AI tile keys for alias expansion
     const aiTileKeys = new Set(manifest.tiles ?? []);
 
-    for (const [category, keys] of Object.entries(manifest)) {
+    // Process overworld_characters FIRST (proper 64×96 RGBA), then characters as fallback
+    const categoryOrder = Object.keys(manifest);
+    const owcIdx = categoryOrder.indexOf('overworld_characters');
+    const charIdx = categoryOrder.indexOf('characters');
+    if (owcIdx > charIdx && charIdx >= 0) {
+      // Move overworld_characters before characters
+      categoryOrder.splice(owcIdx, 1);
+      categoryOrder.splice(charIdx, 0, 'overworld_characters');
+    }
+
+    for (const category of categoryOrder) {
+      const keys = (manifest as Record<string, string[]>)[category];
       const dir = categoryDirs[category];
       if (!dir || !keys) continue;
 
-      // Skip character images — they're single portraits but the game needs
-      // procedural spritesheets (24 frames: 4 walk × 6 directions) for animations.
-      if (category === 'characters') continue;
-
       // Defer large textures (battle_backgrounds, interiors) for lazy loading
       if (this.LAZY_CATEGORIES.has(category)) continue;
+
+      // Character images are single poses — load with temp prefix for later
+      // assembly into full spritesheets by AICharacterAssembler
+      if (ASSEMBLY_CATEGORIES.has(category)) {
+        for (const key of keys) {
+          const prefixedKey = `${OWC_PREFIX}${key}`;
+          if (owcLoadedKeys.has(key)) continue; // already queued from higher-priority category
+          const path = `${basePath}/${dir}/${key}.png`;
+          scene.load.image(prefixedKey, path);
+          owcLoadedKeys.add(key);
+        }
+        continue;
+      }
 
       for (const key of keys) {
         const path = `${basePath}/${dir}/${key}.png`;
@@ -207,6 +244,7 @@ export class ArtRegistry {
 
     const steps: { label: string; fn: () => void }[] = [
       { label: '磚塊材質...', fn: () => TileRenderer.generateAll(scene) },
+      { label: 'AI角色組裝...', fn: () => AICharacterAssembler.assembleAll(scene) },
       { label: '角色精靈...', fn: () => CharacterRenderer.generateAll(scene) },
       { label: '怪物精靈...', fn: () => MonsterRenderer.generateAll(scene) },
       { label: '建築物...', fn: () => BuildingRenderer.generateAll(scene) },

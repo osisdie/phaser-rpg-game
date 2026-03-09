@@ -964,8 +964,11 @@ export class CharacterRenderer {
     }
 
     // Register idle animations for battle-resolution textures (8 directions including back-diagonal)
+    // Skip AI single-image textures (no numbered frames — only __BASE)
     const battleTexKeys = scene.textures.getTextureKeys().filter(k => k.startsWith('char_') && k.endsWith('_battle'));
     for (const bKey of battleTexKeys) {
+      const tex = scene.textures.get(bKey);
+      if (!tex || tex.frameTotal <= 1) continue; // AI single-image: only has __BASE, no numbered frames
       for (let dirIdx = 0; dirIdx < BATTLE_DIRECTIONS.length; dirIdx++) {
         const dir = BATTLE_DIRECTIONS[dirIdx];
         const idleKey = `${bKey}_idle_${dir}`;

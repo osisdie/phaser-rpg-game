@@ -217,8 +217,8 @@ export class BattleScene extends Phaser.Scene {
       const sprite = this.add.sprite(x, y, battleTexKey)
         .setScale(slot.scale)
         .setDepth(DEPTH.characters + slot.depthOffset);
-      // Flip right-facing procedural monsters so they face the party (lower-left)
-      if (MonsterRenderer.needsFlipForBattle(enemy.name)) {
+      // Flip monsters so they face the party (lower-left)
+      if (MonsterRenderer.needsFlipForBattle(this, enemy.name, texKey, isBossEnemy)) {
         sprite.setFlipX(true);
       }
       sprite.setData('homeX', x);
@@ -283,18 +283,30 @@ export class BattleScene extends Phaser.Scene {
       const idleFrame = dirIdx * 4 + 1; // 4 frames/dir, frame 1 = neutral idle
 
       // Use battle-resolution texture if available (3× native, no scale needed)
+      // AI battle characters (single images) take priority over procedural spritesheets
       const battleTexKey = `${texKey}_battle`;
       const useBattleTex = this.textures.exists(battleTexKey);
       const actualTexKey = useBattleTex ? battleTexKey : texKey;
+      const isAIBattleTex = useBattleTex && !this.anims.exists(`${battleTexKey}_idle_${dirName}`);
       const spriteScale = useBattleTex ? slot.scale : 2.5 * slot.scale;
-      const sprite = this.add.sprite(x, y, actualTexKey, idleFrame)
+      const sprite = this.add.sprite(x, y, actualTexKey, isAIBattleTex ? 0 : idleFrame)
         .setScale(spriteScale)
         .setDepth(DEPTH.characters + slot.depthOffset);
 
-      // Play idle animation in diagonal direction
+      // Play idle animation in diagonal direction (procedural spritesheets only)
       const idleAnimKey = `${actualTexKey}_idle_${dirName}`;
       if (this.anims.exists(idleAnimKey)) {
         sprite.play(idleAnimKey);
+      } else if (isAIBattleTex) {
+        // AI static image — add sine wave idle bob for liveliness
+        this.tweens.add({
+          targets: sprite,
+          y: y - 3,
+          duration: 1200,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
       }
       sprite.setData('homeX', x);
       sprite.setData('homeY', y);

@@ -9,6 +9,7 @@ import { TransitionEffect } from '../ui/TransitionEffect';
 import { ProgressUI } from '../ui/ProgressUI';
 import { audioManager } from '../systems/AudioManager';
 import { getNodeIconKey } from '../art/worldmap/WorldMapRenderer';
+import { ArtRegistry } from '../art/index';
 import { COLORS as COLOR_HEX, FONT_FAMILY as FONT } from '../utils/constants';
 
 /** Demon Lord taunts shown when ≥1 kingdom liberated */
@@ -122,6 +123,10 @@ export class WorldMapScene extends Phaser.Scene {
 
       if (this.textures.exists(iconKey)) {
         nodeVisual = this.add.image(0, 0, iconKey);
+        // AI-generated icons are larger (80×80); scale to match procedural 40×40
+        if (ArtRegistry.isAIAsset(iconKey)) {
+          nodeVisual.setDisplaySize(40, 40);
+        }
         if (isUnexplored) {
           // Greyed out + fog overlay
           nodeVisual.setTint(0x555555).setAlpha(0.35);

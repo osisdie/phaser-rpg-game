@@ -436,10 +436,14 @@ export class MapFactory {
     }
 
     // ── Buildings from layout ──
-    const bldHouseKeys = [
-      `bld_region_${regionId}_0`, `bld_region_${regionId}_1`,
-      `bld_region_${regionId}_2`, `bld_region_${regionId}_3`,
-    ];
+    // AI assets use base key (bld_region_<region>), procedural uses _0.._3 variants
+    const bldHouseBase = `bld_region_${regionId}`;
+    const bldHouseKeys = scene.textures.exists(bldHouseBase)
+      ? [bldHouseBase]
+      : [
+          `${bldHouseBase}_0`, `${bldHouseBase}_1`,
+          `${bldHouseBase}_2`, `${bldHouseBase}_3`,
+        ];
     const signMap: Record<string, { key: string; type: 'inn' | 'shop' | 'church' }> = {
       inn:    { key: 'sign_inn', type: 'inn' },
       shop:   { key: 'sign_shop', type: 'shop' },
