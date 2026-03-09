@@ -43,6 +43,10 @@ SPECS = {
     "decorations":        {"max_w": 128,  "max_h": 128,  "needs_alpha": True,  "max_file_kb": 50,   "min_file_kb": 0.3},
     "battle_backgrounds": {"max_w": 1024, "max_h": 768,  "needs_alpha": False, "max_file_kb": 1500, "min_file_kb": 100},
     "interiors":          {"max_w": 1024, "max_h": 768,  "needs_alpha": False, "max_file_kb": 1500, "min_file_kb": 100},
+    "title_elements":     {"max_w": 1024, "max_h": 768,  "needs_alpha": False, "max_file_kb": 1500, "min_file_kb": 1},
+    "worldmap_elements":  {"max_w": 1024, "max_h": 768,  "needs_alpha": False, "max_file_kb": 1500, "min_file_kb": 0.5},
+    "battle_characters":  {"max_w": 512,  "max_h": 512,  "needs_alpha": True,  "max_file_kb": 300,  "min_file_kb": 1},
+    "effects":            {"max_w": 256,  "max_h": 256,  "needs_alpha": True,  "max_file_kb": 100,  "min_file_kb": 0.3},
 }
 
 # WebGL limits
@@ -148,6 +152,16 @@ def validate_naming(category: str, keys: list[str]) -> list[str]:
             if not key.startswith("mon_"):
                 issues.append(f"  WARN: {key} doesn't start with 'mon_' — may not match game keys")
 
+    if category == "battle_characters":
+        for key in keys:
+            if not key.startswith("char_") or not key.endswith("_battle"):
+                issues.append(f"  WARN: {key} should match 'char_*_battle' pattern")
+
+    if category == "effects":
+        for key in keys:
+            if not key.startswith("fx_"):
+                issues.append(f"  WARN: {key} doesn't start with 'fx_' — may not match game keys")
+
     return issues
 
 
@@ -210,10 +224,16 @@ def main():
     print("  Colab Asset Validation Report")
     print("=" * 60)
 
+    # dir name -> manifest key mapping for non-standard categories
+    manifest_to_dir = {"title_elements": "title", "worldmap_elements": "worldmap"}
+
     for category in ["tiles", "monsters", "buildings", "portraits",
-                      "decorations", "battle_backgrounds", "interiors"]:
+                      "decorations", "battle_backgrounds", "interiors",
+                      "title_elements", "worldmap_elements",
+                      "battle_characters", "effects"]:
         keys = manifest.get(category, [])
-        cat_dir = AI_DIR / category
+        dir_name = manifest_to_dir.get(category, category)
+        cat_dir = AI_DIR / dir_name
         if not keys and not cat_dir.exists():
             continue
 

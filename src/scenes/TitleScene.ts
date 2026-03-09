@@ -45,90 +45,97 @@ export class TitleScene extends Phaser.Scene {
   // ─── HD Background ───
 
   private drawHDBackground(): void {
-    // ── Multi-layer gradient sky ──
-    // Deep space at top → dark blue → purple → warm amber at horizon
-    const skyCanvas = document.createElement('canvas');
-    skyCanvas.width = GAME_WIDTH;
-    skyCanvas.height = GAME_HEIGHT;
-    const skyCtx = skyCanvas.getContext('2d')!;
+    // ── AI background bypass ──
+    const hasAiBg = this.textures.exists('title_bg');
+    if (hasAiBg) {
+      const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'title_bg');
+      bg.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    } else {
+      // ── Multi-layer gradient sky (procedural fallback) ──
+      // Deep space at top → dark blue → purple → warm amber at horizon
+      const skyCanvas = document.createElement('canvas');
+      skyCanvas.width = GAME_WIDTH;
+      skyCanvas.height = GAME_HEIGHT;
+      const skyCtx = skyCanvas.getContext('2d')!;
 
-    const skyGrad = skyCtx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-    skyGrad.addColorStop(0, '#050510');     // deep space
-    skyGrad.addColorStop(0.2, '#0a0a2e');   // dark blue
-    skyGrad.addColorStop(0.45, '#151540');   // midnight blue
-    skyGrad.addColorStop(0.65, '#2a1a3a');   // dark purple
-    skyGrad.addColorStop(0.82, '#3a2030');   // warm purple
-    skyGrad.addColorStop(0.92, '#4a2a28');   // warm amber
-    skyGrad.addColorStop(1, '#0a0a0a');      // dark ground
-    skyCtx.fillStyle = skyGrad;
-    skyCtx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+      const skyGrad = skyCtx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+      skyGrad.addColorStop(0, '#050510');     // deep space
+      skyGrad.addColorStop(0.2, '#0a0a2e');   // dark blue
+      skyGrad.addColorStop(0.45, '#151540');   // midnight blue
+      skyGrad.addColorStop(0.65, '#2a1a3a');   // dark purple
+      skyGrad.addColorStop(0.82, '#3a2030');   // warm purple
+      skyGrad.addColorStop(0.92, '#4a2a28');   // warm amber
+      skyGrad.addColorStop(1, '#0a0a0a');      // dark ground
+      skyCtx.fillStyle = skyGrad;
+      skyCtx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // ── Aurora / nebula color patches ──
-    const nebulae = [
-      { x: 200, y: 120, rx: 180, ry: 60, color: '40,80,120', alpha: 0.06 },
-      { x: 700, y: 80, rx: 150, ry: 50, color: '60,30,80', alpha: 0.05 },
-      { x: 400, y: 200, rx: 200, ry: 40, color: '30,50,100', alpha: 0.04 },
-      { x: 150, y: 300, rx: 120, ry: 80, color: '50,20,60', alpha: 0.04 },
-    ];
-    for (const n of nebulae) {
-      const ng = skyCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.rx);
-      ng.addColorStop(0, `rgba(${n.color},${n.alpha})`);
-      ng.addColorStop(1, `rgba(${n.color},0)`);
-      skyCtx.fillStyle = ng;
-      skyCtx.fillRect(n.x - n.rx, n.y - n.ry, n.rx * 2, n.ry * 2);
+      // ── Aurora / nebula color patches ──
+      const nebulae = [
+        { x: 200, y: 120, rx: 180, ry: 60, color: '40,80,120', alpha: 0.06 },
+        { x: 700, y: 80, rx: 150, ry: 50, color: '60,30,80', alpha: 0.05 },
+        { x: 400, y: 200, rx: 200, ry: 40, color: '30,50,100', alpha: 0.04 },
+        { x: 150, y: 300, rx: 120, ry: 80, color: '50,20,60', alpha: 0.04 },
+      ];
+      for (const n of nebulae) {
+        const ng = skyCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.rx);
+        ng.addColorStop(0, `rgba(${n.color},${n.alpha})`);
+        ng.addColorStop(1, `rgba(${n.color},0)`);
+        skyCtx.fillStyle = ng;
+        skyCtx.fillRect(n.x - n.rx, n.y - n.ry, n.rx * 2, n.ry * 2);
+      }
+
+      // ── Moon ──
+      const moonX = 780, moonY = 100, moonR = 35;
+      // Moon glow
+      const moonGlow = skyCtx.createRadialGradient(moonX, moonY, moonR * 0.5, moonX, moonY, moonR * 3);
+      moonGlow.addColorStop(0, 'rgba(200,210,240,0.12)');
+      moonGlow.addColorStop(0.5, 'rgba(150,160,200,0.04)');
+      moonGlow.addColorStop(1, 'rgba(100,100,150,0)');
+      skyCtx.fillStyle = moonGlow;
+      skyCtx.fillRect(moonX - moonR * 3, moonY - moonR * 3, moonR * 6, moonR * 6);
+      // Moon body
+      skyCtx.fillStyle = '#dde0f0';
+      skyCtx.beginPath();
+      skyCtx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+      skyCtx.fill();
+      // Moon craters (subtle)
+      skyCtx.fillStyle = 'rgba(180,185,210,0.5)';
+      skyCtx.beginPath();
+      skyCtx.arc(moonX - 8, moonY - 5, 8, 0, Math.PI * 2);
+      skyCtx.fill();
+      skyCtx.beginPath();
+      skyCtx.arc(moonX + 10, moonY + 8, 5, 0, Math.PI * 2);
+      skyCtx.fill();
+      skyCtx.beginPath();
+      skyCtx.arc(moonX + 2, moonY - 12, 4, 0, Math.PI * 2);
+      skyCtx.fill();
+
+      // ── Distant mountains (layered silhouettes) ──
+      // Far mountains (lighter)
+      skyCtx.fillStyle = '#12102a';
+      this.drawMountainRange(skyCtx, GAME_HEIGHT - 260, 0.4, 80, 60);
+      // Mid mountains (darker)
+      skyCtx.fillStyle = '#0e0c22';
+      this.drawMountainRange(skyCtx, GAME_HEIGHT - 210, 0.6, 100, 70);
+      // Near mountains (darkest)
+      skyCtx.fillStyle = '#0a0a1a';
+      this.drawMountainRange(skyCtx, GAME_HEIGHT - 170, 0.8, 120, 50);
+
+      // ── Horizon glow (beneath mountains) ──
+      const horizonGlow = skyCtx.createLinearGradient(0, GAME_HEIGHT - 200, 0, GAME_HEIGHT - 130);
+      horizonGlow.addColorStop(0, 'rgba(180,100,60,0)');
+      horizonGlow.addColorStop(0.5, 'rgba(180,100,60,0.05)');
+      horizonGlow.addColorStop(1, 'rgba(180,100,60,0)');
+      skyCtx.fillStyle = horizonGlow;
+      skyCtx.fillRect(0, GAME_HEIGHT - 200, GAME_WIDTH, 70);
+
+      // Register and display the sky texture
+      if (!this.textures.exists('title_sky_bg')) {
+        const tex = this.textures.addCanvas('title_sky_bg', skyCanvas);
+        tex?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'title_sky_bg');
     }
-
-    // ── Moon ──
-    const moonX = 780, moonY = 100, moonR = 35;
-    // Moon glow
-    const moonGlow = skyCtx.createRadialGradient(moonX, moonY, moonR * 0.5, moonX, moonY, moonR * 3);
-    moonGlow.addColorStop(0, 'rgba(200,210,240,0.12)');
-    moonGlow.addColorStop(0.5, 'rgba(150,160,200,0.04)');
-    moonGlow.addColorStop(1, 'rgba(100,100,150,0)');
-    skyCtx.fillStyle = moonGlow;
-    skyCtx.fillRect(moonX - moonR * 3, moonY - moonR * 3, moonR * 6, moonR * 6);
-    // Moon body
-    skyCtx.fillStyle = '#dde0f0';
-    skyCtx.beginPath();
-    skyCtx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
-    skyCtx.fill();
-    // Moon craters (subtle)
-    skyCtx.fillStyle = 'rgba(180,185,210,0.5)';
-    skyCtx.beginPath();
-    skyCtx.arc(moonX - 8, moonY - 5, 8, 0, Math.PI * 2);
-    skyCtx.fill();
-    skyCtx.beginPath();
-    skyCtx.arc(moonX + 10, moonY + 8, 5, 0, Math.PI * 2);
-    skyCtx.fill();
-    skyCtx.beginPath();
-    skyCtx.arc(moonX + 2, moonY - 12, 4, 0, Math.PI * 2);
-    skyCtx.fill();
-
-    // ── Distant mountains (layered silhouettes) ──
-    // Far mountains (lighter)
-    skyCtx.fillStyle = '#12102a';
-    this.drawMountainRange(skyCtx, GAME_HEIGHT - 260, 0.4, 80, 60);
-    // Mid mountains (darker)
-    skyCtx.fillStyle = '#0e0c22';
-    this.drawMountainRange(skyCtx, GAME_HEIGHT - 210, 0.6, 100, 70);
-    // Near mountains (darkest)
-    skyCtx.fillStyle = '#0a0a1a';
-    this.drawMountainRange(skyCtx, GAME_HEIGHT - 170, 0.8, 120, 50);
-
-    // ── Horizon glow (beneath mountains) ──
-    const horizonGlow = skyCtx.createLinearGradient(0, GAME_HEIGHT - 200, 0, GAME_HEIGHT - 130);
-    horizonGlow.addColorStop(0, 'rgba(180,100,60,0)');
-    horizonGlow.addColorStop(0.5, 'rgba(180,100,60,0.05)');
-    horizonGlow.addColorStop(1, 'rgba(180,100,60,0)');
-    skyCtx.fillStyle = horizonGlow;
-    skyCtx.fillRect(0, GAME_HEIGHT - 200, GAME_WIDTH, 70);
-
-    // Register and display the sky texture
-    if (!this.textures.exists('title_sky_bg')) {
-      const tex = this.textures.addCanvas('title_sky_bg', skyCanvas);
-      tex?.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    }
-    this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'title_sky_bg');
 
     // ── Stars (layered: many dim, some medium, few bright) ──
     // Dim stars

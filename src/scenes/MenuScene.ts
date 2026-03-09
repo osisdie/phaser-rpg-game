@@ -48,8 +48,22 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Semi-transparent overlay
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7);
+    // Atmospheric interior backdrop (reuse AI interior textures)
+    const interiorMap: Record<string, string> = {
+      inn: 'interior_inn', shop: 'interior_shop', church: 'interior_church',
+      castle: 'interior_castle', house: 'interior_house', cave: 'interior_cave',
+    };
+    const returnScene = this.scene.get(gameState.getState().currentScene)?.scene.key ?? '';
+    const interiorType = returnScene === 'TownScene' ? 'house' : 'cave';
+    const interiorKey = `__ai_${interiorMap[interiorType]}`;
+    if (this.textures.exists(interiorKey)) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, interiorKey)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
+        .setAlpha(0.2)
+        .setDepth(DEPTH.ground);
+    }
+    // Semi-transparent overlay (darker to ensure readability)
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.65);
 
     // Panel — use medieval panel texture if available
     const panelW = GAME_WIDTH - 80;

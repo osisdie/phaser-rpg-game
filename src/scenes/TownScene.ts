@@ -19,6 +19,7 @@ import { BattleEffects } from '../art/effects/BattleEffects';
 import { getAllConsumables, getAllEquipments } from '../data/items/index';
 import { getCompanionForRegion } from '../data/characters/index';
 import type { NPCData } from '../types';
+import { ArtRegistry } from '../art/index';
 
 /** Extended NPC tracking with label, marker, and wandering state */
 interface NPCSpriteEntry {
@@ -78,6 +79,9 @@ export class TownScene extends Phaser.Scene {
     this.dialogueCooldown = 0;
     this.npcSprites = [];
     this.chests = [];
+
+    // Preload interior texture for menu backdrop
+    ArtRegistry.loadOnDemand(this, 'interior_house');
 
     // Clear stale dialogue flags to prevent cross-NPC leaks
     this.dialogueSystem.reset();

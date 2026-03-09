@@ -82,46 +82,90 @@ export async function startNewGame(page: Page) {
 /** Force-start a battle with specific monsters via the Phaser scene manager */
 export async function forceStartBattle(page: Page, options?: {
   monsterNames?: string[];
+  /** For boss battles: use actual boss ID (e.g. r1_boss) so AI_BOSS_MAP resolves correct sprite */
+  bossId?: string;
+  bossName?: string;
   regionId?: string;
   isBoss?: boolean;
 }) {
   await page.evaluate((opts) => {
     const game = (window as any).__GAME__ as Phaser.Game;
-    // Import inline — we can access the game state through the window
     const activeScenes = game.scene.getScenes(true);
     const currentScene = activeScenes[0];
     if (!currentScene) throw new Error('No active scene');
 
-    // Build monster data from the game's monster registry
     const regionId = opts?.regionId ?? 'region_hero';
-    const monsterNames = opts?.monsterNames ?? ['史萊姆'];
+    let monsters: Array<{
+      id: string;
+      name: string;
+      stats: { maxHP: number; hp: number; maxMP: number; mp: number; atk: number; def: number; agi: number; luck: number };
+      ai: 'normal';
+      exp: number;
+      gold: number;
+      drops: never[];
+      skills: string[];
+      element: 'none';
+      isBoss: boolean;
+      spriteColor: number;
+    }>;
 
-    // Access monster generation through the game data module
-    // We create minimal monster objects that match MonsterData interface
-    const monsters = monsterNames.map((name, i) => ({
-      id: `test_monster_${i}`,
-      name,
-      stats: { maxHP: 50, hp: 50, maxMP: 20, mp: 20, atk: 15, def: 8, agi: 10, luck: 3 },
-      ai: 'normal' as const,
-      exp: 30,
-      gold: 20,
-      drops: [],
-      skills: [],
-      element: 'none' as const,
-      isBoss: opts?.isBoss ?? false,
-      spriteColor: 0x44aa44,
-    }));
+    if (opts?.bossId && opts?.bossName) {
+      // Boss battle: use real boss ID so MonsterRenderer AI_BOSS_MAP resolves correct sprite
+      monsters = [{
+        id: opts.bossId,
+        name: opts.bossName,
+        stats: { maxHP: 250, hp: 250, maxMP: 40, mp: 40, atk: 35, def: 20, agi: 12, luck: 5 },
+        ai: 'normal',
+        exp: 200,
+        gold: 150,
+        drops: [],
+        skills: ['skill_monster_bite', 'skill_monster_fire'],
+        element: 'dark',
+        isBoss: true,
+        spriteColor: 0x880000,
+      }];
+    } else {
+      const monsterNames = opts?.monsterNames ?? ['史萊姆'];
+      monsters = monsterNames.map((name, i) => ({
+        id: `test_monster_${i}`,
+        name,
+        stats: { maxHP: 50, hp: 50, maxMP: 20, mp: 20, atk: 15, def: 8, agi: 10, luck: 3 },
+        ai: 'normal' as const,
+        exp: 30,
+        gold: 20,
+        drops: [],
+        skills: [],
+        element: 'none' as const,
+        isBoss: opts?.isBoss ?? false,
+        spriteColor: 0x44aa44,
+      }));
+    }
 
     currentScene.scene.start('BattleScene', {
       monsters,
       regionId,
-      isBoss: opts?.isBoss ?? false,
+      isBoss: !!opts?.isBoss || !!opts?.bossId,
       returnScene: currentScene.scene.key,
       returnData: {},
     });
   }, options);
 
   await waitForScene(page, 'BattleScene', 10_000);
+}
+
+/** Force-start a scene (e.g. TownScene, FieldScene) from current scene. Used for screenshot capture. */
+export async function forceStartScene(page: Page, sceneKey: string, data?: Record<string, unknown>) {
+  await page.evaluate(
+    ({ key, d }) => {
+      const game = (window as any).__GAME__ as Phaser.Game;
+      const activeScenes = game.scene.getScenes(true);
+      const currentScene = activeScenes[0];
+      if (!currentScene) throw new Error('No active scene');
+      currentScene.scene.start(key, d ?? {});
+    },
+    { key: sceneKey, d: data ?? {} },
+  );
+  await waitForScene(page, sceneKey, 10_000);
 }
 
 /** Get battle combatant data from the CombatSystem in BattleScene */

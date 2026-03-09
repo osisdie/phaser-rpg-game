@@ -6,8 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/screenshots/title.jpeg" width="49%" alt="標題畫面">
-  <img src="docs/screenshots/battle.jpeg" width="49%" alt="戰鬥場景">
+  <img src="docs/screenshots/title.png" width="49%" alt="標題畫面">
+  <img src="docs/screenshots/battle.png" width="49%" alt="戰鬥場景">
 </p>
 
 ---
@@ -28,15 +28,15 @@
 
 | 標題畫面 | 世界地圖 |
 |:---:|:---:|
-| ![Title](docs/screenshots/title.jpeg) | ![World Map](docs/screenshots/worldmap.jpeg) |
+| ![Title](docs/screenshots/title.png) | ![World Map](docs/screenshots/worldmap.png) |
 
 | 城鎮探索 | 野外冒險 |
 |:---:|:---:|
-| ![Town](docs/screenshots/town.jpeg) | ![Field](docs/screenshots/field.jpeg) |
+| ![Town](docs/screenshots/town.png) | ![Field](docs/screenshots/field.png) |
 
 | 戰鬥場景 | Boss 戰 |
 |:---:|:---:|
-| ![Battle](docs/screenshots/battle.jpeg) | ![Boss](docs/screenshots/boss.jpeg) |
+| ![Battle](docs/screenshots/battle.png) | ![Boss](docs/screenshots/boss.png) |
 
 ## Tech Stack
 
@@ -115,6 +115,7 @@ phaser-rpg-game/
 | `pnpm run preview` | Preview production build |
 | `pnpm test` | Run Playwright E2E tests |
 | `pnpm run test:ui` | Open Playwright test UI |
+| `pnpm run capture:screenshots` | Capture README screenshots (title, worldmap, town, field, battle, boss) |
 | `bash scripts/build.sh` | TypeScript check + build with output |
 
 ## Contributing
@@ -145,4 +146,15 @@ This enforces:
 
 ## License
 
-[MIT](LICENSE) — feel free to use, modify, and distribute.
+[MIT](LICENSE) — the codebase is licensed under MIT; feel free to use, modify, and distribute. **Note:** AI-generated assets in `public/assets/ai/` may be subject to additional license terms (see [AI-Generated Assets Notice](#ai-generated-assets-notice) below).
+
+### AI-Generated Assets Notice
+
+Assets in `public/assets/ai/` (sprites, audio, etc.) are generated using third-party AI models and may be subject to additional license terms beyond MIT:
+
+| Asset Type | Model / Source | License |
+|------------|----------------|---------|
+| Pixel-art sprites | [All-In-One-Pixel-Model](https://huggingface.co/) (Stable Diffusion) | Check model card on Hugging Face |
+| Background music & SFX | [MusicGen](https://huggingface.co/facebook/musicgen-small) | [Meta's license](https://github.com/facebookresearch/audiocraft/blob/main/LICENSE) |
+
+**Users are responsible for complying with all applicable licenses** when using, modifying, or distributing these AI-generated assets. The MIT License applies to the codebase; AI assets may have different terms.

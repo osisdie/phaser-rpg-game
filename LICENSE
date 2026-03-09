@@ -19,3 +19,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+ADDITIONAL NOTICE FOR AI-GENERATED ASSETS:
+
+Certain assets in this project (located in public/assets/ai/) are generated using third-party AI models and are subject to their respective licenses, which may impose additional restrictions beyond the MIT License. See the README.md for details. Users are responsible for complying with all applicable licenses.
