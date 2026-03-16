@@ -2436,6 +2436,14 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private returnToField(): void {
+    // Safety net: ensure no party member has 0 HP when returning to field (unless defeat → GameOverScene)
+    const phase = this.combat.getState().phase;
+    if (phase !== 'defeat') {
+      for (const member of gameState.getParty()) {
+        if (member.stats.hp <= 0) member.stats.hp = 1;
+      }
+    }
+
     // If the demon king was just defeated, play celebration cutscene then ending
     const region = getRegionById(this.regionId);
     if (this.isBoss && region?.type === 'final') {

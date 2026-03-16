@@ -552,6 +552,7 @@ export class CombatSystem {
 
     if (!enemiesAlive) {
       this.state.phase = 'victory';
+      // HP/MP sync + auto-revive handled inside calculateVictoryRewards() (lines 603-608)
       this.state.result = this.calculateVictoryRewards();
       return true;
     }
