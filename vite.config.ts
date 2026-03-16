@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import path from 'path';
 
 export default defineConfig({
+  base: process.env.GITHUB_ACTIONS ? '/phaser-rpg-game/' : '/',
   server: {
     port: 5473,
   },
