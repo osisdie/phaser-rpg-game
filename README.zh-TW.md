@@ -97,6 +97,15 @@ pnpm run build      # TypeScript 檢查 + 正式建置
 pnpm run preview    # 預覽正式建置結果
 ```
 
+### Docker
+
+```bash
+docker build -t phaser-rpg-game .
+docker run -p 8080:8080 phaser-rpg-game
+```
+
+開啟 [http://localhost:8080](http://localhost:8080) 即可遊玩。
+
 ## 專案結構
 
 ```

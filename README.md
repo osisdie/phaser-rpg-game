@@ -97,6 +97,15 @@ pnpm run build      # TypeScript check + production build
 pnpm run preview    # Preview production build
 ```
 
+### Docker
+
+```bash
+docker build -t phaser-rpg-game .
+docker run -p 8080:8080 phaser-rpg-game
+```
+
+Open [http://localhost:8080](http://localhost:8080) to play.
+
 ## Project Structure
 
 ```
