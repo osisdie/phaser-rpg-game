@@ -15,6 +15,12 @@ import { ArtRegistry } from '../index';
  *   - Frames 0,2: neutral (contact poses)
  *   - Frame 1: highest bob (passing pose)
  *   - Frame 3: slight bob (second pass)
+ *
+ * Side views (left/right): The front-facing AI image is transformed into a
+ * faux 3/4 side view by horizontally compressing it to ~75% width and
+ * shifting it in the facing direction. One side of the body is darkened to
+ * simulate directional lighting, creating a distinct visual difference from
+ * the forward-facing pose.
  */
 
 const CHAR_W = 64;
@@ -22,6 +28,9 @@ const CHAR_H = 96;
 const COLS = 4;  // walk frames per direction
 const ROWS = 6;  // directions (down, left, right, up, down_left, down_right)
 const BOB_OFFSETS = [0, -2, 0, -1];
+
+/** How much to compress horizontally for side views (0.75 = 75% of full width) */
+const SIDE_SQUISH = 0.75;
 
 /** Prefix used when loading AI character source images */
 export const OWC_PREFIX = '__owc_';
@@ -75,15 +84,54 @@ export class AICharacterAssembler {
   }
 
   /**
+   * Build a faux 3/4 side-view from a front-facing source image.
+   * Squishes the image horizontally and shifts it toward the facing direction,
+   * then applies a gradient shadow on the far side.
+   *
+   * @param srcCanvas  Original front-facing image
+   * @param facingRight  true = right-facing, false = left-facing
+   */
+  private static buildSideView(
+    srcCanvas: HTMLCanvasElement | HTMLImageElement,
+    facingRight: boolean,
+  ): HTMLCanvasElement {
+    const side = ArtRegistry.createCanvas(CHAR_W, CHAR_H);
+    const sCtx = side.ctx;
+    const squishW = Math.round(CHAR_W * SIDE_SQUISH);
+    const offsetX = facingRight
+      ? CHAR_W - squishW        // shift right (body faces right)
+      : 0;                       // shift left (body faces left)
+
+    // Draw the squished image
+    sCtx.drawImage(srcCanvas, offsetX, 0, squishW, CHAR_H);
+
+    // Apply directional shadow on the trailing side
+    sCtx.globalCompositeOperation = 'source-atop';
+    const grad = sCtx.createLinearGradient(
+      facingRight ? 0 : CHAR_W,
+      0,
+      facingRight ? CHAR_W * 0.4 : CHAR_W * 0.6,
+      0,
+    );
+    grad.addColorStop(0, 'rgba(0,0,0,0.3)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    sCtx.fillStyle = grad;
+    sCtx.fillRect(0, 0, CHAR_W, CHAR_H);
+    sCtx.globalCompositeOperation = 'source-over';
+
+    return side.canvas;
+  }
+
+  /**
    * Build a 256×576 spritesheet from a single source image texture.
    *
    * Direction rows:
    *   0 (down):       original image + bob
-   *   1 (left):       horizontally flipped + bob
-   *   2 (right):      original image + bob
+   *   1 (left):       squished side-view facing left + bob
+   *   2 (right):      squished side-view facing right + bob
    *   3 (up):         AI back image if available, else darkened silhouette + bob
-   *   4 (down_left):  horizontally flipped + bob
-   *   5 (down_right): original image + bob
+   *   4 (down_left):  flipped original + bob (3/4 front view)
+   *   5 (down_right): original image + bob (3/4 front view)
    */
   private static assembleSheet(scene: Phaser.Scene, srcKey: string, targetKey: string): void {
     if (scene.textures.exists(targetKey)) return;
@@ -114,20 +162,24 @@ export class AICharacterAssembler {
       back.ctx.fillRect(0, 0, CHAR_W, CHAR_H);
     }
 
-    // Pre-build flipped version for left / down_left rows
+    // Pre-build flipped version for down_left row
     const flip = ArtRegistry.createCanvas(CHAR_W, CHAR_H);
     flip.ctx.translate(CHAR_W, 0);
     flip.ctx.scale(-1, 1);
     flip.ctx.drawImage(srcCanvas, 0, 0, CHAR_W, CHAR_H);
 
-    // Source images per row: original, flipped, back, or darkened fallback
+    // Pre-build side views (squished + shadow for distinct left/right appearance)
+    const sideLeft = this.buildSideView(srcCanvas, false);
+    const sideRight = this.buildSideView(srcCanvas, true);
+
+    // Source images per row
     const rowSources: (HTMLCanvasElement | HTMLImageElement)[] = [
-      srcCanvas,    // 0: down
-      flip.canvas,  // 1: left
-      srcCanvas,    // 2: right
+      srcCanvas,    // 0: down — full front view
+      sideLeft,     // 1: left — squished side view facing left
+      sideRight,    // 2: right — squished side view facing right
       back.canvas,  // 3: up (AI back image or darkened fallback)
-      flip.canvas,  // 4: down_left
-      srcCanvas,    // 5: down_right
+      flip.canvas,  // 4: down_left — flipped front (3/4 front view)
+      srcCanvas,    // 5: down_right — original front (3/4 front view)
     ];
 
     // Draw each row (direction) × column (walk frame)
