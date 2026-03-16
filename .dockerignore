@@ -1,0 +1,69 @@
+# Version control
+.git
+.gitignore
+.gitlab-ci.yml
+
+# Dependencies (rebuilt in container)
+node_modules
+
+# Build outputs (rebuilt in container)
+dist
+build
+
+# IDE & editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing & reports
+e2e
+test-results
+playwright-report
+coverage
+.nyc_output
+output
+
+# CI/CD
+.github
+.pre-commit-config.yaml
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# AI asset generation scripts & notebooks (not needed at runtime)
+notebooks
+scripts
+.venv
+venv
+__pycache__
+*.py[cod]
+
+# Docs & screenshots (not needed at runtime)
+docs
+.playwright-mcp
+
+# Monitor server (separate service)
+monitor-server
+
+# Tool configs
+.claude
+.serena
+.cache
+.firebase
+.firebaserc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+*.pem
+*.key
+*.log
+*.md
+!README.md
+LICENSE
