@@ -1,0 +1,8 @@
+{
+  "name": "rpg-review",
+  "description": "Game review agents for AI RPG — town experience and battle system analysis",
+  "agents": [
+    "agents/town-reviewer.md",
+    "agents/battle-reviewer.md"
+  ]
+}
