@@ -1,4 +1,2 @@
 # AI-generated assets — regenerate with: python scripts/generate_assets.py --all
-# Keep manifest.json and directory structure in git, but not generated images
-*.png
 !.gitkeep
